@@ -4,6 +4,7 @@ import { createAgentSession, DefaultResourceLoader, getAgentDir, ModelRuntime, S
 import { GatewayClient, GatewayError } from "./client.js";
 import { IntentJournal, JournalError } from "./journal.js";
 import { createGatewayTools, type Pause } from "./tools.js";
+import { resolveModelSelection } from "./model-config.js";
 
 export class RunnerError extends Error {}
 export type RunnerOptions = { check: boolean; prompt?: string; session?: string; stateDir: string };
@@ -23,8 +24,9 @@ export async function loadConfiguredModel(stateDir: string, savedModel?: { provi
   // No catalog refresh, auth refresh or inference is requested by this configuration check.
   const runtime = await ModelRuntime.create({ allowModelNetwork: false, refreshOnCreate: false });
   const settings = SettingsManager.create(stateDir, getAgentDir(), { projectTrusted: false });
-  const provider = process.env.PI_PROVIDER ?? savedModel?.provider ?? settings.getDefaultProvider();
-  const modelId = process.env.PI_MODEL ?? savedModel?.modelId ?? settings.getDefaultModel();
+  const { provider, modelId } = resolveModelSelection(process.env, savedModel, {
+    provider: settings.getDefaultProvider(), modelId: settings.getDefaultModel(),
+  });
   if (!provider || !modelId) throw new RunnerError("Choose a model in Pi first, or set both PI_PROVIDER and PI_MODEL. No provider is selected automatically.");
   const model = runtime.getPhysicalModel(provider, modelId);
   if (!model) throw new RunnerError("The selected model is not in the local Pi catalog. Select a configured physical model; virtual model fallback is disabled.");

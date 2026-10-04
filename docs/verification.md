@@ -28,10 +28,18 @@ Verified locally on 2026-10-04 using macOS arm64, Go 1.26.8, Node.js 24.4.1 and 
 | Go vulnerability scan | govulncheck v1.8.0 reports zero affected symbols and zero imported-package findings after Go, pgx and x/text updates; advisory matches remain in unused module packages |
 | Backup and recovery | Scheduled dump generated and restored into a separate temporary database; migrations and unclaimed owner invitation verified |
 
+## Cloud subscription verification — 2026-10-05
+
+- Completed a fresh Pi `openai` OAuth authorization on the cloud host. The dedicated Pi configuration volume retains the login across worker replacement.
+- Applied explicit `PI_PROVIDER=openai` and `PI_MODEL=gpt-5.5` overrides. After replacement, the worker heartbeat reported online and model ready with no configuration error.
+- Made one live request from the deployed Pi container using the project's `loadConfiguredModel` and Pi `completeSimple`. It returned exactly `CLOUD_PI_OK`, with `stopReason=stop`, 16 input tokens and 19 output tokens. No tools or project data were supplied, no API key was used, and automatic retries were disabled.
+- Closed the temporary loopback SSH callback tunnel after authorization. Credentials were not printed, exported from the laptop, or added to the repository.
+- This checks subscription authentication and live inference. It does not establish production task quality, tool-selection accuracy, remaining quota, or load capacity.
+
 ## Explicitly unverified
 
 - The populated approval/execution workflow in the browser: API/MCP end-to-end tests cover it, while browser checks used an empty real workspace with no permitted downstream origins.
-- Live model inference and behavior evaluation: subscription usage was not consumed.
+- Live model behavior evaluation and a complete cloud task using the real model and downstream business tools; the live inference check above sent only a fixed connectivity prompt.
 - Other MCP client/protocol combinations, Kubernetes, load/SLO targets, high availability, off-host disaster recovery and live team/business-data rollout.
 
 The GitHub CI workflow includes the database-backed Node/Go boundary test. Remote CI has not been executed for these local commits. See [development](development.md) for repeatable commands and [implementation status](implementation-status.md) for pending architecture work.
