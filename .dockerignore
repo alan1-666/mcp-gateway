@@ -3,9 +3,12 @@
 .env.*
 .local
 .gateway
+.gateway-worker
 node_modules
 **/node_modules
 **/dist
 bin
 coverage
 *.log
+output
+.playwright-cli

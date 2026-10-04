@@ -5,6 +5,7 @@ node_modules/
 dist/
 bin/
 .gateway/
+.gateway-worker/
 .local/
 coverage/
 *.test

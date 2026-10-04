@@ -1,6 +1,6 @@
 import { defineTool, type ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
-import { ArgumentNumberError, GatewayClient, GatewayError, validateArgumentNumbers, type JsonObject, type Operation } from "./client.js";
+import { ArgumentNumberError, GatewayError, validateArgumentNumbers, type GatewayAPI, type JsonObject, type Operation } from "./client.js";
 import { IntentJournal, JournalError } from "./journal.js";
 
 export type Pause = { reason: "WAITING_APPROVAL" | "UNKNOWN" | "DISPATCHING" | "EXECUTION_ALREADY_DISPATCHED"; operation_id?: string; idempotency_key?: string };
@@ -14,7 +14,7 @@ export function operationView(operation: Operation): JsonObject {
   };
 }
 
-export function createGatewayTools(client: GatewayClient, journal: IntentJournal, onPause: (pause: Pause) => void = () => {}): ToolDefinition[] {
+export function createGatewayTools(client: GatewayAPI, journal: IntentJournal, onPause: (pause: Pause) => void = () => {}): ToolDefinition[] {
   let calls = 0;
   let paused: Pause | undefined;
   const pauseRun = (value: Pause) => { paused = value; onPause(value); };

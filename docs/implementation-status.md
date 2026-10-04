@@ -16,7 +16,8 @@ The [product design](product-design.md) and [system architecture](architecture.m
 | HTTP adapter | Fixed origins and credentials, checked DNS dialing, blocked redirects/metadata addresses, bounded JSON results and basic secret field redaction |
 | MCP | Official Go SDK v1.7.0, stateless Streamable HTTP, five governed discovery/execution tools |
 | Console | Real registry, prepare/execute controls, approval inbox, operation details and event history; cloud sign-in and team/account administration |
-| Pi | User-hosted subscription-backed CLI with restricted tools, persistent local intent journal and explicit approval/unknown pauses |
+| Pi | Subscription-backed CLI and cloud worker with restricted tools, persistent sessions/intents, bounded events and explicit approval/unknown pauses |
+| Agent tasks | PostgreSQL Run queue, leases/fencing, creator isolation, live role checks, cancellation, explicit resume and browser task/event views |
 | Delivery | Locked dependencies, source startup, Compose configuration, backend/container build definitions, OpenAPI contract and CI checks |
 
 ## Remaining production architecture
@@ -26,18 +27,18 @@ The [product design](product-design.md) and [system architecture](architecture.m
 - Full tool version lifecycle, signed releases, instance acknowledgements and rollback.
 - OpenAPI/Protobuf import, gRPC and upstream MCP adapters, outbound private-network Connector.
 - Paginated/semantic discovery and configurable field-level access policies.
-- Durable platform Agent Runs, gRPC Runner control, leases/fencing, central budgets, task cancellation and checkpoint reconciliation.
+- Distributed gRPC Runner control, short-lived runner identities, multi-host checkpoint storage and organization-wide budget policies.
 - Result-query adapters, verified human outcome reconciliation and compensation workflows.
 - S3 artifacts, Redis limits/cache, durable outbox consumers, SSE and webhook delivery.
 - Structured evaluation datasets, production release gates, telemetry dashboards and performance measurements.
 - Kubernetes deployment, off-host disaster recovery, point-in-time recovery, retention/deletion jobs and signed image delivery.
 
-The cloud deployment adds a concrete operational baseline; local Pi sessions and a single host do not establish the remaining production capabilities. Release readiness must be based on completed acceptance tests against the [architecture's targets](architecture.md).
+The cloud deployment adds a concrete operational baseline; single-host persisted Pi sessions do not establish the remaining production capabilities. Release readiness must be based on completed acceptance tests against the [architecture's targets](architecture.md).
 
 ## Current constraints
 
 - Cloud accounts currently belong to one workspace. Invite possession grants the selected role; email ownership is not verified.
-- Cloud Agent task execution and model account onboarding remain pending. The Gateway can already serve external MCP clients.
+- Cloud Agent tasks require an operator-configured server Pi subscription. Self-service model account onboarding, per-user provider accounts and live model behavior evaluation remain pending. The Gateway can also serve external MCP clients.
 - Backups are host-local, and the deployment has no high-availability or external alert delivery.
 
 - HTTP JSON tools only; paths are static and streaming/non-JSON tools are rejected.

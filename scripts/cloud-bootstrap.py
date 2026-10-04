@@ -22,7 +22,7 @@ private = base / "secrets"
 private.mkdir(exist_ok=True)
 private.chmod(0o750)
 os.chown(private, 0, 65532)
-for name, value in (("bootstrap", secrets.token_urlsafe(32) + "\n"), ("credentials.json", "[]\n")):
+for name, value in (("bootstrap", secrets.token_urlsafe(32) + "\n"), ("credentials.json", "[]\n"), ("runner-token", secrets.token_urlsafe(48) + "\n")):
     path = private / name
     if not path.exists():
         fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o640)

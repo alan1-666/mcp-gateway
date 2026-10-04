@@ -7,6 +7,7 @@ export type Operation = {
   id: string; tool_id: string; state: string; risk: "read" | "write";
   result?: unknown; error?: string;
 };
+export type GatewayAPI = Pick<GatewayClient, "search" | "tool" | "prepare" | "operation" | "execute">;
 
 export class GatewayError extends Error {
   constructor(public readonly code: string, public readonly ambiguous = false) { super(code); this.name = "GatewayError"; }

@@ -16,6 +16,8 @@ flowchart LR
   API --> DB[(Private PostgreSQL)]
   Gateway --> DB
   Worker[Recovery worker] --> DB
+  Pi[Pi cloud worker] -->|Private leased control API| API
+  Pi --> Model[Configured subscription provider]
   Gateway -->|Explicit allowlist| Downstream[Business HTTP APIs]
 ```
 
@@ -65,7 +67,7 @@ Run as the deployment operator:
 
 ```sh
 python3 scripts/cloud-bootstrap.py --origin https://YOUR_PUBLIC_IP --release YOUR_RELEASE
-docker compose --env-file /opt/mcp-gateway/cloud.env -f deploy/compose/cloud.yaml build api console
+docker compose --env-file /opt/mcp-gateway/cloud.env -f deploy/compose/cloud.yaml build api console pi-runner
 docker compose --env-file /opt/mcp-gateway/cloud.env -f deploy/compose/cloud.yaml up -d --no-build
 ```
 
@@ -106,11 +108,34 @@ Validate restoration into a **separate empty database**, inspect restored tables
 
 The local dump protects against an application mistake but shares the server's failure domain. Off-host encrypted backup and an external restore target are still required for disaster recovery. There is no point-in-time recovery configured.
 
-## Model access and downstream onboarding
+## Cloud Agent worker
 
-The cloud Gateway itself does not need a model account. External MCP clients authenticate using their personal Gateway key. The existing Pi CLI remains a development/integration client; a cloud Pi task worker, model connection management and durable Agent Runs are still pending.
+The `pi-runner` service polls the private Go API for durable tasks. It has a separate daemon secret, a fixed workspace binding, a persistent Pi configuration volume and a separate task/session volume. It receives no database password, bootstrap invitation, downstream credentials or Docker socket. Both nginx layers block `/internal/`; backend ports remain unpublished.
 
-No personal model login is copied to the server automatically. Browser-based Agent execution must not be advertised as available until the cloud runner and credential flow are implemented and verified.
+`RUNNER_WORKSPACE_ID` defaults to the owner's `team` workspace. This deployment provisions one worker for that workspace; adding an organization requires a separate scoped worker configuration and is not a self-service feature. Use a stable `RUNNER_WORKER_ID` and preserve its state volume across replacements. Current limits are one active task per worker and per creator, ten queued tasks per creator, five minutes per attempt, forty governed tool admissions per task, 64 KiB output and 1000 events per attempt.
+
+A task's creator must remain an enabled administrator or operator. Model tools receive operator-level permissions and cannot approve their own actions. Cancellation fences new tool admissions; a previously dispatched business action can still complete and its operation record must be inspected. Expired leases become `NEEDS_REVIEW` and need explicit resumption. Pending approval, dispatch or uncertain outcome blocks resumption. See the [shared contract](cloud-run-contract.md) for state transitions and HTTP interfaces.
+
+### Configure the server subscription
+
+The Gateway and external MCP clients do not need a server model account. Browser Agent tasks require a separate Pi subscription login on this host. Deployment never copies a laptop login and the worker does not fall back to paid API keys. Missing configuration is reported in the console and claimed tasks enter `WAITING_CREDENTIALS`.
+
+Use a trusted operator terminal on the deployment host:
+
+```sh
+docker compose --env-file /opt/mcp-gateway/cloud.env -f deploy/compose/cloud.yaml exec pi-runner \
+  node node_modules/@earendil-works/pi-coding-agent/dist/cli.js
+```
+
+Complete Pi's interactive login and model selection in that terminal. The container sets `PI_CODING_AGENT_DIR=/var/lib/pi/config`; its named volume is private to the worker. Optional `PI_PROVIDER` / `PI_MODEL` settings in `cloud.env` override model selection. Stop the interactive Pi session after configuring it. Restart the worker after model configuration changes, inspect its sanitized runtime status, and explicitly resume a waiting task. Configuration readiness is not proof that the provider will accept inference or has remaining quota.
+
+The console does not accept model passwords or subscription tokens. A self-service model-account connection UI and per-user model accounts remain future work. One configured server subscription supplies the team's tasks subject to the provider's applicable account conditions; do not claim per-user quota isolation.
+
+### Worker recovery and backup
+
+Preserve both `pi-config` and `pi-state` volumes. The PostgreSQL backup alone does not include Pi sessions or intent journals. Back up these volumes privately while the worker is stopped, together with the database and daemon secret, before disaster recovery. Restart never silently reconstructs a missing prior session or retries an uncertain write. Consult the runner guide before removing a stale lock or changing worker identity.
+
+## Downstream onboarding
 
 Downstream access initially denies all destinations. Add exact origins and, if needed, explicit private CIDRs in `cloud.env`; place workspace-bound downstream credentials in `secrets/credentials.json`. Recreate the API and Gateway after a configuration change. Never mount the Docker socket into the Gateway to reach local workloads.
 

@@ -4,7 +4,7 @@
 
 MCP Gateway is being built to connect AI agents to existing HTTP APIs, gRPC services, and MCP servers through a unified tool discovery and execution layer. It combines a Go backend with a Pi-powered agent runtime and a web console for managing tools, tasks, approvals, and audit trails.
 
-> **Project status:** Active development. The Go API and MCP gateway, PostgreSQL execution ledger, invitation-only cloud console, and Pi integration client are runnable. The complete production architecture is still being implemented. See [implementation status](docs/implementation-status.md) for delivered capabilities and remaining acceptance gates.
+> **Project status:** Active development. The Go API and MCP gateway, PostgreSQL execution ledger, invitation-only cloud console, and Pi cloud task worker are runnable. The complete production architecture is still being implemented. See [implementation status](docs/implementation-status.md) for delivered capabilities and remaining acceptance gates.
 
 ## Cloud Delivery
 
@@ -32,7 +32,8 @@ For source development, downstream configuration and verification, see the [deve
 - Prepare fixed actions, approve writes independently and reject duplicate dispatches.
 - Inspect durable PostgreSQL operation records and event history in the console.
 - Preserve ambiguous writes as `UNKNOWN` instead of automatically sending them again.
-- Run a restricted Pi agent with local session and intent persistence.
+- Submit cloud Agent tasks, inspect event/output history, cancel work and resume after approval.
+- Run a restricted Pi agent with durable task leases, server-side sessions and intent persistence.
 
 The sections below describe the target production system. Follow [implementation status](docs/implementation-status.md) for current limitations and [the OpenAPI contract](api/openapi.yaml) for implemented management endpoints.
 
@@ -111,7 +112,7 @@ Agent tasks, model sessions, and external operations have separate state. Restor
 
 [Pi](https://pi.dev/docs/latest/sdk) provides the agent session and model interaction layer. The host application controls task state, authorization, approvals, execution budgets, and persistence.
 
-The product targets a cloud-managed Pi runtime with explicit model connections and durable task control. The existing Pi CLI is an integration client that uses its own locally configured subscription account; it does not make browser-based cloud Agent tasks available. Model credentials are not uploaded as part of Gateway deployment.
+The cloud worker consumes PostgreSQL-backed task leases through a private authenticated control API. Browser users can follow task events, cancel work and explicitly resume after approval or credential configuration. An operator configures the server subscription in its dedicated Pi volume; credentials are not uploaded as part of Gateway deployment. The local Pi CLI remains available for development and integration. See [cloud deployment](docs/cloud-deployment.md#cloud-agent-worker) and the [task contract](docs/cloud-run-contract.md).
 
 Tool permissions are enforced by the platform on every invocation. Repository content, tool responses, and model output cannot grant additional access.
 

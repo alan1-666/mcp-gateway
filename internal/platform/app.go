@@ -16,6 +16,7 @@ import (
 	"github.com/alan1-666/mcp-gateway/internal/core"
 	"github.com/alan1-666/mcp-gateway/internal/execution"
 	"github.com/alan1-666/mcp-gateway/internal/identity"
+	"github.com/alan1-666/mcp-gateway/internal/runs"
 	"github.com/alan1-666/mcp-gateway/internal/store/postgres"
 	"github.com/alan1-666/mcp-gateway/internal/transport/httpapi"
 	"github.com/alan1-666/mcp-gateway/internal/transport/mcpserver"
@@ -67,7 +68,8 @@ func Run(mode string) error {
 	if mode == "worker" {
 		ticker := time.NewTicker(15 * time.Second)
 		defer ticker.Stop()
-		slog.Info("operation recovery worker started")
+		slog.Info("operation and agent run recovery worker started")
+		runRepository := runs.NewRepository(pool)
 		for {
 			recoverCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 			n, err := service.Recover(recoverCtx, 150*time.Second)
@@ -76,6 +78,16 @@ func Run(mode string) error {
 				slog.Error("operation recovery failed")
 			} else if n > 0 {
 				slog.Warn("interrupted operations require reconciliation", "count", n)
+			}
+			if env("AUTH_MODE", "token") == "cloud" {
+				recoveryCtx, recoveryCancel := context.WithTimeout(ctx, 10*time.Second)
+				recovered, recoveryErr := runRepository.RecoverExpired(recoveryCtx, env("RUNNER_WORKSPACE_ID", "team"))
+				recoveryCancel()
+				if recoveryErr != nil && ctx.Err() == nil {
+					slog.Error("agent run recovery failed")
+				} else if recovered > 0 {
+					slog.Warn("interrupted agent runs require review", "count", recovered)
+				}
 			}
 			select {
 			case <-ctx.Done():
@@ -139,6 +151,25 @@ func Run(mode string) error {
 		mux.Handle("/mcp", mcpserver.Handler(service, executor, auth))
 	} else {
 		api := &httpapi.API{Service: service, Executor: executor, Adapter: adapter}
+
+		if env("AUTH_MODE", "token") == "cloud" {
+			secretPath := os.Getenv("RUNNER_SHARED_SECRET_FILE")
+			if secretPath != "" {
+				secret, readErr := os.ReadFile(secretPath)
+				if readErr != nil {
+					return fmt.Errorf("cannot read runner authentication secret")
+				}
+				runAPI, runErr := runs.New(pool, service, executor, runs.Config{
+					WorkspaceID: env("RUNNER_WORKSPACE_ID", "team"), SharedSecret: strings.TrimSpace(string(secret)),
+				})
+				if runErr != nil {
+					return runErr
+				}
+				mux.Handle("/api/v1/runs", runAPI.PublicHandler(auth))
+				mux.Handle("/api/v1/runs/", runAPI.PublicHandler(auth))
+				mux.Handle("/internal/runner/", runAPI.InternalHandler())
+			}
+		}
 		mux.Handle("/api/v1/auth/", auth.CloudHandler())
 		mux.Handle("/api/", api.Handler(auth))
 	}

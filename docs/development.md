@@ -132,17 +132,17 @@ See [the runner guide](../apps/agent-runner/README.md) for login, selection, exe
 
 Only `search_tools`, `get_tool_schema`, `prepare_action`, `invoke_tool` and `get_operation` are available to the model. Built-in shell/file tools, repository resources and arbitrary extensions are disabled. The host writes an intent journal before preparing or dispatching actions. Pending approval and uncertain execution pause the runner.
 
-The CLI is user-hosted. Distributed assignment, worker fencing, central model budgets and durable platform Run records remain architecture work.
+The CLI is user-hosted. The separate cloud worker uses server-side subscriptions, durable platform Runs and fenced leases; see the [cloud task contract](cloud-run-contract.md). Distributed multi-host scheduling and organization-wide model budgets remain architecture work.
 
 ## Verification
 
 ```sh
 npm ci --ignore-scripts
 make check
-TEST_DATABASE_URL='postgres://user:password@127.0.0.1:5432/gateway_test?sslmode=disable' make test
+RUN_CLOUD_WORKER_INTEGRATION=1 TEST_DATABASE_URL='postgres://user:password@127.0.0.1:5432/gateway_test?sslmode=disable' make test
 ```
 
-Use a dedicated empty test database. Integration tests apply migrations and create uniquely scoped workspace records; they do not truncate existing tables. Without `TEST_DATABASE_URL`, database tests are explicitly skipped. CI always provides PostgreSQL and runs them.
+Use a dedicated empty test database. Integration tests apply migrations and create uniquely scoped workspace records; they do not truncate existing tables. Without `TEST_DATABASE_URL`, database tests are explicitly skipped. CI always provides PostgreSQL and runs them. `RUN_CLOUD_WORKER_INTEGRATION=1` additionally starts the production Node worker client against the real Go API and an isolated PostgreSQL schema; install npm dependencies first. Its model executor is deterministic and makes no provider request.
 
 Coverage includes independent approval, expiry, workspace and actor isolation, schema bounds, duplicate preparations, concurrent execution, interrupted writes, restart persistence, actual MCP SDK client/server calls, credential-bound egress, local Pi intent durability and HTTP failure handling. No automated test sends a real model request.
 

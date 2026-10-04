@@ -12,7 +12,10 @@ Verified locally on 2026-10-04 using macOS arm64, Go 1.26.8, Node.js 24.4.1 and 
 | MCP interoperability | Official SDK client connects to the actual HTTP handler, discovers five tools, prepares an operation and executes it |
 | Go static analysis | `go vet ./...` passed |
 | TypeScript and console production build | Passed |
-| Pi bridge tests | Authentication, controlled tool discovery, local durability, approval pause and ambiguous result handling passed without model calls |
+| Pi worker/client tests | 22 checks passed: authentication, durable intents/events, missing credentials, heartbeat loss/cancellation, approval resume, missing checkpoint refusal, stale-attempt archival, limits and transport failures; no model calls |
+| Console state tests | 14 checks passed, including string cursors, deduplication, attempt isolation, controls and persistent creation idempotency |
+| Cloud task persistence | Real PostgreSQL race tests passed for concurrent admission, atomic operation binding rollback, lease fencing, creator revocation, budgets, cancellation and expiry |
+| Cross-language worker integration | Production Node worker/client → Go HTTP/cloud auth → isolated PostgreSQL passed: read execution, independent write approval/resume with one downstream write, credential gating and cancel fencing |
 | Real Pi configuration check | Local subscription OAuth and selected model configuration found; no model request sent |
 | Browser checks | Login, invalid form input, role controls, empty states, logout/reload credential clearing and 390px layout passed; no console errors or warnings |
 | Dependency audit | No known npm vulnerabilities after upgrading Pi to 1.0.2 and Vite to 7.3.6 |
@@ -30,4 +33,4 @@ Verified locally on 2026-10-04 using macOS arm64, Go 1.26.8, Node.js 24.4.1 and 
 - Live model inference and behavior evaluation: subscription usage was not consumed.
 - Other MCP client/protocol combinations, Kubernetes, load/SLO targets, high availability, off-host disaster recovery and live team/business-data rollout.
 
-The GitHub CI workflow is present in the working source but has not been executed by GitHub for these uncommitted changes. See [development](development.md) for repeatable commands and [implementation status](implementation-status.md) for pending architecture work.
+The GitHub CI workflow includes the database-backed Node/Go boundary test. Remote CI has not been executed for these local commits. See [development](development.md) for repeatable commands and [implementation status](implementation-status.md) for pending architecture work.

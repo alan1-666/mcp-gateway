@@ -3,6 +3,8 @@ import type { FormEvent, ReactNode } from "react";
 import { APIClient, messageOf, parseObject } from "./api";
 import { hasUnsafeNumbers } from "./json";
 import { Account, CloudLogin, restoreSession } from "./Account";
+import { AgentTasks } from "./AgentTasks";
+import { clearTaskDraft } from "./run-draft";
 import type {
   Identity,
   Operation,
@@ -17,6 +19,7 @@ type Page =
   | "invoke"
   | "operations"
   | "approvals"
+  | "runs"
   | "account";
 type Session = {
   api: APIClient;
@@ -32,6 +35,11 @@ const navigation: { id: Page; label: string; icon: string }[] = [
   { id: "approvals", label: "Approvals", icon: "approvals" },
 ];
 const pageCopy: Record<Page, { title: string; description: string }> = {
+  runs: {
+    title: "Agent tasks",
+    description:
+      "Describe an outcome, review tool actions, and follow the task to its recorded result.",
+  },
   account: {
     title: "Team & account",
     description: "Manage access, invitations, and personal credentials.",
@@ -72,6 +80,11 @@ const defaultSchema = JSON.stringify(
 
 function Icon({ name, size = 18 }: { name: string; size?: number }) {
   const paths: Record<string, ReactNode> = {
+    agent: (
+      <>
+        <path d="M7 4h10v6H7zM3 17h6v4H3zM15 17h6v4h-6zM12 10v4M6 17v-3h12v3" />
+      </>
+    ),
     overview: (
       <>
         <rect x="3" y="3" width="7" height="7" rx="1" />
@@ -279,10 +292,12 @@ export function App() {
     try {
       if (session?.cloud)
         await session.api.request("/auth/logout", { method: "POST", body: {} });
+      if (session) clearTaskDraft(session.identity);
       setSession(null);
       setError("");
     } catch (e) {
       if (e instanceof Error && "status" in e && e.status === 401) {
+        if (session) clearTaskDraft(session.identity);
         setSession(null);
         setError("");
         return;
@@ -308,7 +323,10 @@ export function App() {
           key={session.identity.id}
           {...session}
           onLogout={() => void logout()}
-          onSignedOut={() => setSession(null)}
+          onSignedOut={() => {
+            clearTaskDraft(session.identity);
+            setSession(null);
+          }}
         />
       ) : mode === "loading" ? (
         <div className="loading-panel" role="status">
@@ -433,6 +451,7 @@ function Workspace({
     null,
   );
   const [invokeTool, setInvokeTool] = useState("");
+  const [runRefreshVersion, setRunRefreshVersion] = useState(0);
   const requestController = useRef<AbortController | null>(null);
   const refreshPending = useRef(false);
   const canManage = identity.role === "admin";
@@ -521,7 +540,11 @@ function Workspace({
         <span className="nav-group-label">CONTROL CENTER</span>
         <nav aria-label="Main navigation">
           {[
-            ...navigation,
+            navigation[0],
+            ...(cloud
+              ? [{ id: "runs" as Page, label: "Agent tasks", icon: "agent" }]
+              : []),
+            ...navigation.slice(1),
             ...(cloud
               ? [
                   {
@@ -583,7 +606,9 @@ function Workspace({
             <strong>
               {page === "account"
                 ? "Team & account"
-                : navigation.find((item) => item.id === page)?.label}
+                : page === "runs"
+                  ? "Agent tasks"
+                  : navigation.find((item) => item.id === page)?.label}
             </strong>
           </div>
           <div className="topbar-end">
@@ -603,11 +628,15 @@ function Workspace({
             </div>
             <button
               className="button secondary refresh-button"
-              onClick={() => void refresh()}
-              disabled={refreshing}
+              onClick={() =>
+                page === "runs"
+                  ? setRunRefreshVersion((current) => current + 1)
+                  : void refresh()
+              }
+              disabled={page !== "runs" && refreshing}
             >
               <Icon name="refresh" />
-              {refreshing ? "Refreshing…" : "Refresh"}
+              {page !== "runs" && refreshing ? "Refreshing…" : "Refresh"}
             </button>
           </div>
           {error ? (
@@ -616,7 +645,19 @@ function Workspace({
               {loaded ? " The view may show previously loaded data." : ""}
             </Notice>
           ) : null}
-          {!loaded ? (
+          {cloud ? (
+            <div hidden={page !== "runs"}>
+              <AgentTasks
+                api={api}
+                identity={identity}
+                active={page === "runs"}
+                refreshVersion={String(runRefreshVersion)}
+                onOperation={showOperation}
+                onApprovals={() => navigate("approvals")}
+              />
+            </div>
+          ) : null}
+          {!loaded && page !== "runs" ? (
             <div className="loading-panel" role="status">
               {refreshing ? (
                 <>
@@ -718,12 +759,16 @@ function Workspace({
           )}
           <footer className="workspace-footer">
             <span>
-              Up to 500 visible tools · Latest 200 accessible operations
+              {page === "runs"
+                ? "Latest 100 accessible Agent tasks · Creator and administrator access"
+                : "Up to 500 visible tools · Latest 200 accessible operations"}
             </span>
             <span>
-              {updated
-                ? `Last refreshed ${formatDate(updated)}`
-                : "Waiting for workspace data"}
+              {page === "runs"
+                ? "Task status refreshes while this view is open."
+                : updated
+                  ? `Last refreshed ${formatDate(updated)}`
+                  : "Waiting for workspace data"}
             </span>
           </footer>
         </main>

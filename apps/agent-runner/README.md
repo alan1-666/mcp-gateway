@@ -35,9 +35,44 @@ A lock prevents concurrent processes from running the same session. A process cr
 
 Numeric arguments must be finite. Integers outside JavaScript's safe integer range are rejected before creating an intent or sending a request; pass their original decimal representation as a string using a compatible tool schema. Converting an already-rounded JavaScript number to a string does not recover its precision. A failed operation-state lookup reports an unknown outcome, never that the action has not executed.
 
+## Cloud worker
+
+The daemon runs tasks created in the web console. It authenticates through a separate server-bound daemon secret and a short-lived lease for each Run. It never uses a human administrator's API key. Tool access is scoped by the Go API to the Run, workspace and creator's current permissions.
+
+```sh
+npm run worker --workspace @mcp-gateway/agent-runner -- --check
+npm run worker --workspace @mcp-gateway/agent-runner -- --once
+npm run worker --workspace @mcp-gateway/agent-runner
+```
+
+| Configuration | Meaning |
+| --- | --- |
+| `RUNNER_API_URL` | Required internal API origin, for example `http://api:8090` |
+| `RUNNER_SHARED_SECRET_FILE` | Required path to a dedicated high-entropy daemon secret, matching the Go API |
+| `RUNNER_WORKER_ID` | Stable worker identity; generated and persisted if omitted, cannot change for an existing state volume |
+| `GATEWAY_STATE_DIR` | Dedicated persistent worker directory; defaults to `<repository>/.gateway-worker` |
+| `RUNNER_HTTP_ALLOWED_HOSTS` | Explicit comma-separated internal hostnames allowed over HTTP, for example `api`; loopback is already allowed |
+| `PI_CODING_AGENT_DIR` | Pi-supported configuration/login directory; deploy this on a separate persistent volume |
+| `PI_PROVIDER`, `PI_MODEL` | Optional explicit subscription model, with the same no-fallback policy as the CLI |
+
+`--check` publishes sanitized runtime status and exits without claiming a task or calling a model. `model_ready` means a subscription model/login is locally configured; it does not prove token validity or available quota. The daemon re-reads local login/model settings on each polling cycle, so completing Pi login does not require restarting the daemon. A Run already in `WAITING_CREDENTIALS` requires an explicit console resume.
+
+For server-side login, use an administrator terminal inside the runner container and run `node node_modules/@earendil-works/pi-coding-agent/dist/cli.js`. The container's `PI_CODING_AGENT_DIR` directs Pi to its dedicated volume. Do not copy a laptop's authentication files into the deployment or paste credentials into the console.
+
+### Cloud persistence and recovery
+
+- One task executes at a time. The worker heartbeats its 45-second lease every 10 seconds. Cancellation, creator revocation, lease loss or uncertain heartbeat delivery aborts the model and fences all subsequent tool requests through the API. No stale finish is submitted.
+- Per-Run Pi sessions, intent journals and queued events are persisted atomically under `runs/<run-id>`. A started Run with a missing session or intent journal enters `NEEDS_REVIEW`; the worker never replaces its identity or quietly starts over.
+- Events use stable keys and an ordered durable queue. Lost acknowledgements can retry the same immutable event within an attempt. Text is persisted locally and batched at 512 bytes or 200 milliseconds. Event bodies are capped at 16 KiB, each attempt at 1,000 events / 1 MiB, and output at 64 KiB. The five-minute attempt deadline and 40 governed calls per Run are enforced locally; the API separately enforces its admission budget.
+- On an explicit resume, pending events and unconfirmed text from the old attempt are archived as `attempt-<n>-unconfirmed.json`. They are not replayed as new output. A `RECOVERY_CHECKPOINT` event records the archived counts. The business operation IDs and dispatch markers remain unchanged.
+- `WAITING_APPROVAL` requires a separate approver in the console. Unknown operations require review and reconciliation before resume. Cancellation never implies that a previously admitted external action was rolled back.
+- A daemon lock records hostname, PID, and Linux boot/process-start identifiers. Dead owners and verified PID reuse can be recovered; live or unverifiable owners fail closed. Use a stable container hostname and a single worker process per state volume. On a lock error, stop every process using the volume, inspect `worker.lock` and its recorded process identity, and only then remove a stale lock or `worker-lock-recovery` directory. Preserve Run state, Pi sessions, intent journals and archives.
+
+State files and Pi transcripts contain private business data. Keep both persistent volumes access restricted, back them up together with the gateway database, and retain Run journals while their tasks may be resumed. The worker logs only IDs and sanitized status codes; it does not log arbitrary prompts, outputs or provider exception bodies.
+
 ## Runtime boundary
 
-This package implements a standalone local CLI and persisted Pi conversation resume. The gateway remains authoritative for permissions, approvals and external operation outcomes. It does not implement the architecture's distributed runner leases, automatic checkpoint reconciliation, model budget accounting, multi-host scheduling or guaranteed recovery of incomplete model turns. Conversation resume alone does not establish external side-effect completion.
+This package implements a standalone local CLI and a single-host cloud worker with authenticated HTTP control, durable conversation resume and lease fencing. The gateway remains authoritative for permissions, approvals and external operation outcomes. Distributed gRPC scheduling, multi-host session migration, model-cost accounting and automatic recovery of incomplete model turns remain outside this implementation. Conversation resume alone does not establish external side-effect completion.
 
 ## Verification
 
@@ -46,4 +81,4 @@ npm run check --workspace @mcp-gateway/agent-runner
 npm test --workspace @mcp-gateway/agent-runner
 ```
 
-Tests use loopback HTTP servers and temporary journals. They exercise authorization headers, redirect rejection, response limits, approval pauses, idempotent preparation and the lost-execution-response window. Tests do not contact a model provider or consume subscription quota.
+Tests use loopback HTTP servers, temporary journals and injected execution/probe functions. They cover credentials, approval/resume, lost lease, cancellation, event retries/order/limits, old-attempt archives, missing checkpoints, numeric precision and unknown operation outcomes. Tests do not contact a model provider or consume subscription quota. `CloudWorker.runOnce()` and `executeLease()` accept injected `WorkerAPI`, `probeModel` and `execute` implementations for integration tests against the real Go API.

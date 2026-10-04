@@ -10,12 +10,20 @@ import (
 	"github.com/alan1-666/mcp-gateway/internal/core"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-type Repository struct{ pool *pgxpool.Pool }
+// DB is implemented by both pgxpool.Pool and pgx.Tx. A transaction-backed
+// repository uses pgx savepoints, keeping composed state changes atomic and
+// avoiding a second connection while holding database locks.
+type DB interface {
+	Begin(context.Context) (pgx.Tx, error)
+	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
+	Query(context.Context, string, ...any) (pgx.Rows, error)
+	QueryRow(context.Context, string, ...any) pgx.Row
+}
+type Repository struct{ pool DB }
 
-func New(pool *pgxpool.Pool) *Repository { return &Repository{pool: pool} }
+func New(pool DB) *Repository { return &Repository{pool: pool} }
 
 var _ core.Repository = (*Repository)(nil)
 
@@ -59,7 +67,7 @@ func dbError(err error) error {
 	}
 	return err
 }
-func transaction[T any](ctx context.Context, pool *pgxpool.Pool, fn func(pgx.Tx) (T, error)) (T, error) {
+func transaction[T any](ctx context.Context, pool DB, fn func(pgx.Tx) (T, error)) (T, error) {
 	var empty T
 	tx, err := pool.Begin(ctx)
 	if err != nil {
