@@ -19,8 +19,9 @@ Verified locally on 2026-10-04 using macOS arm64, Go 1.26.8, Node.js 24.4.1 and 
 | Real Pi configuration check | Local subscription OAuth and selected model configuration found; no model request sent |
 | Browser checks | Login, invalid form input, role controls, empty states, logout/reload credential clearing and 390px layout passed; no console errors or warnings |
 | Dependency audit | No known npm vulnerabilities after upgrading Pi to 1.0.2 and Vite to 7.3.6 |
-| Docker Compose | Cloud images built and deployed on Ubuntu 24.04; API, Gateway, PostgreSQL and console healthy |
-| Cloud browser | Login, session restoration across service replacement, team/account views, logout and 390px layout passed; final guest page has no console errors or warnings |
+| Docker Compose | Cloud backend, console and Pi worker images built and deployed on Ubuntu 24.04; API, Gateway, PostgreSQL and console health checks passed; Pi worker runtime heartbeat verified |
+| Deployed cloud worker | Actual Pi daemon with an empty dedicated login volume reports model configuration missing; public HTTPS task creation/idempotency, WAITING_CREDENTIALS, explicit resume, cancellation and CSRF rejection passed; internal runner path returns 404 publicly |
+| Cloud browser | Login, session restoration across service replacement, team/account views and Agent task creation → waiting credentials → cancellation passed. Real event history, cleared draft, logout/401 and 390px layout verified; zero browser errors/warnings. No model or business tool call |
 | Certificate renewal | Staging dry-run renewal succeeded with the final nginx webroot; scheduled renewal service and timer verified |
 | Cloud identity | One-time/expired-state handling, CSRF rejection, role checks, member/credential revocation, logout and password rotation covered by PostgreSQL tests |
 | Public HTTPS and MCP | Trusted IP certificate; real public login, invitation acceptance, MCP initialize/tool discovery and immediate revocation passed |

@@ -127,7 +127,7 @@ docker compose --env-file /opt/mcp-gateway/cloud.env -f deploy/compose/cloud.yam
   node node_modules/@earendil-works/pi-coding-agent/dist/cli.js
 ```
 
-Complete Pi's interactive login and model selection in that terminal. The container sets `PI_CODING_AGENT_DIR=/var/lib/pi/config`; its named volume is private to the worker. Optional `PI_PROVIDER` / `PI_MODEL` settings in `cloud.env` override model selection. Stop the interactive Pi session after configuring it. Restart the worker after model configuration changes, inspect its sanitized runtime status, and explicitly resume a waiting task. Configuration readiness is not proof that the provider will accept inference or has remaining quota.
+Complete Pi's interactive login and model selection in that terminal. The container sets `PI_CODING_AGENT_DIR=/var/lib/pi/config`; its named volume is private to the worker. Optional `PI_PROVIDER` / `PI_MODEL` settings in `cloud.env` override model selection. Stop the interactive Pi session after configuring it. The daemon picks up login/settings changes on its next polling cycle. Changes to `cloud.env` require recreating the worker (`docker compose ... up -d --force-recreate pi-runner`). Inspect its sanitized runtime status and explicitly resume a waiting task. Configuration readiness is not proof that the provider will accept inference or has remaining quota.
 
 The console does not accept model passwords or subscription tokens. A self-service model-account connection UI and per-user model accounts remain future work. One configured server subscription supplies the team's tasks subject to the provider's applicable account conditions; do not claim per-user quota isolation.
 
