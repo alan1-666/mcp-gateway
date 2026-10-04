@@ -1,0 +1,821 @@
+openapi: 3.1.0
+info:
+  title: MCP Gateway Management and Execution API
+  version: 0.1.0
+  description: |
+    HTTP contract for the implemented tool registry, approval and durable execution APIs.
+    The MCP transport is exposed separately and is not described by this document.
+
+    These endpoints require a bearer identity or a cloud browser session. Its workspace,
+    actor ID and role come from the server; clients cannot select a workspace or role in
+    a request. All resource lookups are scoped to that workspace. A supplied browser
+    Origin must appear in the server's allowed-origin configuration. Cloud session
+    mutations also require X-CSRF-Token. Account endpoints are documented separately
+    in docs/cloud-deployment.md and require browser sessions for administration.
+
+    POST requests require Content-Type application/json and one JSON object, with a
+    maximum request body of 262144 bytes. Unknown request fields are rejected. Actions
+    without arguments still require the body {}. Successful creation and action
+    responses currently use HTTP 200. An HTTP 200 response containing an Operation
+    does not imply that the downstream action succeeded: inspect its state.
+
+    Tool and operation lists are bounded snapshots, without offset, page or next-page
+    parameters. Event polling provides an exclusive event-ID cursor. These endpoints
+    return JSON, not an SSE stream. Do not assume complete inventory beyond the stated
+    list bounds. Tokens, credentials and raw downstream headers are never returned.
+servers:
+  - url: /
+    description: The origin serving the Gateway HTTP API
+security:
+  - bearerAuth: []
+  - sessionCookie: []
+tags:
+  - name: Identity
+  - name: Tools
+  - name: Operations
+x-max-request-body-bytes: 262144
+paths:
+  /api/v1/me:
+    get:
+      operationId: getIdentity
+      tags: [Identity]
+      summary: Read the authenticated identity
+      description: Available to all configured roles. Returns the trusted actor and workspace associated with the credential.
+      x-required-roles: [admin, operator, approver, viewer]
+      responses:
+        '200':
+          description: Authenticated identity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Actor'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/tools:
+    get:
+      operationId: listTools
+      tags: [Tools]
+      summary: List visible tools
+      description: |
+        Admins can see draft, published and disabled tools in their workspace. All
+        other roles can see only published, enabled tools. The server first selects
+        the newest 500 visible tools, ordered by created_at descending then ID
+        descending, and then applies the optional name/description substring filter.
+        Search therefore does not scan tools outside that bounded set.
+      x-required-roles: [admin, operator, approver, viewer]
+      parameters:
+        - name: query
+          in: query
+          required: false
+          description: Case-insensitive substring of the name or description; surrounding whitespace is trimmed.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: At most 500 visible matching tools
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ToolList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    post:
+      operationId: createTool
+      tags: [Tools]
+      summary: Register a disabled draft tool
+      description: |
+        Requires admin. The name is unique within the authenticated workspace. The
+        HTTP origin must be explicitly allowed by server egress configuration, and
+        any credential reference must be bound to that workspace and exact origin.
+        The tool is created with status draft, enabled false and version 1. Publishing
+        is a separate action. There is currently no tool update or delete endpoint.
+      x-required-roles: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ToolInput'
+      responses:
+        '200':
+          $ref: '#/components/responses/Tool'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/tools/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ResourceID'
+    get:
+      operationId: getTool
+      tags: [Tools]
+      summary: Read a visible tool definition
+      description: |
+        Admins can read every tool in their workspace. Other roles can read only
+        published, enabled tools. Missing, invisible and cross-workspace tools return
+        404. The response includes the configured HTTP target and credential reference,
+        but not credential values.
+      x-required-roles: [admin, operator, approver, viewer]
+      responses:
+        '200':
+          $ref: '#/components/responses/Tool'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/tools/{id}/publish:
+    parameters:
+      - $ref: '#/components/parameters/ResourceID'
+    post:
+      operationId: publishTool
+      tags: [Tools]
+      summary: Publish and enable a draft tool
+      description: |
+        Requires admin in the tool's workspace. Atomically changes a draft to
+        published and enabled and records an audit event. Publishing an already
+        published tool returns its existing state and does not re-enable it if it
+        has been disabled. Tool content and version remain unchanged.
+      x-required-roles: [admin]
+      requestBody:
+        $ref: '#/components/requestBodies/EmptyAction'
+      responses:
+        '200':
+          $ref: '#/components/responses/Tool'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/tools/{id}/enabled:
+    parameters:
+      - $ref: '#/components/parameters/ResourceID'
+    post:
+      operationId: setToolEnabled
+      tags: [Tools]
+      summary: Enable or disable a published tool
+      description: |
+        Requires admin in the tool's workspace. Draft tools return 409. Repeating
+        the current enabled value is idempotent. Disabling blocks new preparations
+        and dispatch admission. It does not cancel a request already admitted or
+        alter a recorded downstream result.
+      x-required-roles: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [enabled]
+              properties:
+                enabled:
+                  type: boolean
+      responses:
+        '200':
+          $ref: '#/components/responses/Tool'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/operations:
+    get:
+      operationId: listOperations
+      tags: [Operations]
+      summary: List visible operations
+      description: |
+        Admins and approvers see operations in their workspace. Operators and viewers
+        see only operations whose actor_id equals their identity ID. Returns the
+        newest 200 visible operations by created_at descending then ID descending.
+        There are currently no filtering or pagination parameters.
+      x-required-roles: [admin, operator, approver, viewer]
+      responses:
+        '200':
+          description: At most 200 visible operations
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    post:
+      operationId: prepareOperation
+      tags: [Operations]
+      summary: Persist an operation before dispatch
+      description: |
+        Requires admin or operator. The tool must be published and enabled in the
+        authenticated workspace. Arguments must match its input schema. The operation
+        records fixed arguments, their hash and the tool version/configuration snapshot.
+        Read tools enter READY; write tools enter WAITING_APPROVAL.
+
+        Idempotency keys are unique within a workspace. Repeating a key for the same
+        actor, tool and canonical argument hash returns the existing operation,
+        including after the tool is disabled. Reusing a key with a different actor,
+        tool or arguments returns 409. Object key ordering and insignificant JSON
+        whitespace do not change the hash; numeric lexical forms are not normalized.
+        Retry an uncertain preparation with the same key. Preparing never executes
+        the downstream request, and clients must not create a new key to replay an
+        UNKNOWN write.
+      x-required-roles: [admin, operator]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PrepareInput'
+      responses:
+        '200':
+          $ref: '#/components/responses/Operation'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/operations/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ResourceID'
+    get:
+      operationId: getOperation
+      tags: [Operations]
+      summary: Read a durable operation
+      description: |
+        Admins and approvers may read any operation in their workspace. Operators
+        and viewers may read only their own operations. Missing, invisible and
+        cross-workspace operations return 404. This endpoint is the source of truth
+        after request timeout, client disconnection or an uncertain execute response.
+      x-required-roles: [admin, operator, approver, viewer]
+      responses:
+        '200':
+          $ref: '#/components/responses/Operation'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/operations/{id}/approve:
+    parameters:
+      - $ref: '#/components/parameters/ResourceID'
+    post:
+      operationId: approveOperation
+      tags: [Operations]
+      summary: Approve fixed operation parameters
+      description: |
+        Requires admin or approver in the operation's workspace, with an identity ID
+        different from actor_id. Admins cannot approve their own operations. The
+        operation must be WAITING_APPROVAL and its tool must remain published and
+        enabled. Approval binds the stored parameters and tool version, expires in
+        30 minutes and changes the operation to READY. Repeating approval while it
+        is already READY with an approval returns the existing record, without
+        replacing its approver or extending expiry. Approval alone does not dispatch.
+      x-required-roles: [admin, approver]
+      requestBody:
+        $ref: '#/components/requestBodies/EmptyAction'
+      responses:
+        '200':
+          $ref: '#/components/responses/Operation'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/operations/{id}/reject:
+    parameters:
+      - $ref: '#/components/parameters/ResourceID'
+    post:
+      operationId: rejectOperation
+      tags: [Operations]
+      summary: Reject a pending approval
+      description: |
+        Requires admin or approver in the operation's workspace and an identity ID
+        different from actor_id. A WAITING_APPROVAL operation becomes REJECTED and
+        cannot dispatch. Repeating rejection of a REJECTED operation returns its
+        existing state. Other states return 409. This endpoint does not accept a
+        reason field and cannot cancel an approved or in-flight operation.
+      x-required-roles: [admin, approver]
+      requestBody:
+        $ref: '#/components/requestBodies/EmptyAction'
+      responses:
+        '200':
+          $ref: '#/components/responses/Operation'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/operations/{id}/execute:
+    parameters:
+      - $ref: '#/components/parameters/ResourceID'
+    post:
+      operationId: executeOperation
+      tags: [Operations]
+      summary: Claim and execute a READY operation once
+      description: |
+        Requires admin in the operation's workspace, or an operator whose ID equals
+        actor_id. Approvers and viewers cannot execute. An operator cannot execute
+        another person's operation even when it has been approved; that lookup returns
+        404. The server atomically claims READY, checks the current tool enabled state
+        and any approval expiry, commits DISPATCHING, then sends the stored request.
+
+        The successful claimant waits for bounded downstream execution and result
+        persistence. Concurrent or repeated callers receive the current recorded
+        DISPATCHING or terminal state without another dispatch. WAITING_APPROVAL and
+        disabled tools produce 409. Expired approval is durably changed to REJECTED
+        with a 409 approval_expired error.
+
+        A returned FAILED, UNKNOWN or REJECTED operation still uses HTTP 200. An
+        interrupted/ambiguous write becomes UNKNOWN and is not automatically replayed.
+        Client disconnection does not cancel an already admitted request. A 503 can
+        mean the response or result could not be durably confirmed; query the same
+        operation before taking another action. Manual reconciliation is not exposed
+        by the current HTTP API.
+      x-required-roles: [admin, operator]
+      requestBody:
+        $ref: '#/components/requestBodies/EmptyAction'
+      responses:
+        '200':
+          $ref: '#/components/responses/Operation'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/operations/{id}/events:
+    parameters:
+      - $ref: '#/components/parameters/ResourceID'
+    get:
+      operationId: listOperationEvents
+      tags: [Operations]
+      summary: Poll committed operation events
+      description: |
+        Uses the same visibility rules as getOperation. Returns at most 500 events
+        for the selected operation, ordered by ascending ID and strictly greater
+        than after. Continue polling with the last received ID to read another batch.
+        Event IDs are global database sequence values, may contain gaps, and are not
+        per-operation consecutive counters. The response is a finite JSON array wrapper.
+      x-required-roles: [admin, operator, approver, viewer]
+      parameters:
+        - name: after
+          in: query
+          required: false
+          description: Exclusive cursor from a previously received event ID.
+          schema:
+            type: integer
+            format: int64
+            minimum: 0
+            maximum: 9223372036854775807
+            default: 0
+      responses:
+        '200':
+          description: At most 500 committed visible events
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: __Host-gateway-session
+      description: Secure cloud session; mutations additionally require the session CSRF token and configured Origin.
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: Expiring cloud personal API key, or a configured development token; never a client-supplied role or workspace assertion.
+  parameters:
+    ResourceID:
+      name: id
+      in: path
+      required: true
+      description: Server-generated tool or operation ID. Lookups always use the authenticated workspace.
+      schema:
+        type: string
+        format: uuid
+  requestBodies:
+    EmptyAction:
+      description: Send an empty JSON object with Content-Type application/json; an omitted body is rejected.
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: false
+            maxProperties: 0
+          example: {}
+  responses:
+    Tool:
+      description: Current persisted tool definition
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Tool'
+    Operation:
+      description: Current persisted operation; inspect state to determine business outcome
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Operation'
+    BadRequest:
+      description: Invalid JSON, unsupported fields, wrong Content-Type, schema mismatch or input outside configured limits
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    Unauthorized:
+      description: Credential is missing, invalid, revoked or expired
+      headers:
+        WWW-Authenticate:
+          schema:
+            type: string
+          example: 'Bearer realm="mcp-gateway"'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    Forbidden:
+      description: Role does not permit this action, independent-approver rule failed, or browser Origin is not allowed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    NotFound:
+      description: Resource is missing or not visible to this identity and workspace
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    Conflict:
+      description: Duplicate tool name, conflicting idempotency key, incompatible operation state, disabled tool or expired approval
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    Unavailable:
+      description: Durable request completion could not be confirmed; query an existing operation before attempting another action
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+  schemas:
+    Role:
+      type: string
+      enum: [admin, operator, approver, viewer]
+    Actor:
+      type: object
+      additionalProperties: false
+      required: [id, workspace_id, role]
+      properties:
+        id:
+          type: string
+        workspace_id:
+          type: string
+        role:
+          $ref: '#/components/schemas/Role'
+    Risk:
+      type: string
+      enum: [read, write]
+      description: Administrator-declared risk. Read tools must use GET; write operations require independent approval.
+    HTTPConfigInput:
+      type: object
+      additionalProperties: false
+      required: [url, method]
+      properties:
+        url:
+          type: string
+          format: uri
+          description: HTTP(S) URL on an explicitly allowed origin. Userinfo, query strings and fragments are rejected. Network policy is checked again at execution.
+        method:
+          type: string
+          enum: [GET, POST, PUT, PATCH, DELETE]
+          description: Canonical HTTP method; the server trims and uppercases input. Risk read requires GET.
+        credential_ref:
+          type: string
+          maxLength: 128
+          pattern: '^$|^[A-Z][A-Z0-9_]{0,127}$'
+          description: Optional credential reference bound to the authenticated workspace and exact HTTP origin. This is not a credential value.
+        timeout_ms:
+          type: integer
+          default: 10000
+          anyOf:
+            - const: 0
+            - minimum: 100
+              maximum: 120000
+          description: Downstream deadline in milliseconds. Omitted or zero is normalized to 10000.
+    HTTPConfig:
+      allOf:
+        - $ref: '#/components/schemas/HTTPConfigInput'
+        - type: object
+          required: [timeout_ms]
+          properties:
+            timeout_ms:
+              type: integer
+              minimum: 100
+              maximum: 120000
+    InputSchema:
+      type: object
+      required: [type]
+      properties:
+        type:
+          const: object
+      additionalProperties: true
+      x-max-encoded-bytes: 65536
+      description: |
+        JSON Schema document whose root type is exactly object. Must compile with
+        the bundled validator. Local definitions and references are allowed;
+        external reference loading is disabled. Encoded size is limited to 65536
+        bytes. Maximum JSON nesting is 64 levels; numeric text is limited to 1024
+        bytes with exponent between -1000 and 1000, and NUL strings/keys are rejected.
+    OutputSchema:
+      type: object
+      additionalProperties: true
+      x-max-encoded-bytes: 65536
+      description: Optional JSON Schema document for downstream results. Must be an object and compile without external references. Uses the same size and structural limits as input_schema; its declared result type need not be object.
+    ToolInput:
+      type: object
+      additionalProperties: false
+      required: [name, description, risk, input_schema, http]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 64
+          pattern: '^[a-zA-Z][a-zA-Z0-9_.-]{0,63}$'
+          description: Unique within a workspace after trimming surrounding whitespace.
+        description:
+          type: string
+          minLength: 1
+          maxLength: 4000
+          x-max-encoded-bytes: 4000
+          description: Business purpose; trimmed, nonempty and at most 4000 UTF-8 bytes.
+        risk:
+          $ref: '#/components/schemas/Risk'
+        input_schema:
+          $ref: '#/components/schemas/InputSchema'
+        output_schema:
+          $ref: '#/components/schemas/OutputSchema'
+        http:
+          $ref: '#/components/schemas/HTTPConfigInput'
+    Tool:
+      type: object
+      additionalProperties: false
+      required: [id, workspace_id, name, description, risk, input_schema, http, enabled, status, version, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspace_id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        risk:
+          $ref: '#/components/schemas/Risk'
+        input_schema:
+          $ref: '#/components/schemas/InputSchema'
+        output_schema:
+          $ref: '#/components/schemas/OutputSchema'
+        http:
+          $ref: '#/components/schemas/HTTPConfig'
+        enabled:
+          type: boolean
+        status:
+          type: string
+          enum: [draft, published]
+        version:
+          type: integer
+          minimum: 1
+          description: Content version captured by prepared operations. Newly registered tools currently have version 1.
+        created_at:
+          type: string
+          format: date-time
+    ToolList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          maxItems: 500
+          items:
+            $ref: '#/components/schemas/Tool'
+    PrepareInput:
+      type: object
+      additionalProperties: false
+      required: [tool_id, arguments, idempotency_key]
+      properties:
+        tool_id:
+          type: string
+          format: uuid
+        arguments:
+          type: object
+          additionalProperties: true
+          x-max-encoded-bytes: 262144
+          description: |
+            Must satisfy the selected tool's input_schema. The entire HTTP request,
+            including this object and metadata, must fit within 262144 bytes.
+            Nesting depth is at most 64; NUL strings/keys are rejected. Number text
+            is bounded to 1024 bytes and exponents to -1000 through 1000.
+        idempotency_key:
+          type: string
+          minLength: 8
+          maxLength: 128
+          x-max-encoded-bytes: 128
+          description: Stable client-generated key, 8-128 UTF-8 bytes, with no leading or trailing whitespace. Unique within the workspace and bound to actor, tool and argument hash.
+    OperationState:
+      type: string
+      enum: [WAITING_APPROVAL, READY, DISPATCHING, SUCCEEDED, FAILED, UNKNOWN, REJECTED]
+      description: |
+        WAITING_APPROVAL needs independent review. READY may be claimed once.
+        DISPATCHING means execution was admitted and may already have reached the
+        downstream service. SUCCEEDED is a confirmed adapter result; FAILED is a
+        reported failure. UNKNOWN requires downstream verification and cannot be
+        replayed automatically. REJECTED includes rejected or expired approval.
+    Operation:
+      type: object
+      additionalProperties: false
+      required: [id, workspace_id, tool_id, tool_name, tool_version, risk, actor_id, arguments, arguments_hash, idempotency_key, state, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspace_id:
+          type: string
+        tool_id:
+          type: string
+          format: uuid
+        tool_name:
+          type: string
+        tool_version:
+          type: integer
+          minimum: 1
+        risk:
+          $ref: '#/components/schemas/Risk'
+        actor_id:
+          type: string
+          description: Identity that prepared the operation.
+        arguments:
+          type: object
+          additionalProperties: true
+          description: Fixed stored arguments. They cannot be changed by approval or execution calls.
+        arguments_hash:
+          type: string
+          pattern: '^[a-f0-9]{64}$'
+          description: SHA-256 of canonical argument bytes.
+        idempotency_key:
+          type: string
+        state:
+          $ref: '#/components/schemas/OperationState'
+        result:
+          description: Optional stored JSON value after adapter validation and redaction. Can be any JSON type, including null.
+        error:
+          type: string
+          description: Optional bounded error summary; inspect state rather than this text for control flow.
+        approved_by:
+          type: string
+          description: Present after approval; always different from actor_id.
+        approval_expires_at:
+          type: string
+          format: date-time
+          description: Present after approval. Approval expiry is rechecked before dispatch.
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    OperationList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          maxItems: 200
+          items:
+            $ref: '#/components/schemas/Operation'
+    Event:
+      type: object
+      additionalProperties: false
+      required: [id, operation_id, type, actor_id, created_at, data]
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9223372036854775807
+          description: Global sequence value, suitable as the exclusive after cursor; IDs can contain gaps.
+        operation_id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [OPERATION_PREPARED, OPERATION_APPROVED, OPERATION_REJECTED, OPERATION_DISPATCHING, OPERATION_SUCCEEDED, OPERATION_FAILED, OPERATION_UNKNOWN, APPROVAL_EXPIRED]
+        actor_id:
+          type: string
+          description: Acting identity or system for automated recovery/expiry events.
+        created_at:
+          type: string
+          format: date-time
+        data:
+          type: object
+          additionalProperties: true
+          description: Event-specific metadata, such as state, arguments_hash, tool_version, expires_at or recovery reason. Full arguments and results remain on the operation.
+    EventList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          maxItems: 500
+          items:
+            $ref: '#/components/schemas/Event'
+    ErrorEnvelope:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum: [unauthorized, forbidden, not_found, conflict, approval_expired, invalid_input, unavailable]
+            message:
+              type: string

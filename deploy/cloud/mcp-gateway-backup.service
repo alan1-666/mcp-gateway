@@ -1,0 +1,7 @@
+[Unit]
+Description=MCP Gateway database backup
+Requires=docker.service
+After=docker.service
+[Service]
+Type=oneshot
+ExecStart=/opt/mcp-gateway/current/deploy/cloud/backup.sh

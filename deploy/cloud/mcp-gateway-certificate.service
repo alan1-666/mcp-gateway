@@ -1,0 +1,7 @@
+[Unit]
+Description=Renew MCP Gateway IP certificate
+After=network-online.target docker.service nginx.service
+Wants=network-online.target
+[Service]
+Type=oneshot
+ExecStart=/opt/mcp-gateway/current/deploy/cloud/renew-certificate.sh

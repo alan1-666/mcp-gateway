@@ -1,0 +1,108 @@
+name: mcp-gateway-cloud
+x-logging: &logging
+  driver: json-file
+  options: {max-size: "10m", max-file: "3"}
+x-backend: &backend
+  image: mcp-gateway-backend:${RELEASE_ID:?Set RELEASE_ID}
+  build: {context: ../.., dockerfile: deploy/Dockerfile, target: backend}
+  user: "65532:65532"
+  init: true
+  read_only: true
+  security_opt: [no-new-privileges:true]
+  cap_drop: [ALL]
+  tmpfs: ["/tmp:size=32m,noexec,nosuid"]
+  pids_limit: 100
+  mem_limit: 512m
+  cpus: 0.75
+  stop_grace_period: 140s
+  logging: *logging
+  environment:
+    DATABASE_URL: "postgres://gateway:${POSTGRES_PASSWORD:?Set database password}@postgres:5432/gateway?sslmode=disable"
+    AUTH_MODE: cloud
+    PUBLIC_ORIGIN: "${PUBLIC_ORIGIN:?Set HTTPS origin}"
+    GATEWAY_BOOTSTRAP_FILE: /run/gateway/bootstrap
+    GATEWAY_CREDENTIALS_FILE: /run/gateway/credentials.json
+    API_ADDR: 0.0.0.0:8090
+    GATEWAY_ADDR: 0.0.0.0:8091
+    HTTP_ALLOWED_ORIGINS: "${HTTP_ALLOWED_ORIGINS:-}"
+    HTTP_ALLOWED_CIDRS: "${HTTP_ALLOWED_CIDRS:-}"
+  volumes:
+    - ${GATEWAY_SECRETS_DIR:?Set secret directory}:/run/gateway:ro
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: gateway
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?Set database password}"
+      POSTGRES_DB: gateway
+    volumes: [postgres-data:/var/lib/postgresql/data]
+    shm_size: 128m
+    mem_limit: 1g
+    cpus: 0.75
+    pids_limit: 150
+    logging: *logging
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U gateway -d gateway"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+  migrate:
+    <<: *backend
+    entrypoint: [migrate]
+    depends_on:
+      postgres: {condition: service_healthy}
+  api:
+    <<: *backend
+    entrypoint: [api-server]
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, "http://127.0.0.1:8090/readyz"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+    restart: unless-stopped
+  gateway:
+    <<: *backend
+    entrypoint: [gateway]
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, "http://127.0.0.1:8091/readyz"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+    restart: unless-stopped
+  worker:
+    <<: *backend
+    entrypoint: [worker]
+    mem_limit: 128m
+    cpus: 0.25
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+    restart: unless-stopped
+  console:
+    image: mcp-gateway-console:${RELEASE_ID:?Set RELEASE_ID}
+    build: {context: ../.., dockerfile: deploy/Dockerfile, target: console}
+    ports: ["127.0.0.1:4782:8080"]
+    read_only: true
+    tmpfs: ["/tmp:size=32m,noexec,nosuid"]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    mem_limit: 128m
+    cpus: 0.5
+    pids_limit: 50
+    logging: *logging
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, "http://127.0.0.1:8080/healthz"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+    depends_on:
+      api: {condition: service_healthy}
+      gateway: {condition: service_healthy}
+    restart: unless-stopped
+volumes:
+  postgres-data:
