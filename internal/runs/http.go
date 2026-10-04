@@ -15,6 +15,7 @@ import (
 	"github.com/alan1-666/mcp-gateway/internal/core"
 	"github.com/alan1-666/mcp-gateway/internal/execution"
 	"github.com/alan1-666/mcp-gateway/internal/identity"
+	"github.com/alan1-666/mcp-gateway/internal/transport/httpapi"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -255,21 +256,11 @@ func (a *API) listTools(w http.ResponseWriter, r *http.Request) {
 		respond(w, nil, err)
 		return
 	}
-	v, err := a.service.ListTools(r.Context(), actor)
+	input, err := httpapi.ParseToolSearch(r.URL.RawQuery)
 	if err != nil {
 		respond(w, nil, err)
 		return
 	}
-	query := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("query")))
-	if len(query) > 256 {
-		respond(w, nil, invalid("query exceeds allowed bounds"))
-		return
-	}
-	items := []core.Tool{}
-	for _, tool := range v {
-		if tool.Enabled && tool.Status == "published" && (query == "" || strings.Contains(strings.ToLower(tool.Name+" "+tool.Description), query)) {
-			items = append(items, tool)
-		}
-	}
-	respond(w, map[string]any{"items": items}, nil)
+	page, err := a.service.DiscoverTools(r.Context(), actor, input)
+	respond(w, page, err)
 }

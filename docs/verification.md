@@ -36,6 +36,26 @@ Verified locally on 2026-10-04 using macOS arm64, Go 1.26.8, Node.js 24.4.1 and 
 - Closed the temporary loopback SSH callback tunnel after authorization. Credentials were not printed, exported from the laptop, or added to the repository.
 - This checks subscription authentication and live inference. It does not establish production task quality, tool-selection accuracy, remaining quota, or load capacity.
 
+## Paginated tool discovery — 2026-10-05
+
+Implemented and deployed as `20261005-cloud.5`, following the on-demand discovery direction in [Uber Engineering's MCP Gateway article](https://www.uber.com/jp/en/blog/designing-mcp-gateway/). See the [transport contract](tool-discovery-contract.md).
+
+| Check | Outcome |
+| --- | --- |
+| Full Go suite with race detector and real Node cloud worker | Passed against the dedicated PostgreSQL test database; affected packages rerun after the final response-size fix |
+| Go static analysis | `go vet ./...` passed |
+| PostgreSQL discovery | 524-record regression: old matches beyond 500, tied timestamps, literal wildcard/Chinese matching, cursor validation and live visibility passed |
+| REST and official MCP client | 520 published tools plus hidden/foreign records: equivalent pages, complete traversal without repeats/omissions, role/workspace isolation, revocation and invalid-input handling passed |
+| Response limits | Maximum 50-item discovery pages with 4,000-byte descriptions containing JSON/HTML escape characters fit under 256 KiB; summaries retain at most 512 UTF-8 bytes and complete schemas remain separate |
+| Production Pi clients and leased Node worker | Public and lease-scoped discovery agreed for older tools and a 50-item escaped-description page; approval/resume/cancellation integration remained passing |
+| TypeScript | 31 Pi runner tests and 27 console tests passed; type checking and console production build passed |
+| Browser, isolated local test database | 520 published + 1 draft + 1 disabled: overview totals, registry 50→100 and invocation 25→50 pagination, old-tool search/details/selection, rapid query replacement, hidden-tool empty state, and disabling the selected tool passed |
+| Browser layout and logs | Registry and invocation had no document overflow at 390px. No application errors/warnings; unrelated wallet-extension warnings/errors were present in Chrome |
+| OpenAPI | YAML parsed with duplicate-key checks; all 125 local references resolved |
+| Cloud rollout | Pre-release database backup completed; migration 004 applied; API, Gateway, database and console healthy. Existing Pi OAuth volume preserved and worker reported online/ready with `openai / gpt-5.5` |
+
+The populated browser checks used a disposable local schema, which was removed afterwards. No new cloud administrator was created and no synthetic inventory was inserted into the cloud workspace. Public HTTPS served the new console. Cloud authentication and tool discovery share the integration-tested handlers, but a populated cloud browser workflow was not repeated for this release. No live model or downstream business requests were made for this feature.
+
 ## Explicitly unverified
 
 - The populated approval/execution workflow in the browser: API/MCP end-to-end tests cover it, while browser checks used an empty real workspace with no permitted downstream origins.

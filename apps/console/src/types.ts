@@ -26,6 +26,17 @@ export interface Tool {
   created_at: string;
 }
 
+export type ToolSummary = Pick<
+  Tool,
+  "id" | "name" | "description" | "risk" | "version"
+>;
+
+export interface ToolPage<T = Tool> {
+  items: T[];
+  next_cursor?: string;
+  total: number;
+}
+
 export type OperationState =
   | "WAITING_APPROVAL"
   | "READY"

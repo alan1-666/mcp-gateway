@@ -3,8 +3,8 @@ package mcpserver
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/alan1-666/mcp-gateway/internal/core"
 	"github.com/alan1-666/mcp-gateway/internal/execution"
@@ -18,7 +18,9 @@ func Handler(service *core.Service, executor *execution.Executor, auth *identity
 		actor := identity.Actor(r.Context())
 		server := mcp.NewServer(&mcp.Implementation{Name: "mcp-gateway", Version: "0.1.0"}, nil)
 		type Search struct {
-			Query string `json:"query,omitempty"`
+			Query  string `json:"query,omitempty"`
+			Cursor string `json:"cursor,omitempty"`
+			Limit  *int   `json:"limit,omitempty"`
 		}
 		type ToolID struct {
 			ToolID string `json:"tool_id"`
@@ -26,22 +28,22 @@ func Handler(service *core.Service, executor *execution.Executor, auth *identity
 		type OperationID struct {
 			OperationID string `json:"operation_id"`
 		}
-		mcp.AddTool(server, &mcp.Tool{Name: "search_tools", Description: "Find published tools authorized for this identity. Fetch a selected tool schema before preparing an operation."}, func(ctx context.Context, _ *mcp.CallToolRequest, in Search) (*mcp.CallToolResult, any, error) {
-			tools, err := service.ListTools(ctx, actor)
-			if err != nil {
-				return result(nil, err)
-			}
-			items := []any{}
-			query := strings.ToLower(in.Query)
-			for _, tool := range tools {
-				if tool.Status == "published" && tool.Enabled && (query == "" || strings.Contains(strings.ToLower(tool.Name+" "+tool.Description), query)) {
-					items = append(items, map[string]any{"id": tool.ID, "name": tool.Name, "description": tool.Description, "risk": tool.Risk, "version": tool.Version})
-					if len(items) == 25 {
-						break
-					}
+		mcp.AddTool(server, &mcp.Tool{Name: "search_tools", Description: "Search authorized enabled, published tool summaries by a literal name or description fragment. Returns one page and next_cursor; use the same query and cursor to request another page only when needed. Fetch a selected tool schema before preparing an operation.", InputSchema: map[string]any{
+			"type": "object", "properties": map[string]any{
+				"query":  map[string]any{"type": "string", "maxLength": 200, "description": "Optional literal search text; maximum 200 UTF-8 bytes."},
+				"cursor": map[string]any{"type": "string", "maxLength": 2048},
+				"limit":  map[string]any{"type": "integer", "minimum": 1, "maximum": 50},
+			}, "additionalProperties": false,
+		}}, func(ctx context.Context, _ *mcp.CallToolRequest, in Search) (*mcp.CallToolResult, any, error) {
+			input := core.ToolSearchInput{Query: in.Query, Cursor: in.Cursor}
+			if in.Limit != nil {
+				if *in.Limit < 1 || *in.Limit > 50 {
+					return result(nil, fmt.Errorf("%w: limit must be an integer from 1 to 50", core.ErrInvalid))
 				}
+				input.Limit = *in.Limit
 			}
-			return result(map[string]any{"items": items}, nil)
+			page, err := service.DiscoverTools(ctx, actor, input)
+			return result(page, err)
 		})
 		mcp.AddTool(server, &mcp.Tool{Name: "get_tool_schema", Description: "Read an authorized published tool's input and output contracts."}, func(ctx context.Context, _ *mcp.CallToolRequest, in ToolID) (*mcp.CallToolResult, any, error) {
 			t, err := service.GetTool(ctx, actor, in.ToolID)

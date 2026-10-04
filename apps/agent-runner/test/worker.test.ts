@@ -31,7 +31,7 @@ class FakeAPI implements WorkerAPI {
   async finish(_lease: Lease, value: Finish) { this.finishes.push(value); }
   gateway(_lease: Lease, signal: AbortSignal): GatewayAPI {
     return {
-      search: async () => [], tool: async () => ({ id: "tool-test", name: "retry", description: "Retry", risk: "write", input_schema: {}, enabled: true, status: "published", version: 1 }),
+      search: async () => ({ items: [], total: 0 }), tool: async () => ({ id: "tool-test", name: "retry", description: "Retry", risk: "write", input_schema: {}, enabled: true, status: "published", version: 1 }),
       prepare: async () => { signal.throwIfAborted(); return { ...this.operationValue }; },
       operation: async () => ({ ...this.operationValue }),
       execute: async () => { signal.throwIfAborted(); this.executed++; this.operationValue.state = "SUCCEEDED"; return { ...this.operationValue }; },

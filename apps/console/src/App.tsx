@@ -5,12 +5,17 @@ import { hasUnsafeNumbers } from "./json";
 import { Account, CloudLogin, restoreSession } from "./Account";
 import { AgentTasks } from "./AgentTasks";
 import { clearTaskDraft } from "./run-draft";
+import { useToolDetails, useToolSearch } from "./useToolSearch";
+import { validateToolPage } from "./tool-search";
+import type { ToolSearchController, ToolSearchState } from "./tool-search";
 import type {
   Identity,
   Operation,
   OperationEvent,
   OperationState,
   Tool,
+  ToolPage,
+  ToolSummary,
 } from "./types";
 
 type Page =
@@ -441,7 +446,8 @@ function Workspace({
   username,
 }: Session & { onLogout: () => void; onSignedOut: () => void }) {
   const [page, setPage] = useState<Page>("overview");
-  const [tools, setTools] = useState<Tool[]>([]);
+  const [availableTools, setAvailableTools] = useState(0);
+  const [registryTotal, setRegistryTotal] = useState(0);
   const [operations, setOperations] = useState<Operation[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -468,14 +474,18 @@ function Workspace({
     refreshPending.current = true;
     setRefreshing(true);
     try {
-      const [toolResult, operationResult] = await Promise.all([
-        api.request<{ items: Tool[] }>("/tools", { signal: controller.signal }),
+      const [toolResult, catalogResult, operationResult] = await Promise.all([
+        api.request<ToolPage>("/tools?limit=1", { signal: controller.signal }),
+        api.request<ToolPage<ToolSummary>>("/catalog/tools?limit=1", {
+          signal: controller.signal,
+        }),
         api.request<{ items: Operation[] }>("/operations", {
           signal: controller.signal,
         }),
       ]);
       if (controller.signal.aborted) return;
-      setTools(toolResult.items ?? []);
+      setRegistryTotal(validateToolPage(toolResult).total);
+      setAvailableTools(validateToolPage(catalogResult).total);
       setOperations(operationResult.items ?? []);
       setLoaded(true);
       setUpdated(new Date().toISOString());
@@ -681,7 +691,8 @@ function Workspace({
               {page === "overview" ? (
                 <Overview
                   canInvoke={canInvoke}
-                  tools={tools}
+                  availableTools={availableTools}
+                  registryTotal={registryTotal}
                   operations={operations}
                   onNavigate={navigate}
                   onOperation={showOperation}
@@ -692,7 +703,7 @@ function Workspace({
                 <Registry
                   canInvoke={canInvoke}
                   api={api}
-                  tools={tools}
+                  refreshVersion={updated}
                   canManage={canManage}
                   onRefresh={refresh}
                   onInvoke={startInvocation}
@@ -702,7 +713,7 @@ function Workspace({
                 <Invocation
                   key={invokeTool}
                   api={api}
-                  tools={tools}
+                  refreshVersion={updated}
                   initialTool={invokeTool}
                   onCreated={(operation) => {
                     setOperations((current) => [
@@ -761,7 +772,7 @@ function Workspace({
             <span>
               {page === "runs"
                 ? "Latest 100 accessible Agent tasks · Creator and administrator access"
-                : "Up to 500 visible tools · Latest 200 accessible operations"}
+                : "Paginated tool catalog · Latest 200 accessible operations"}
             </span>
             <span>
               {page === "runs"
@@ -779,22 +790,22 @@ function Workspace({
 
 function Overview({
   canInvoke,
-  tools,
+  availableTools,
+  registryTotal,
   operations,
   onNavigate,
   onOperation,
   onInvoke,
 }: {
   canInvoke: boolean;
-  tools: Tool[];
+  availableTools: number;
+  registryTotal: number;
   operations: Operation[];
   onNavigate: (page: Page) => void;
   onOperation: (id: string) => void;
   onInvoke: () => void;
 }) {
-  const published = tools.filter(
-    (tool) => tool.status === "published" && tool.enabled,
-  ).length;
+  const published = availableTools;
   const pending = operations.filter(
     (operation) => operation.state === "WAITING_APPROVAL",
   ).length;
@@ -805,7 +816,7 @@ function Overview({
     {
       label: "Available tools",
       value: published,
-      detail: `${tools.length} tools in the loaded registry`,
+      detail: `${registryTotal.toLocaleString()} visible registry entries`,
       page: "tools" as Page,
       icon: "tools",
     },
@@ -935,32 +946,100 @@ function Overview({
   );
 }
 
+function ToolPagination<T extends { id: string }>({
+  state,
+  controller,
+}: {
+  state: ToolSearchState<T>;
+  controller: ToolSearchController<T>;
+}) {
+  const busy = state.phase !== "idle";
+  return (
+    <div className="tool-pagination">
+      {state.error ? (
+        <div className="notice notice-error" role="alert">
+          <span>
+            {state.error}
+            {state.loaded ? " Loaded results are retained." : ""}
+          </span>
+          <div className="action-row">
+            <button
+              type="button"
+              className="button secondary"
+              disabled={busy}
+              onClick={() => void controller.retry()}
+            >
+              {state.loaded ? "Retry loading more" : "Retry search"}
+            </button>
+            {state.loaded ? (
+              <button
+                type="button"
+                className="text-button"
+                disabled={busy}
+                onClick={() => void controller.reload()}
+              >
+                Restart search
+              </button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+      <div className="tool-pagination-row">
+        <span role="status">
+          {state.loaded
+            ? `${state.items.length.toLocaleString()} loaded · ${state.total?.toLocaleString()} matching tools`
+            : busy
+              ? "Searching the complete visible catalog…"
+              : "No search results loaded"}
+        </span>
+        {state.nextCursor && !state.error ? (
+          <button
+            type="button"
+            className="button secondary"
+            disabled={busy}
+            onClick={() => void controller.loadMore()}
+          >
+            {state.phase === "loading-more"
+              ? "Loading more…"
+              : "Load more tools"}
+          </button>
+        ) : state.loaded && !state.error ? (
+          <span className="muted">End of results</span>
+        ) : null}
+      </div>
+      {state.loaded ? (
+        <p>
+          Counts reflect visible matches reported by the server. Refresh starts
+          a new search and includes newly created tools.
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 function Registry({
   canInvoke,
   api,
-  tools,
+  refreshVersion,
   canManage,
   onRefresh,
   onInvoke,
 }: {
   canInvoke: boolean;
   api: APIClient;
-  tools: Tool[];
+  refreshVersion: string;
   canManage: boolean;
   onRefresh: () => Promise<void>;
   onInvoke: (id: string) => void;
 }) {
   const [showForm, setShowForm] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
+  const search = useToolSearch<Tool>(api, "registry", refreshVersion);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
-  const selected = tools.find((tool) => tool.id === selectedId);
-  const visible = tools.filter((tool) =>
-    `${tool.name} ${tool.description}`
-      .toLowerCase()
-      .includes(search.toLowerCase()),
-  );
+  const details = useToolDetails(api, selectedId, false, refreshVersion);
+  const selected = details.tool;
+  const visible = search.state.items;
   async function changeTool(tool: Tool, action: "publish" | "enabled") {
     if (busy) return;
     setBusy(tool.id);
@@ -973,7 +1052,8 @@ function Registry({
           body: action === "publish" ? {} : { enabled: !tool.enabled },
         },
       );
-      await onRefresh();
+      details.reload();
+      await Promise.all([search.controller.reload(), onRefresh()]);
     } catch (error) {
       setError(messageOf(error));
     } finally {
@@ -988,8 +1068,12 @@ function Registry({
           <input
             aria-label="Search tools"
             placeholder="Search tools by name or description"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
+            type="search"
+            value={search.state.input}
+            onChange={(event) => {
+              setSelectedId(null);
+              void search.controller.setQuery(event.target.value, 250);
+            }}
           />
         </div>
         {canManage ? (
@@ -1014,7 +1098,7 @@ function Registry({
           onCreated={async (tool) => {
             setSelectedId(tool.id);
             setShowForm(false);
-            await onRefresh();
+            await Promise.all([search.controller.reload(), onRefresh()]);
           }}
         />
       ) : null}
@@ -1022,7 +1106,7 @@ function Registry({
         <div className="panel-heading">
           <h2>
             Registered tools{" "}
-            <span className="count-label">{visible.length}</span>
+            <span className="count-label">{search.state.total ?? "—"}</span>
           </h2>
           <span className="muted">HTTP integrations</span>
         </div>
@@ -1089,20 +1173,57 @@ function Registry({
               </tbody>
             </table>
           </div>
-        ) : (
+        ) : search.state.phase === "loading" ? (
+          <div className="tool-search-loading" role="status">
+            <span className="spinner" />
+            Searching tools…
+          </div>
+        ) : search.state.loaded && !search.state.error ? (
           <Empty
             title={
-              tools.length
+              search.state.query
                 ? "No tools match your search"
                 : "Your tool registry starts here"
             }
           >
-            {tools.length
+            {search.state.query
               ? "Try another name or description."
               : "Register an HTTP integration and review its input contract before publishing."}
           </Empty>
-        )}
+        ) : null}
+        <ToolPagination {...search} />
       </div>
+      {selectedId && !selected ? (
+        <section className="panel detail-panel">
+          <div className="panel-heading">
+            <h2>Tool contract</h2>
+            <button
+              type="button"
+              className="icon-button"
+              aria-label="Close tool details"
+              onClick={() => setSelectedId(null)}
+            >
+              <Icon name="close" />
+            </button>
+          </div>
+          <div className="panel-body">
+            {details.loading ? (
+              <p role="status">Loading the selected tool's contract…</p>
+            ) : (
+              <>
+                <Notice>{details.error}</Notice>
+                <button
+                  type="button"
+                  className="button secondary"
+                  onClick={details.reload}
+                >
+                  Retry loading contract
+                </button>
+              </>
+            )}
+          </div>
+        </section>
+      ) : null}
       {selected ? (
         <section className="panel detail-panel">
           <div className="panel-heading">
@@ -1412,26 +1533,34 @@ function ToolForm({
 
 function Invocation({
   api,
-  tools,
+  refreshVersion,
   initialTool,
   onCreated,
   onRegistry,
 }: {
   api: APIClient;
-  tools: Tool[];
+  refreshVersion: string;
   initialTool: string;
   onCreated: (operation: Operation) => void;
   onRegistry: () => void;
 }) {
-  const available = tools.filter(
-    (tool) => tool.status === "published" && tool.enabled,
-  );
-  const [toolId, setToolId] = useState(initialTool || available[0]?.id || "");
+  const search = useToolSearch<ToolSummary>(api, "discovery", refreshVersion);
+  const [toolId, setToolId] = useState(initialTool);
   const [argumentsText, setArgumentsText] = useState("{}");
   const [key, setKey] = useState(() => crypto.randomUUID());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const tool = available.find((item) => item.id === toolId);
+  const details = useToolDetails(api, toolId || null, true, refreshVersion);
+  const tool = details.tool;
+
+  function selectTool(id: string) {
+    if (id === toolId || busy) return;
+    setToolId(id);
+    setArgumentsText("{}");
+    setKey(crypto.randomUUID());
+    setError("");
+  }
+
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (!tool || busy) return;
@@ -1449,119 +1578,194 @@ function Invocation({
       setBusy(false);
     }
   }
-  if (!available.length)
-    return (
-      <div className="panel">
-        <Empty
-          title="Publish a tool to get started"
-          action={
-            <button className="button primary" onClick={onRegistry}>
-              Open tool registry
+
+  return (
+    <div className="invocation-workspace">
+      <section
+        className="panel tool-picker"
+        aria-labelledby="tool-picker-title"
+      >
+        <div className="panel-heading">
+          <h2 id="tool-picker-title">Select a published tool</h2>
+          <span className="step-label">CATALOG</span>
+        </div>
+        <div className="tool-picker-search">
+          <label className="search-field">
+            <Icon name="search" />
+            <span className="sr-only">Search published tools</span>
+            <input
+              type="search"
+              value={search.state.input}
+              placeholder="Search all published tools by name or description…"
+              disabled={busy}
+              onChange={(event) =>
+                void search.controller.setQuery(event.target.value, 250)
+              }
+            />
+          </label>
+          <p className="field-help">
+            Search covers the complete available catalog. Select a tool to load
+            its contract.
+          </p>
+        </div>
+        {search.state.items.length ? (
+          <fieldset className="tool-options" disabled={busy}>
+            <legend className="sr-only">Available tools</legend>
+            {search.state.items.map((item) => (
+              <label
+                key={item.id}
+                className={`tool-option ${toolId === item.id ? "selected" : ""}`}
+              >
+                <input
+                  type="radio"
+                  name="invocation-tool"
+                  value={item.id}
+                  checked={toolId === item.id}
+                  onChange={() => selectTool(item.id)}
+                />
+                <span className="tool-option-copy">
+                  <strong>
+                    {item.name}
+                    <span className="version-label">v{item.version}</span>
+                  </strong>
+                  <span>{item.description || "No description provided."}</span>
+                </span>
+                <Status state={item.risk} />
+              </label>
+            ))}
+          </fieldset>
+        ) : search.state.phase === "loading" ? (
+          <div className="tool-search-loading" role="status">
+            <span className="spinner" /> Searching published tools…
+          </div>
+        ) : search.state.loaded && !search.state.error ? (
+          <Empty
+            title={
+              search.state.query ? "No matching tools" : "No available tools"
+            }
+            action={
+              !search.state.query ? (
+                <button className="button secondary" onClick={onRegistry}>
+                  Open tool registry
+                  <Icon name="arrow" />
+                </button>
+              ) : undefined
+            }
+          >
+            {search.state.query
+              ? "Try another name or a word from the tool description."
+              : "An administrator can register, enable and publish an integration."}
+          </Empty>
+        ) : null}
+        <ToolPagination {...search} />
+      </section>
+      <div className="invocation-layout">
+        <form className="panel" onSubmit={submit}>
+          <div className="panel-heading">
+            <h2>Prepare the request</h2>
+            <span className="step-label">01 / 02</span>
+          </div>
+          <div className="panel-body">
+            {error ? (
+              <Notice>
+                {error} You can submit unchanged arguments again with the same
+                request ID.
+              </Notice>
+            ) : null}
+            <div className="selected-tool-label">
+              <span>Selected tool</span>
+              <strong>
+                {tool
+                  ? tool.name
+                  : details.loading
+                    ? "Loading contract…"
+                    : toolId
+                      ? "Contract unavailable"
+                      : "Choose a tool above"}
+              </strong>
+              {tool ? <span className="mono">v{tool.version}</span> : null}
+            </div>
+            <fieldset disabled={busy}>
+              <label>
+                Arguments
+                <textarea
+                  rows={13}
+                  className="code-input"
+                  spellCheck={false}
+                  value={argumentsText}
+                  onChange={(event) => {
+                    setArgumentsText(event.target.value);
+                    setKey(crypto.randomUUID());
+                  }}
+                  required
+                />
+              </label>
+            </fieldset>
+            <div className="request-id">
+              <span>Request ID</span>
+              <code>{key}</code>
+            </div>
+            {tool?.risk === "write" ? (
+              <Notice kind="warning">
+                This tool can change external state. The prepared operation will
+                wait for approval before it can execute.
+              </Notice>
+            ) : (
+              <Notice kind="info">
+                Preparing records your intent. You will review and execute the
+                operation on the next screen.
+              </Notice>
+            )}
+            <button className="button primary" disabled={busy || !tool}>
+              {busy ? "Preparing…" : "Prepare operation"}
               <Icon name="arrow" />
             </button>
-          }
-        >
-          This workspace has no enabled, published tools. An administrator can
-          register and publish an integration.
-        </Empty>
-      </div>
-    );
-  return (
-    <div className="invocation-layout">
-      <form className="panel" onSubmit={submit}>
-        <div className="panel-heading">
-          <h2>Prepare the request</h2>
-          <span className="step-label">01 / 02</span>
-        </div>
-        <div className="panel-body">
-          {error ? (
-            <Notice>
-              {error} You can submit unchanged arguments again with the same
-              request ID.
-            </Notice>
-          ) : null}
-          <fieldset disabled={busy}>
-            <label>
-              Tool
-              <select
-                value={toolId}
-                onChange={(event) => {
-                  setToolId(event.target.value);
-                  setArgumentsText("{}");
-                  setKey(crypto.randomUUID());
-                  setError("");
-                }}
-              >
-                {available.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name} · v{item.version}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Arguments
-              <textarea
-                rows={13}
-                className="code-input"
-                spellCheck={false}
-                value={argumentsText}
-                onChange={(event) => {
-                  setArgumentsText(event.target.value);
-                  setKey(crypto.randomUUID());
-                }}
-                required
-              />
-            </label>
-          </fieldset>
-          <div className="request-id">
-            <span>Request ID</span>
-            <code>{key}</code>
           </div>
-          {tool?.risk === "write" ? (
-            <Notice kind="warning">
-              This tool can change external state. The prepared operation will
-              wait for approval before it can execute.
-            </Notice>
-          ) : (
-            <Notice kind="info">
-              Preparing records your intent. You will review and execute the
-              operation on the next screen.
-            </Notice>
-          )}
-          <button className="button primary" disabled={busy || !tool}>
-            {busy ? "Preparing…" : "Prepare operation"}
-            <Icon name="arrow" />
-          </button>
-        </div>
-      </form>
-      <aside className="panel contract-preview">
-        <div className="panel-heading">
-          <h2>Published contract</h2>
-          {tool ? <Status state={tool.risk} /> : null}
-        </div>
-        <div className="panel-body">
-          {tool ? (
-            <>
-              <h3>{tool.name}</h3>
-              <p className="muted">{tool.description}</p>
-              <dl className="metadata-grid">
-                <div>
-                  <dt>Version</dt>
-                  <dd>v{tool.version}</dd>
-                </div>
-                <div>
-                  <dt>Transport</dt>
-                  <dd>HTTP · {tool.http.method}</dd>
-                </div>
-              </dl>
-              <JsonBlock label="Expected arguments" value={tool.input_schema} />
-            </>
-          ) : (
-            <p>Select an available tool.</p>
-          )}
-        </div>
-      </aside>
+        </form>
+        <aside className="panel contract-preview" aria-live="polite">
+          <div className="panel-heading">
+            <h2>Published contract</h2>
+            {tool ? <Status state={tool.risk} /> : null}
+          </div>
+          <div className="panel-body">
+            {details.loading ? (
+              <p className="tool-search-loading" role="status">
+                <span className="spinner" /> Loading selected contract…
+              </p>
+            ) : details.error ? (
+              <Notice>
+                {details.error}
+                <button className="button secondary" onClick={details.reload}>
+                  Retry loading contract
+                </button>
+              </Notice>
+            ) : tool ? (
+              <>
+                <h3>{tool.name}</h3>
+                <p className="muted">{tool.description}</p>
+                <dl className="metadata-grid">
+                  <div>
+                    <dt>Version</dt>
+                    <dd>v{tool.version}</dd>
+                  </div>
+                  <div>
+                    <dt>Transport</dt>
+                    <dd>HTTP · {tool.http.method}</dd>
+                  </div>
+                </dl>
+                <JsonBlock
+                  label="Expected arguments"
+                  value={tool.input_schema}
+                />
+              </>
+            ) : (
+              <p className="muted">
+                Select an available tool to inspect its current input schema.
+              </p>
+            )}
+          </div>
+        </aside>
+      </div>
     </div>
   );
 }

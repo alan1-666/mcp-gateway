@@ -76,7 +76,8 @@ test("only exposes governed tools and hides HTTP configuration from discovery", 
   const local = localJournal();
   const server = await stub((req, res) => {
     const tool = { id: "tool1", name: "status", description: "Read status", risk: "read", input_schema: { type: "object" }, version: 1, http: { url: "https://secret.internal", credential_ref: "secret-ref" } };
-    json(res, req.url?.startsWith("/api/v1/tools?") ? { items: [tool] } : tool);
+    const { id, name, description, risk, version } = tool;
+    json(res, req.url?.startsWith("/api/v1/catalog/tools?") ? { items: [{ id, name, description, risk, version }], total: 1 } : tool);
   });
   try {
     const tools = createGatewayTools(new GatewayClient(server.url, "operator"), local.journal);
@@ -84,6 +85,8 @@ test("only exposes governed tools and hides HTTP configuration from discovery", 
     const found = await call(tools, "search_tools", { query: "status" });
     const schema = await call(tools, "get_tool_schema", { tool_id: "tool1" });
     assert.equal(schema.input_schema.type, "object");
+    assert.equal(found.total, 1);
+    assert(!JSON.stringify(found).includes("input_schema"));
     assert(!JSON.stringify({ found, schema }).includes("secret"));
     assert(tools.every(tool => tool.executionMode === "sequential"));
   } finally { local.close(); await server.close(); }

@@ -19,10 +19,11 @@ info:
     responses currently use HTTP 200. An HTTP 200 response containing an Operation
     does not imply that the downstream action succeeded: inspect its state.
 
-    Tool and operation lists are bounded snapshots, without offset, page or next-page
-    parameters. Event polling provides an exclusive event-ID cursor. These endpoints
-    return JSON, not an SSE stream. Do not assume complete inventory beyond the stated
-    list bounds. Tokens, credentials and raw downstream headers are never returned.
+    Tool registry and discovery use bounded keyset pages with next_cursor and total.
+    Search filters the complete authorized catalog before applying the page size.
+    Operations remain a bounded list; event polling provides an exclusive event-ID
+    cursor. These endpoints return JSON, not SSE. Tokens, credentials and raw
+    downstream headers are never returned.
 servers:
   - url: /
     description: The origin serving the Gateway HTTP API
@@ -60,25 +61,24 @@ paths:
       summary: List visible tools
       description: |
         Admins can see draft, published and disabled tools in their workspace. All
-        other roles can see only published, enabled tools. The server first selects
-        the newest 500 visible tools, ordered by created_at descending then ID
-        descending, and then applies the optional name/description substring filter.
-        Search therefore does not scan tools outside that bounded set.
+        other roles can see only published, enabled tools. PostgreSQL applies the
+        name/description search before paging by created_at descending then ID
+        descending. The default page size is 50. Current visibility is checked on
+        every page; this is not an immutable cross-request snapshot.
       x-required-roles: [admin, operator, approver, viewer]
       parameters:
-        - name: query
-          in: query
-          required: false
-          description: Case-insensitive substring of the name or description; surrounding whitespace is trimmed.
-          schema:
-            type: string
+        - $ref: '#/components/parameters/ToolQuery'
+        - $ref: '#/components/parameters/ToolLimit'
+        - $ref: '#/components/parameters/ToolCursor'
       responses:
         '200':
-          description: At most 500 visible matching tools
+          description: A registry page of at most 50 visible matching tools
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ToolList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -113,6 +113,39 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '409':
           $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/catalog/tools:
+    get:
+      operationId: discoverTools
+      tags: [Tools]
+      summary: Search published tool summaries on demand
+      description: |
+        Every role, including administrators, sees only enabled, published tools
+        in its authenticated workspace. The default page size is 25. Results
+        deliberately exclude schemas, downstream URLs and credential references.
+        Fetch a selected tool by ID to read its contract. Follow next_cursor with
+        the same query and identity to request another page; do not prefetch the
+        complete catalog into a model context. Unknown or repeated query parameters
+        are rejected. SQL wildcard characters are treated literally.
+      x-required-roles: [admin, operator, approver, viewer]
+      parameters:
+        - $ref: '#/components/parameters/ToolQuery'
+        - $ref: '#/components/parameters/ToolLimit'
+        - $ref: '#/components/parameters/ToolCursor'
+      responses:
+        '200':
+          description: A bounded page of authorized summaries
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ToolDiscoveryPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '503':
           $ref: '#/components/responses/Unavailable'
   /api/v1/tools/{id}:
@@ -456,6 +489,36 @@ components:
       scheme: bearer
       description: Expiring cloud personal API key, or a configured development token; never a client-supplied role or workspace assertion.
   parameters:
+    ToolQuery:
+      name: query
+      in: query
+      required: false
+      description: Case-insensitive literal substring of name plus description. Trimmed, at most 200 UTF-8 bytes; percent, underscore and backslash are literal.
+      schema:
+        type: string
+        maxLength: 200
+        x-max-utf8-bytes: 200
+    ToolLimit:
+      name: limit
+      in: query
+      required: false
+      description: Page size; defaults to 50 for registry or 25 for discovery. Explicit zero is invalid.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 50
+    ToolCursor:
+      name: cursor
+      in: query
+      required: false
+      description: |
+        Opaque position returned by the preceding page. Bound to the actor, workspace,
+        current role, query and registry/discovery scope; limit may change. Uses the
+        first request's creation-time upper bound and does not grant access. Start a
+        new search to include later-created tools. Live revocation still applies.
+      schema:
+        type: string
+        maxLength: 2048
     ResourceID:
       name: id
       in: path
@@ -665,13 +728,57 @@ components:
     ToolList:
       type: object
       additionalProperties: false
-      required: [items]
+      required: [items, total]
       properties:
         items:
           type: array
-          maxItems: 500
+          maxItems: 50
           items:
             $ref: '#/components/schemas/Tool'
+        next_cursor:
+          type: string
+          maxLength: 2048
+          description: Omitted or empty on the last page.
+        total:
+          type: integer
+          minimum: 0
+          description: Visible matches inside the creation-time boundary, before the cursor position. Publication or disablement can change this live count.
+    ToolSummary:
+      type: object
+      additionalProperties: false
+      required: [id, name, description, risk, version]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+          maxLength: 512
+          x-max-utf8-bytes: 512
+          description: Discovery excerpt limited to 512 UTF-8 bytes including an ellipsis when truncated. Fetch the tool by ID for the complete description; search still matches its full stored text.
+        risk:
+          $ref: '#/components/schemas/Risk'
+        version:
+          type: integer
+          minimum: 1
+    ToolDiscoveryPage:
+      type: object
+      additionalProperties: false
+      required: [items, total]
+      properties:
+        items:
+          type: array
+          maxItems: 50
+          items:
+            $ref: '#/components/schemas/ToolSummary'
+        next_cursor:
+          type: string
+          maxLength: 2048
+        total:
+          type: integer
+          minimum: 0
     PrepareInput:
       type: object
       additionalProperties: false

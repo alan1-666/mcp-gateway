@@ -2,8 +2,12 @@
 // No model account, provider request or company endpoint is used.
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import { join } from 'node:path';
 import { CloudWorker } from '../apps/agent-runner/src/worker.ts';
 import { WorkerClient } from '../apps/agent-runner/src/worker-client.ts';
+import { GatewayClient } from '../apps/agent-runner/src/client.ts';
+import { createGatewayTools } from '../apps/agent-runner/src/tools.ts';
+import { IntentJournal } from '../apps/agent-runner/src/journal.ts';
 
 let input = '';
 for await (const chunk of process.stdin) input += chunk;
@@ -36,8 +40,39 @@ const runPath = run => `/runs/${run.id}`;
 // Actual Go auth, queue, worker client, operation binding, HTTP adapter and events.
 execute = async ctx => {
   ctx.emit('MODEL_STARTED', { provider: 'test' });
-  const tools = await ctx.gateway.search('integration_read');
-  assert.equal(tools.length, 1);
+  const local = new GatewayClient(config.baseURL, config.token);
+  // Max-sized escaped descriptions still fit the production clients' 256 KiB limit.
+  const boundedLocal = await local.search('filler_', undefined, { limit: 50 });
+  const boundedCloud = await ctx.gateway.search('filler_', undefined, { limit: 50 });
+  assert.deepEqual(boundedLocal.items, boundedCloud.items);
+  assert.equal(boundedCloud.items.length, 50); assert.equal(boundedCloud.total, 510);
+  assert.ok(boundedCloud.items.every(tool => Buffer.byteLength(tool.description, 'utf8') <= 512));
+  const localFirst = await local.search('integration_', undefined, { limit: 1 });
+  assert.equal(localFirst.total, 2); assert.equal(localFirst.items.length, 1);
+  assert.ok(localFirst.next_cursor);
+  const localLast = await local.search('integration_', undefined, { limit: 1, cursor: localFirst.next_cursor });
+  assert.equal(localLast.total, 2); assert.equal(localLast.items.length, 1); assert.ok(!localLast.next_cursor);
+  const journal = new IntentJournal(join(ctx.store.directory, 'discovery-intents'), ctx.run.id, 'discovery-session');
+  try {
+    const tools = createGatewayTools(ctx.gateway, journal);
+    const invoke = async (name, args) => {
+      const result = await tools.find(tool => tool.name === name).execute('discovery', args, ctx.signal, undefined, {});
+      assert.equal(result.content[0].type, 'text');
+      return JSON.parse(result.content[0].text);
+    };
+    const first = await invoke('search_tools', { query: 'integration_', limit: 1 });
+    assert.deepEqual(first.items, localFirst.items); assert.equal(first.total, 2); assert.ok(first.next_cursor);
+    const last = await invoke('search_tools', { query: 'integration_', limit: 1, cursor: first.next_cursor });
+    assert.deepEqual(last.items, localLast.items); assert.equal(last.total, 2); assert.ok(!last.next_cursor);
+    const discovered = [...first.items, ...last.items];
+    assert.deepEqual(new Set(discovered.map(tool => tool.id)), new Set([config.readToolID, config.writeToolID]));
+    for (const tool of discovered) assert.deepEqual(Object.keys(tool).sort(), ['description', 'id', 'name', 'risk', 'version']);
+    const selected = await invoke('get_tool_schema', { tool_id: config.readToolID });
+    assert.equal(selected.input_schema.type, 'object');
+    assert.deepEqual(journal.list(), []);
+  } finally { journal.close(); }
+  const selectedPage = await ctx.gateway.search('integration_read');
+  assert.equal(selectedPage.items.length, 1); assert.equal(selectedPage.total, 1);
   const op = await ctx.gateway.prepare(config.readToolID, {}, 'read-status');
   assert.equal(op.state, 'READY');
   assert.equal((await ctx.gateway.execute(op.id)).state, 'SUCCEEDED');
@@ -105,4 +140,4 @@ const cancelled = await create('Cancel before tool dispatch');
 await worker.runOnce();
 assert.equal((await call(runPath(cancelled))).state, 'CANCELLED');
 assert.equal(await worker.runOnce(), false);
-console.log('Cloud worker integration passed: real PostgreSQL + Go HTTP + Node worker; success, approval/resume, credentials gate, cancellation.');
+console.log('Cloud worker integration passed: real PostgreSQL + Go HTTP + Node worker; paginated REST/leased/Pi discovery, success, approval/resume, credentials gate, cancellation; no model request.');

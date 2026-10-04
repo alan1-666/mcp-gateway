@@ -120,6 +120,7 @@ type Event struct {
 type Repository interface {
 	CreateTool(context.Context, Actor, ToolInput) (Tool, error)
 	ListTools(context.Context, Actor) ([]Tool, error)
+	SearchTools(context.Context, Actor, ToolSearchInput, ToolVisibilityScope) (ToolPage, error)
 	GetTool(context.Context, Actor, string) (Tool, error)
 	PublishTool(context.Context, Actor, string) (Tool, error)
 	SetToolEnabled(context.Context, Actor, string, bool) (Tool, error)

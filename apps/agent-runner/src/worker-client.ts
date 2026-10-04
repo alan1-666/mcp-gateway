@@ -1,4 +1,4 @@
-import { GatewayError, validateArgumentNumbers, type GatewayAPI, type JsonObject, type Operation, type Tool } from "./client.js";
+import { GatewayError, toolSearchParams, validateArgumentNumbers, validateToolDiscoveryPage, type GatewayAPI, type JsonObject, type Operation, type Tool } from "./client.js";
 
 export type CloudRun = { id: string; workspace_id: string; actor_id: string; prompt: string; state: string; attempt: number; output?: string; error_code?: string; waiting_operation_id?: string };
 export type Lease = { run: CloudRun; lease_token: string; lease_expires_at: string };
@@ -80,10 +80,9 @@ export class WorkerClient implements WorkerAPI {
       catch (error) { if (error instanceof LeaseLostError) onLeaseLost?.(); throw error; }
     };
     return {
-      search: async (query, toolSignal) => {
-        const response = await request<{ items: Tool[] }>(`/tools?query=${encodeURIComponent(query)}`, undefined, toolSignal);
-        if (!Array.isArray(response.items)) throw new WorkerError("INVALID_RUNNER_RESPONSE");
-        return response.items;
+      search: async (query, toolSignal, options) => {
+        const { parameters, limit } = toolSearchParams(query, options);
+        return validateToolDiscoveryPage(await request<unknown>(`/tools?${parameters}`, undefined, toolSignal), limit, () => new WorkerError("INVALID_RUNNER_RESPONSE"));
       },
       tool: (id, toolSignal) => request<Tool>(`/tools/${encodeURIComponent(id)}`, undefined, toolSignal),
       prepare: (id, args, key, toolSignal) => { validateArgumentNumbers(args); return request<Operation>("/operations", { tool_id: id, arguments: args, idempotency_key: key }, toolSignal); },

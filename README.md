@@ -28,7 +28,7 @@ For source development, downstream configuration and verification, see the [deve
 - Sign in, invite teammates, manage member access, revoke API keys and inspect account activity.
 
 - Register and publish HTTP tools with validated JSON Schemas.
-- Discover and invoke tools through an authenticated MCP endpoint.
+- Search the complete authorized tool catalog with bounded cursor pages; load schemas on demand and invoke tools through an authenticated MCP endpoint.
 - Prepare fixed actions, approve writes independently and reject duplicate dispatches.
 - Inspect durable PostgreSQL operation records and event history in the console.
 - Preserve ambiguous writes as `UNKNOWN` instead of automatically sending them again.
@@ -53,7 +53,7 @@ The platform serves two types of users:
 | Area | Scope |
 | --- | --- |
 | Tool integration | Import OpenAPI definitions and Protobuf descriptors; connect remote MCP servers and isolated local stdio servers. |
-| Tool discovery | Search an authorized catalog and load detailed schemas only when needed. |
+| Tool discovery | Add semantic ranking and service/environment filters to the existing paginated lexical catalog. |
 | Access governance | Enforce organization, workspace, environment, tool, resource, and field permissions. |
 | Configuration lifecycle | Review changes, publish immutable versions, track rollout, and roll back configurations. |
 | Reliable execution | Persist operation intent, apply idempotency where supported, and reconcile uncertain outcomes. |

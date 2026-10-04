@@ -25,6 +25,7 @@ func (a *API) Handler(auth *identity.Auth) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/v1/me", func(w http.ResponseWriter, r *http.Request) { respond(w, identity.Actor(r.Context()), nil) })
 	mux.HandleFunc("GET /api/v1/tools", a.listTools)
+	mux.HandleFunc("GET /api/v1/catalog/tools", a.discoverTools)
 	mux.HandleFunc("POST /api/v1/tools", a.createTool)
 	mux.HandleFunc("GET /api/v1/tools/{id}", func(w http.ResponseWriter, r *http.Request) {
 		result, err := a.Service.GetTool(r.Context(), identity.Actor(r.Context()), r.PathValue("id"))
@@ -113,19 +114,22 @@ func (a *API) Handler(auth *identity.Auth) http.Handler {
 }
 
 func (a *API) listTools(w http.ResponseWriter, r *http.Request) {
-	tools, err := a.Service.ListTools(r.Context(), identity.Actor(r.Context()))
+	input, err := ParseToolSearch(r.URL.RawQuery)
 	if err != nil {
 		respond(w, nil, err)
 		return
 	}
-	items := []core.Tool{}
-	query := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("query")))
-	for _, t := range tools {
-		if query == "" || strings.Contains(strings.ToLower(t.Name+" "+t.Description), query) {
-			items = append(items, t)
-		}
+	page, err := a.Service.SearchTools(r.Context(), identity.Actor(r.Context()), input)
+	respond(w, page, err)
+}
+func (a *API) discoverTools(w http.ResponseWriter, r *http.Request) {
+	input, err := ParseToolSearch(r.URL.RawQuery)
+	if err != nil {
+		respond(w, nil, err)
+		return
 	}
-	respond(w, map[string]any{"items": items}, nil)
+	page, err := a.Service.DiscoverTools(r.Context(), identity.Actor(r.Context()), input)
+	respond(w, page, err)
 }
 func (a *API) createTool(w http.ResponseWriter, r *http.Request) {
 	var input core.ToolInput

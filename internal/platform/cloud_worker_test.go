@@ -110,6 +110,14 @@ func TestCloudWorkerIntegration(t *testing.T) {
 		}
 		toolIDs[string(risk)] = tool.ID
 	}
+	// Older relevant tools must remain discoverable beyond the old 500-row cap.
+	definition, _ := json.Marshal(core.ToolInput{Name: "fixture", Description: strings.Repeat("<>&\x01", 1000), Risk: core.RiskRead,
+		InputSchema: json.RawMessage(`{"type":"object","additionalProperties":false}`), HTTP: core.HTTPConfig{URL: downstream.URL, Method: "GET", TimeoutMS: 2000}})
+	if _, err = pool.Exec(ctx, `INSERT INTO tools(workspace_id,id,name,risk,status,enabled,definition)
+		SELECT $1,md5($1 || n::text)::uuid::text,'filler_' || n::text,'read','published',true,$2::jsonb
+		FROM generate_series(1,510) n`, workspace, definition); err != nil {
+		t.Fatal(err)
+	}
 	auth, err := identity.NewCloud(ctx, pool, "https://integration.example", "")
 	if err != nil {
 		t.Fatal(err)
