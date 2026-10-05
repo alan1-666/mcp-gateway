@@ -8,6 +8,7 @@ import "@fontsource/dm-sans/latin-700.css";
 import "@fontsource/ibm-plex-mono/latin-400.css";
 import "@fontsource/ibm-plex-mono/latin-500.css";
 import "./styles.css";
+import "./workspace.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

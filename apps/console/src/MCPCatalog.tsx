@@ -33,25 +33,31 @@ export function CatalogSummary({ review }: { review: CatalogReview }) {
 }
 
 export function CatalogHistory({
+  expanded = false,
   api,
   serverID,
   revision,
 }: {
+  expanded?: boolean;
   api: APIClient;
   serverID: string;
   revision: string;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(expanded);
   return (
     <section className="admin-subsection">
-      <button
-        type="button"
-        className="text-button"
-        aria-expanded={open}
-        onClick={() => setOpen(!open)}
-      >
-        {open ? "Hide catalog history" : "Open catalog history"}
-      </button>
+      {expanded ? (
+        <h3>Catalog history</h3>
+      ) : (
+        <button
+          type="button"
+          className="text-button"
+          aria-expanded={open}
+          onClick={() => setOpen(!open)}
+        >
+          {open ? "Hide catalog history" : "Open catalog history"}
+        </button>
+      )}
       {open ? (
         <History api={api} serverID={serverID} revision={revision} />
       ) : null}
@@ -162,8 +168,8 @@ export function CatalogRefresh({
     <section className="mcp-tool-review catalog-refresh">
       <div className="panel-heading">
         <div>
-          <span className="eyebrow">UPSTREAM CHANGE</span>
-          <h3>{catalogLabels[entry.status]}</h3>
+          <span className="eyebrow">{catalogLabels[entry.status]}</span>
+          <h3>{entry.name}</h3>
         </div>
         <span className="version-label">
           Registered v{entry.imported_version}

@@ -1,3 +1,4 @@
+import { SectionTabs } from "./SectionTabs";
 import { Clients } from "./Clients";
 import { Credentials } from "./Credentials";
 import { Capacity } from "./Capacity";
@@ -101,7 +102,7 @@ const pageCopy: Record<Page, { title: string; description: string }> = {
     description: "Manage access, invitations, and personal credentials.",
   },
   overview: {
-    title: "Your tools. Under control.",
+    title: "Overview",
     description: "A clear view of the tools and operations in your workspace.",
   },
   tools: {
@@ -229,7 +230,7 @@ function Brand() {
         </svg>
       </span>
       <div>
-        MCP Gateway<span>CONTROL WORKSPACE</span>
+        MCP Gateway<span>Team workspace</span>
       </div>
     </div>
   );
@@ -497,6 +498,16 @@ function Workspace({
   username,
 }: Session & { onLogout: () => void; onSignedOut: () => void }) {
   const [page, setPage] = useState<Page>("overview");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuButton = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    const desktop = window.matchMedia("(min-width: 641px)");
+    const closeOnDesktop = () => {
+      if (desktop.matches) setMenuOpen(false);
+    };
+    desktop.addEventListener("change", closeOnDesktop);
+    return () => desktop.removeEventListener("change", closeOnDesktop);
+  }, []);
   const [availableTools, setAvailableTools] = useState(0);
   const [registryTotal, setRegistryTotal] = useState(0);
   const [operations, setOperations] = useState<Operation[]>([]);
@@ -515,6 +526,7 @@ function Workspace({
   );
   const [invokeTool, setInvokeTool] = useState("");
   const [registryTool, setRegistryTool] = useState("");
+  const [registrySection, setRegistrySection] = useState("contract");
   const [runRefreshVersion, setRunRefreshVersion] = useState(0);
   const [mcpRefreshVersion, setMCPRefreshVersion] = useState(0);
   const requestController = useRef<AbortController | null>(null);
@@ -604,9 +616,12 @@ function Workspace({
     setPage("operations");
   }
   function navigate(nextPage: Page) {
+    if (menuOpen) menuButton.current?.focus();
+    setMenuOpen(false);
     setPage(nextPage);
     setSelectedOperation(null);
     setRegistryTool("");
+    setRegistrySection("contract");
   }
   function startInvocation(toolId = "") {
     setInvokeTool(toolId);
@@ -615,11 +630,33 @@ function Workspace({
   }
 
   return (
-    <div className="app-shell">
+    <div
+      className="app-shell"
+      onKeyDown={(event) => {
+        if (menuOpen && event.key === "Escape") {
+          setMenuOpen(false);
+          menuButton.current?.focus();
+        }
+      }}
+    >
       <a className="skip-link" href="#main-content">
         Skip to content
       </a>
-      <aside className="sidebar">
+      <button
+        className="icon-button mobile-menu"
+        type="button"
+        aria-label="Toggle navigation"
+        aria-expanded={menuOpen}
+        aria-controls="workspace-navigation"
+        ref={menuButton}
+        onClick={() => setMenuOpen(!menuOpen)}
+      >
+        <Icon name={menuOpen ? "close" : "operations"} />
+      </button>
+      <aside
+        id="workspace-navigation"
+        className={`sidebar ${menuOpen ? "mobile-open" : ""}`}
+      >
         <Brand />
         <div className="workspace-label">
           <span className="workspace-avatar">W</span>
@@ -630,59 +667,69 @@ function Workspace({
             </strong>
           </div>
         </div>
-        <span className="nav-group-label">CONTROL CENTER</span>
         <nav aria-label="Main navigation">
           {[
-            navigation[0],
-            ...(cloud
-              ? [{ id: "runs" as Page, label: "Agent tasks", icon: "agent" }]
-              : []),
-            ...navigation.slice(1),
-            ...(cloud
-              ? [
-                  {
-                    id: "account" as Page,
-                    label: "Team & account",
-                    icon: "approvals",
-                  },
-                ]
-              : []),
-          ]
-            .filter(
-              (item) =>
-                (item.id !== "invoke" || canInvoke) &&
-                (!["credentials", "clients", "audit", "capacity"].includes(
-                  item.id,
-                ) ||
-                  (canManage && !identity.client_id)),
-            )
-            .filter(
-              (item) => item.id !== "mcp" || canManageMCPServers(identity),
-            )
-            .map((item) => (
-              <button
-                key={item.id}
-                className={`nav-item ${page === item.id ? "active" : ""}`}
-                onClick={() => navigate(item.id)}
-                aria-current={page === item.id ? "page" : undefined}
-              >
-                <Icon name={item.icon} />
-                <span>{item.label}</span>
-                {item.id === "approvals" && pendingTotal > 0 ? (
-                  <span className="nav-count">{pendingTotal}</span>
-                ) : null}
-              </button>
-            ))}
+            {
+              label: "Gateway",
+              pages: ["overview", "mcp", "tools", "clients"],
+            },
+            {
+              label: "Activity",
+              pages: [
+                "operations",
+                "approvals",
+                ...(cloud ? ["runs"] : []),
+                "audit",
+              ],
+            },
+            {
+              label: "Manage",
+              pages: ["credentials", "capacity", ...(cloud ? ["account"] : [])],
+            },
+          ].map((group) => {
+            const items = group.pages
+              .map(
+                (id) =>
+                  [
+                    ...navigation,
+                    { id: "runs" as Page, label: "Agent tasks", icon: "agent" },
+                    {
+                      id: "account" as Page,
+                      label: "Team & account",
+                      icon: "approvals",
+                    },
+                  ].find((item) => item.id === id)!,
+              )
+              .filter(
+                (item) =>
+                  (!["credentials", "clients", "audit", "capacity"].includes(
+                    item.id,
+                  ) ||
+                    (canManage && !identity.client_id)) &&
+                  (item.id !== "mcp" || canManageMCPServers(identity)),
+              );
+            return items.length ? (
+              <div className="nav-group" key={group.label}>
+                <span className="nav-group-label">{group.label}</span>
+                {items.map((item) => (
+                  <button
+                    key={item.id}
+                    className={`nav-item ${page === item.id ? "active" : ""}`}
+                    onClick={() => navigate(item.id)}
+                    aria-current={page === item.id ? "page" : undefined}
+                  >
+                    <Icon name={item.icon} />
+                    <span>{item.label}</span>
+                    {item.id === "approvals" && pendingTotal > 0 ? (
+                      <span className="nav-count">{pendingTotal}</span>
+                    ) : null}
+                  </button>
+                ))}
+              </div>
+            ) : null;
+          })}
         </nav>
         <div className="sidebar-bottom">
-          <div className="sidebar-principle">
-            <Icon name="approvals" />
-            <span>
-              Explicit permission.
-              <br />
-              Accountable execution.
-            </span>
-          </div>
           <div className="identity">
             <span className="identity-avatar">
               {identity.id.slice(0, 1).toUpperCase()}
@@ -705,7 +752,13 @@ function Workspace({
       <div className="workspace-main">
         <header className="topbar">
           <div className="breadcrumb">
-            Workspace<span>/</span>
+            <span
+              className="breadcrumb-workspace"
+              title={identity.workspace_id}
+            >
+              {identity.workspace_id}
+            </span>
+            <span>/</span>
             <strong>
               {page === "account"
                 ? "Team & account"
@@ -717,15 +770,19 @@ function Workspace({
           <div className="topbar-end">
             <span className="workspace-status">
               <span className="connection-dot" />
-              Authenticated
+              Connected
             </span>
             <span className="role-tag">{identity.role}</span>
           </div>
         </header>
-        <main id="main-content" className="content" tabIndex={-1}>
+        <main
+          id="main-content"
+          className="content"
+          tabIndex={-1}
+          inert={menuOpen}
+        >
           <div className="page-heading">
             <div>
-              <span className="eyebrow">MCP GATEWAY</span>
               <h1>{pageCopy[page].title}</h1>
               <p>{pageCopy[page].description}</p>
             </div>
@@ -815,6 +872,7 @@ function Workspace({
               {page === "tools" ? (
                 <Registry
                   initialSelectedId={registryTool}
+                  initialSection={registrySection}
                   canInvoke={canInvoke}
                   api={api}
                   refreshVersion={updated}
@@ -829,7 +887,8 @@ function Workspace({
                   identity={identity}
                   refreshVersion={String(mcpRefreshVersion)}
                   onImported={() => void refresh()}
-                  onRegistry={(id) => {
+                  onRegistry={(id, section = "contract") => {
+                    setRegistrySection(section);
                     setRegistryTool(id);
                     setSelectedOperation(null);
                     setPage("tools");
@@ -1019,31 +1078,28 @@ function Overview({
           another action.
         </Notice>
       ) : null}
-      <section className="workspace-banner">
+      <div className="overview-shortcuts" aria-label="Quick actions">
         <div>
-          <span className="eyebrow">FROM CONTRACT TO OUTCOME</span>
-          <h2>Give every tool call a clear path.</h2>
-          <p>
-            Register a tool, publish its contract, then prepare a tracked
-            invocation.
-          </p>
+          <strong>Work with your tools</strong>
+          <span>Explore the catalog or follow a call through the gateway.</span>
         </div>
         <button
-          className="button primary"
-          onClick={
-            published && canInvoke ? onInvoke : () => onNavigate("tools")
-          }
+          className="button secondary"
+          onClick={() => onNavigate("tools")}
         >
-          {published && canInvoke
-            ? "Prepare an invocation"
-            : "Open tool registry"}
-          <Icon name="arrow" />
+          Browse tools
+          <Icon name="tools" size={16} />
         </button>
-      </section>
+        {canInvoke ? (
+          <button className="button primary" onClick={onInvoke}>
+            New invocation
+            <Icon name="plus" size={16} />
+          </button>
+        ) : null}
+      </div>
       <div className="section-heading">
         <div>
           <h2>Recent operations</h2>
-          <p>The latest entries in your loaded workspace history.</p>
         </div>
         <button
           className="text-button"
@@ -1063,25 +1119,6 @@ function Overview({
           </Empty>
         }
       />
-      <div className="principles-grid">
-        <div>
-          <span className="step-index">01</span>
-          <h3>A published contract</h3>
-          <p>
-            Each tool declares its inputs, destination, and risk before use.
-          </p>
-        </div>
-        <div>
-          <span className="step-index">02</span>
-          <h3>A deliberate action</h3>
-          <p>Write operations wait for approval tied to the exact request.</p>
-        </div>
-        <div>
-          <span className="step-index">03</span>
-          <h3>An inspectable outcome</h3>
-          <p>Arguments, state changes, and results stay with the operation.</p>
-        </div>
-      </div>
     </>
   );
 }
@@ -1147,18 +1184,13 @@ function ToolPagination<T extends { id: string }>({
           <span className="muted">End of results</span>
         ) : null}
       </div>
-      {state.loaded ? (
-        <p>
-          Counts reflect visible matches reported by the server. Refresh starts
-          a new search and includes newly created tools.
-        </p>
-      ) : null}
     </div>
   );
 }
 
 function Registry({
   initialSelectedId,
+  initialSection,
   canInvoke,
   api,
   refreshVersion,
@@ -1167,6 +1199,7 @@ function Registry({
   onInvoke,
 }: {
   initialSelectedId: string;
+  initialSection: string;
   canInvoke: boolean;
   api: APIClient;
   refreshVersion: string;
@@ -1175,6 +1208,10 @@ function Registry({
   onInvoke: (id: string) => void;
 }) {
   const [showForm, setShowForm] = useState(false);
+  const [detailTab, setDetailTab] = useState({
+    id: initialSelectedId,
+    value: initialSection,
+  });
   const [selectedId, setSelectedId] = useState<string | null>(
     initialSelectedId || null,
   );
@@ -1206,7 +1243,7 @@ function Registry({
   }
   return (
     <>
-      <div className="toolbar">
+      <div className="toolbar" hidden={!!selectedId}>
         <div className="search-field">
           <Icon name="search" />
           <input
@@ -1235,7 +1272,7 @@ function Registry({
         )}
       </div>
       {error ? <Notice>{error}</Notice> : null}
-      {showForm ? (
+      {showForm && !selectedId ? (
         <ToolForm
           api={api}
           onCancel={() => setShowForm(false)}
@@ -1246,7 +1283,7 @@ function Registry({
           }}
         />
       ) : null}
-      <div className="panel">
+      <div className="panel registry-list" hidden={!!selectedId}>
         <div className="panel-heading">
           <h2>
             Registered tools{" "}
@@ -1279,7 +1316,7 @@ function Registry({
                         className="table-link"
                         onClick={() => setSelectedId(tool.id)}
                       >
-                        {tool.name}
+                        {tool.mcp?.tool_name ?? tool.name}
                       </button>
                       <span className="table-description">
                         {tool.description || "No description provided"}
@@ -1292,7 +1329,7 @@ function Registry({
                       <span className="version-label">v{tool.version}</span>
                       {tool.mcp ? (
                         <span className="table-description mono">
-                          {tool.mcp.tool_name}
+                          {tool.name}
                         </span>
                       ) : null}
                     </td>
@@ -1344,6 +1381,14 @@ function Registry({
         ) : null}
         <ToolPagination {...search} />
       </div>
+      {selectedId ? (
+        <button
+          className="text-button detail-back"
+          onClick={() => setSelectedId(null)}
+        >
+          ← All tools
+        </button>
+      ) : null}
       {selectedId && !selected ? (
         <section className="panel detail-panel">
           <div className="panel-heading">
@@ -1376,100 +1421,152 @@ function Registry({
         </section>
       ) : null}
       {selected ? (
-        <section className="panel detail-panel">
-          <div className="panel-heading">
+        <>
+          <div className="tool-detail-header">
             <div>
-              <span className="eyebrow">TOOL CONTRACT</span>
-              <h2>{selected.name}</h2>
-            </div>
-            <button
-              className="icon-button"
-              aria-label="Close tool details"
-              onClick={() => setSelectedId(null)}
-            >
-              <Icon name="close" />
-            </button>
-          </div>
-          <div className="panel-body">
-            <p>{selected.description}</p>
-            <dl className="metadata-grid">
-              <div>
-                <dt>Tool ID</dt>
-                <dd className="mono">{selected.id}</dd>
-              </div>
-              <div>
-                <dt>Version</dt>
-                <dd>v{selected.version}</dd>
-              </div>
-              <ToolConnection tool={selected} />
-            </dl>
-            <ToolResponsePolicy tool={selected} />
-            <JsonBlock label="Input schema" value={selected.input_schema} />
-            {selected.output_schema ? (
-              <JsonBlock label="Output schema" value={selected.output_schema} />
-            ) : null}
-            <div className="action-row">
-              {canManage && selected.status === "draft" ? (
-                <button
-                  className="button primary"
-                  disabled={!!busy}
-                  onClick={() => void changeTool(selected, "publish")}
-                >
-                  {busy ? "Publishing…" : "Publish tool"}
-                </button>
-              ) : null}
-              {canManage && selected.status === "published" ? (
-                <button
-                  className="button secondary"
-                  disabled={!!busy}
-                  onClick={() => void changeTool(selected, "enabled")}
-                >
-                  {busy
-                    ? "Updating…"
-                    : selected.enabled
-                      ? "Disable tool"
-                      : "Enable tool"}
-                </button>
-              ) : null}
-              {canInvoke &&
-              selected.status === "published" &&
-              selected.enabled ? (
-                <button
-                  className="button primary"
-                  onClick={() => onInvoke(selected.id)}
-                >
-                  Prepare invocation
-                  <Icon name="arrow" />
-                </button>
+              <span className="eyebrow">
+                {selected.mcp ? "MCP tool" : "HTTP tool"} · v{selected.version}
+              </span>
+              <h2>{selected.mcp?.tool_name ?? selected.name}</h2>
+              {selected.mcp ? (
+                <p className="tool-gateway-name mono">{selected.name}</p>
               ) : null}
             </div>
+            <div className="tool-detail-tags">
+              <Status state={selected.risk} />
+              <Status
+                state={
+                  selected.status === "published" && !selected.enabled
+                    ? "disabled"
+                    : selected.status
+                }
+              />
+            </div>
           </div>
-        </section>
-      ) : null}
-      {selected && canManage ? (
-        <ToolVersions
-          key={`${selected.id}:${selected.version}`}
-          api={api}
-          tool={selected}
-          onChanged={async () => {
-            details.reload();
-            await Promise.all([search.controller.reload(), onRefresh()]);
-          }}
-        />
-      ) : null}
-      {selectedId && canManage && selected?.status !== "retired" ? (
-        <ResponsePolicyEditor
-          key={selectedId}
-          api={api}
-          toolID={selectedId}
-          tool={selected}
-          canManage={canManage}
-          loading={details.loading || !!busy}
-          onChanged={async () => {
-            details.reload();
-            await Promise.all([search.controller.reload(), onRefresh()]);
-          }}
-        />
+          <SectionTabs
+            key={selected.id}
+            label="Tool details"
+            value={detailTab.id === selected.id ? detailTab.value : "contract"}
+            onChange={(value) => setDetailTab({ id: selected.id, value })}
+            tabs={[
+              {
+                id: "contract",
+                label: "Contract",
+                content: (
+                  <section className="panel detail-panel">
+                    <div className="panel-body">
+                      <p>{selected.description}</p>
+                      <dl className="metadata-grid">
+                        <div>
+                          <dt>Tool ID</dt>
+                          <dd className="mono">{selected.id}</dd>
+                        </div>
+                        <div>
+                          <dt>Version</dt>
+                          <dd>v{selected.version}</dd>
+                        </div>
+                        <ToolConnection tool={selected} />
+                      </dl>
+                      <ToolResponsePolicy tool={selected} />
+                      <JsonBlock
+                        label="Input schema"
+                        value={selected.input_schema}
+                      />
+                      {selected.output_schema ? (
+                        <JsonBlock
+                          label="Output schema"
+                          value={selected.output_schema}
+                        />
+                      ) : null}
+                      <div className="action-row">
+                        {canManage && selected.status === "draft" ? (
+                          <button
+                            className="button primary"
+                            disabled={!!busy}
+                            onClick={() => void changeTool(selected, "publish")}
+                          >
+                            {busy ? "Publishing…" : "Publish tool"}
+                          </button>
+                        ) : null}
+                        {canManage && selected.status === "published" ? (
+                          <button
+                            className="button secondary"
+                            disabled={!!busy}
+                            onClick={() => void changeTool(selected, "enabled")}
+                          >
+                            {busy
+                              ? "Updating…"
+                              : selected.enabled
+                                ? "Disable tool"
+                                : "Enable tool"}
+                          </button>
+                        ) : null}
+                        {canInvoke &&
+                        selected.status === "published" &&
+                        selected.enabled ? (
+                          <button
+                            className="button primary"
+                            onClick={() => onInvoke(selected.id)}
+                          >
+                            Prepare invocation
+                            <Icon name="arrow" />
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+                  </section>
+                ),
+              },
+              ...(canManage
+                ? [
+                    {
+                      id: "versions",
+                      label: "Versions & changes",
+                      content: (
+                        <ToolVersions
+                          key={`${selected.id}:${selected.version}`}
+                          api={api}
+                          tool={selected}
+                          onChanged={async () => {
+                            details.reload();
+                            await Promise.all([
+                              search.controller.reload(),
+                              onRefresh(),
+                            ]);
+                          }}
+                        />
+                      ),
+                    },
+                  ]
+                : []),
+              ...(canManage && selected.mcp && selected.status !== "retired"
+                ? [
+                    {
+                      id: "response",
+                      label: "Response policy",
+                      content: (
+                        <ResponsePolicyEditor
+                          key={selectedId}
+                          api={api}
+                          toolID={selected.id}
+                          tool={selected}
+                          canManage={canManage}
+                          loading={details.loading || !!busy}
+                          onChanged={async () => {
+                            details.reload();
+                            await Promise.all([
+                              search.controller.reload(),
+                              onRefresh(),
+                            ]);
+                          }}
+                        />
+                      ),
+                    },
+                  ]
+                : []),
+            ]}
+          />
+        </>
       ) : null}
     </>
   );
