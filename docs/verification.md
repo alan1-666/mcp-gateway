@@ -120,7 +120,7 @@ Preview counts are normalized supported-envelope bytes, not raw network size or 
 
 ## Team Gateway governance and recovery packages — 2026-10-05
 
-**Source and isolated-test acceptance; new cloud rollout and exact-commit remote CI are pending.** The five packages add managed credentials/diagnostics, machine clients, reviewed tool releases, operational evidence and capacity/recovery controls. Historical cloud releases above retain their original scope and are not evidence that these additions are already deployed.
+**Source, isolated tests, feature/merge CI, cloud deployment and bounded cloud smoke checks passed. Remaining external and broader operational acceptance are tracked below.** The five packages add managed credentials/diagnostics, machine clients, reviewed tool releases, operational evidence and capacity/recovery controls. Historical cloud releases above retain their original scope; the cloud.8 evidence below records deployment of these additions.
 
 | Check | Outcome |
 | --- | --- |
@@ -132,7 +132,7 @@ Preview counts are normalized supported-envelope bytes, not raw network size or 
 | Capacity | Workspace/client/upstream admission bounds, explicit rejection semantics, isolation, terminal aggregates and generic failure HTTP 503 handling passed |
 | Console and runner | 62 console tests and 31 Pi runner tests passed, including the added error-code mapping cases; type checks and console production build passed |
 | Python delivery/recovery tools | All 39 tests passed, including release manifest/image/schema checks, rollback/metadata transition handling, encrypted backup validation, collector/webhook behavior and eight independent-operations installer cases. Shell syntax and diff checks passed |
-| Independent operations bundle | Actual repository scripts installed into a temporary base; installed release `--help`, repeated-install no-op and restore passed. Tests also exercised installed `Host.backup` dynamic import plus GPG bundle validation, retained/legacy bundles, damaged-current recovery, locking/interruption and exclusion of secrets/configuration. No cloud or systemd mutation was performed |
+| Independent operations bundle | Actual repository scripts installed into a temporary base; installed release `--help`, repeated-install no-op and restore passed. Tests also exercised installed `Host.backup` dynamic import plus GPG bundle validation, retained/legacy bundles, damaged-current recovery, locking/interruption and exclusion of secrets/configuration. This local installer test performed no cloud or systemd mutation |
 | Collector database integration | Fixed read-only bounded collector SQL executed successfully against a dedicated PostgreSQL database, including unresolved UNKNOWN/evidence handling |
 | Isolated browser: connections | Wrong credential → failed check → rotate → successful check and persisted check history passed using controlled fixtures |
 | Isolated browser: clients | Default-deny behavior, one-time key display and key clearing passed |
@@ -143,17 +143,33 @@ Preview counts are normalized supported-envelope bytes, not raw network size or 
 | Isolated browser: layout and logs | Audit and capacity views had no horizontal overflow at 390px; no console errors |
 | Actual-host encrypted recovery | An encrypted snapshot from the existing cloud database through migration 005 restored successfully into an isolated PostgreSQL container with no network. Receipt: `/opt/mcp-gateway/backups/pre-team-controls-restore.json`. This verifies the old cloud snapshot, not a backup containing the new 006–010 tables |
 | API contract | Strict YAML duplicate-key check, 462 resolved local references, 44 unique operation IDs and all new handler route/path-parameter coverage passed |
+| Feature-commit remote CI | Commit `05d1706780ce7f5c8a085a8801eb144be15c9631` passed all four push/PR checks (Verify and release-tooling) across [run 37277646150](https://github.com/alan1-666/mcp-gateway/actions/runs/37277646150) and [run 37277682573](https://github.com/alan1-666/mcp-gateway/actions/runs/37277682573) |
+| Merge/main CI | [PR 2](https://github.com/alan1-666/mcp-gateway/pull/2) merged as `da74dc4518c32cc9528667227274863f8967e368`; [main run 37277904657](https://github.com/alan1-666/mcp-gateway/actions/runs/37277904657) passed |
 
-### Pending acceptance evidence
+### Cloud.8 deployment and acceptance — 2026-10-05
+
+| Check | Outcome |
+| --- | --- |
+| Application release | `20261005-cloud.8` completed checked deployment from source commit `05d1706780ce7f5c8a085a8801eb144be15c9631`. This is the feature commit, not merge commit `da74dc4518c32cc9528667227274863f8967e368`. Ten migrations are applied; current symlink, environment release ID and running image identities agree |
+| Public management APIs | Eight new authenticated GET endpoints responded successfully. Microsoft Learn connection check ID `1` returned `status:ok`; the cloud check-history view showed stage `complete` and 1216 ms |
+| Live governed MCP call | Operation `c0189b7f-4854-4801-8d1a-ddd55c8b9071` reached `SUCCEEDED` against Microsoft Learn and returned 10 entries containing only `title` and `contentUrl`. Repeated prepare/execute returned the recorded operation/result with one dispatch |
+| Capacity metrics | Recorded one successful call with `duration_ms_total:1860` and zero active leases. This is one observed call, not a latency/SLO benchmark |
+| Cloud console | Existing owner session cookie remained valid. Credentials and clients displayed their real empty states, audit displayed 11 records, capacity displayed real aggregates and the existing tool version v2 loaded; no browser console errors were observed |
+| Cloud Pi continuity | Browser runtime showed ready with `openai / gpt-5.5` and a current worker heartbeat (15:35 as displayed). This verifies retained configuration/runtime continuity, not a new model inference or full model-driven task |
+| Independent operations installation | Bundle `20261005T073115330026Z-46a0c1485e45` is installed outside the application current pointer. Backup and monitor timers are active |
+| Scheduled backup and post-upgrade restore | Actual backup service succeeded. `/opt/mcp-gateway/backups/last-restore.json` records `2026-10-05T07:32:15.854240Z`, 10 migrations and 5 operations from a network-isolated PostgreSQL restore. Snapshot SHA-256: `5da937ec93983e7de00b07ef999c3b3364b0c10fd3603422921420b58821d4c4` |
+| Collector signal | Real collector reported only `offhost_backup_missing`; delivery remained `local_only` with no external send. The missing off-host condition remained visible with `sent:false` |
+| Monitor unit correction | The host unit passed `systemd-analyze verify`. After adding `SuccessExitStatus=2`, `systemctl start` returned 0 and systemd reported `Result=success`, `ExecMainStatus=2`; journald still contained `offhost_backup_missing`, `delivery:local_only`, `sent:false`. The correction changes classification of an evaluated alert, not the alert itself |
+
+These cloud checks exercise real authenticated APIs, a public read-only upstream and the listed browser views. Credential/client creation and rotation, tool candidate mutation/retirement and UNKNOWN evidence submission were comprehensively exercised against isolated fixtures above; they were not all repeated as cloud mutations. The restore drill restored the post-upgrade data in isolation and did not roll back the production application or database. No real cloud application rollback is claimed. The live monitor-unit correction is a separate operations-unit follow-up for PR 3; it does not change the cloud.8 application images or their source commit.
+
+### Remaining acceptance
 
 | Gate | Current evidence status |
 | --- | --- |
-| New cloud browser journeys | Isolated browser versions/UNKNOWN/capacity/audit passed above; repeat the affected journeys after the new cloud rollout |
-| Exact-commit remote CI | Pending the new reviewed commit/run; local green results do not close this gate |
-| New cloud deployment | Pending; record commit SHA, release ID, migrations, image IDs, health and affected API/browser smoke results here after execution |
-| Actual-host release/recovery | The pre-upgrade encrypted restore drill passed for schema 005. New release adoption/deployment, metadata consistency, compatible application rollback and a post-upgrade restore need their own evidence |
-| Automatic off-host backup | Awaiting an independent SSH destination; no verified remote transfer receipt or independent disaster-recovery exercise is claimed |
-| External alert delivery | Awaiting the real webhook configuration; no external notification was sent by the tests |
+| Actual cloud application rollback | Tooling and isolated rollback tests passed; no actual production application rollback has been performed |
+| Automatic off-host backup | Awaiting an authorized independent destination. No snapshot or backup-key copy to another host has been completed, and no remote-transfer receipt or independent disaster-recovery exercise is claimed |
+| External alert delivery | Awaiting the real webhook configuration; neither tests nor the live collector sent an external notification |
 
 The encrypted bundle includes database, cloud configuration and secrets including the vault master key, protected by a separate backup key. Pi volumes and host TLS/nginx state are outside that bundle. Local backup, remote transfer and restore verification have distinct receipts and must be reported separately. Monitoring without a webhook explicitly reports local-only; a completed fixture test is not a sent production alert. No live model request or company business-data call was required for this package regression.
 
@@ -162,7 +178,7 @@ The encrypted bundle includes database, cloud configuration and secrets includin
 - The complete Microsoft Learn cloud browser import/publication/execution interaction sequence. Cloud sign-in, enabled-server visibility and live discovery of all three Imported tools passed; all three tools also passed authenticated HTTPS API execution. Local browser approval/execution passed separately.
 - Upstream OAuth, stdio and compatibility with other independently operated MCP servers have not been validated; the implemented transport/authentication limits remain in effect.
 - Live model behavior evaluation and a complete cloud task using the real model and downstream business tools; the live inference check above sent only a fixed connectivity prompt.
-- The new five-package cloud rollout/remote CI and pending evidence table above; a configured external backup destination and alert webhook have not yet been supplied.
+- Cloud mutation coverage beyond the explicit cloud.8 checks and an actual production application rollback. Feature/merge CI and cloud deployment passed; a configured external backup destination and alert webhook remain pending.
 - Other MCP client/protocol combinations, Kubernetes, load/SLO targets, high availability, independently exercised off-host disaster recovery and live team/business-data rollout.
 
 ## GitHub baseline integration — 2026-10-05
@@ -171,4 +187,4 @@ The GitHub CI workflow includes the database-backed Node/Go boundary test. The f
 
 After correcting the catalog-limit fixture deadline/assertions, baseline commit `e4e382cf574916b15793f27e4998149ffbecd70e` passed Verify and release-tooling on both push and PR: four successful checks across [run 37273876618](https://github.com/alan1-666/mcp-gateway/actions/runs/37273876618) and [run 37273830693](https://github.com/alan1-666/mcp-gateway/actions/runs/37273830693). [PR 1](https://github.com/alan1-666/mcp-gateway/pull/1) merged into `main` as `1163b157fbff6e2e278ee6c12b9be08b3a70b0fb`. The subsequent [main CI run 37274534904](https://github.com/alan1-666/mcp-gateway/actions/runs/37274534904) for that exact merge commit also passed.
 
-These runs close the earlier baseline failure. They do not cover the subsequent five-package working-tree implementation: its remote CI and new cloud release remain pending in the table above. See [development](development.md) for repeatable commands and [implementation status](implementation-status.md) for the remaining release and architecture gates.
+These runs close the earlier baseline failure. The subsequent five-package feature commit now has its own successful push/PR checks recorded above; the separately recorded cloud.8 application deployment and bounded acceptance passed, with the remaining external/operational limits listed above. See [development](development.md) for repeatable commands and [implementation status](implementation-status.md) for the remaining release and architecture gates.
