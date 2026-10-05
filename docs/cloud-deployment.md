@@ -4,7 +4,7 @@
 
 MCP Gateway is delivered as an invitation-only cloud workspace for an owner and their team. The browser console, API, MCP endpoint and operation ledger run on the server. Local Compose and static identities are development facilities.
 
-The deployment recipe uses one Linux host with Docker Compose, host nginx and PostgreSQL. This is a deliberately single-host topology: it supports a small team but does not provide high availability. Cloud hosting does not change the remaining product scope listed in [implementation status](implementation-status.md). This guide describes the current source and operator procedure; the new governance/recovery packages are not considered deployed until the dated [verification record](verification.md) records that rollout.
+The deployment recipe uses one Linux host with Docker Compose, host nginx and PostgreSQL. This is a deliberately single-host topology: it supports a small team but does not provide high availability. Cloud hosting does not change the remaining product scope listed in [implementation status](implementation-status.md). This guide describes the current source and operator procedure. The governance/recovery packages were deployed as `20261005-cloud.8` from feature commit `05d1706780ce7f5c8a085a8801eb144be15c9631`; the dated [verification record](verification.md) separates confirmed deployment/API/browser/restore checks from remaining cloud mutation, rollback and external-destination coverage.
 
 ```mermaid
 flowchart LR
@@ -202,7 +202,7 @@ Without delivery configuration, the collector prints local JSON with `delivery.s
 
 `kind` accepts `generic`, `feishu` or `wecom`. The URL file must be an absolute private regular file with mode 0600 and a direct HTTPS webhook address. Keep the URL out of source control and logs. Cooldown is 60–86400 seconds. The monitor sends on the first incident, changed alert codes or cooldown expiry, and sends one recovery notification after clearing. It requires transport and, for Feishu/WeCom, provider acknowledgement before recording a successful send. Persistent delivery state suppresses routine repeats; a crash between remote acknowledgement and writing the local receipt can still cause a duplicate.
 
-Exit codes are 0 for healthy, 2 for evaluated alerts (including successfully sent or local-only alerts), and 1 for delivery/configuration or execution failure. Inspect JSON and the service result together. The collector does not replace independent certificate-expiry/host availability monitoring or a full metrics backend. External alert acceptance awaits the actual webhook configuration; fixture tests do not establish delivery to a real team channel.
+Exit codes are 0 for healthy, 2 for evaluated alerts (including successfully sent or local-only alerts), and 1 for delivery/configuration or execution failure. The systemd unit sets `SuccessExitStatus=2`, so a completed evaluation with an alert is not misclassified as a collector failure; the alert remains present in JSON/journald. This unit correction was separately verified on the live host without replacing the cloud.8 application images. Inspect JSON and the service result together. The collector does not replace independent certificate-expiry/host availability monitoring or a full metrics backend. External alert acceptance awaits the actual webhook configuration; fixture tests do not establish delivery to a real team channel.
 
 ## Cloud Agent worker
 

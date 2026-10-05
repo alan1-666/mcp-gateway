@@ -4,7 +4,7 @@
 
 MCP Gateway connects AI agents to existing HTTP APIs and remote MCP servers through a governed tool discovery and execution layer. Its Go backend manages upstream connections, reviewed tool contracts, permissions, approvals and bounded responses. A web console provides administration and execution history; Pi is a client for model-assisted tasks. OpenAPI import, gRPC integration and private-network Connectors remain planned.
 
-> **Project status:** Active development. The Go API and MCP gateway, PostgreSQL execution ledger, invitation-only cloud console, and Pi cloud task worker are runnable. The five core team-governance work packages are implemented in source and have passed local regression checks; their new cloud rollout and exact-commit remote CI acceptance are still pending. The complete production architecture is still being implemented. See [implementation status](docs/implementation-status.md) for delivered capabilities and remaining acceptance gates.
+> **Project status:** Active development. The Go API and MCP gateway, PostgreSQL execution ledger, invitation-only cloud console, and Pi cloud task worker are runnable. The five core team-governance work packages have passed local regression and feature/merge CI, and are deployed in cloud.8 with bounded API/browser and encrypted-restore checks. Automatic off-host backup and external alert delivery still need authorized destination configuration. The complete production architecture is still being implemented. See [implementation status](docs/implementation-status.md) for delivered capabilities and remaining acceptance gates.
 
 ## Cloud Delivery
 
