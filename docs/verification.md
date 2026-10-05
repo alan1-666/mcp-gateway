@@ -263,3 +263,10 @@ The existing browser owner session remained valid. Cloud settings showed the sav
 ### Completion timestamp consistency
 
 The documentation-head push run [37338386983](https://github.com/alan1-666/mcp-gateway/actions/runs/37338386983) exposed a one-microsecond discrepancy in the scheduled-backoff assertion; the parallel PR run passed. Separate `clock_timestamp()` expressions in one update can be evaluated in different column order. Completion, last success and next due now share `statement_timestamp()`, and the test requires the exact configured delay. This is a runtime timestamp consistency fix, not a relaxed assertion. The exact-delay PostgreSQL regression passed 20 consecutive race-enabled runs. The cloud.13 acceptance above remains historical; the corrected source must pass CI and be released separately.
+
+
+### Cloud.14 verified deployment
+
+The corrected application release `20261006-cloud.14` pins source `e1e2f14317575319b09d2255cab598359daadd7b`, artifact SHA256 `78ea9825ad2d07a35d4b869b657d38a234a32648fea0cade290b2b47d2167cab`. Its [push CI](https://github.com/alan1-666/mcp-gateway/actions/runs/37339110600) and [PR CI](https://github.com/alan1-666/mcp-gateway/actions/runs/37339119207) passed all six gates before deployment. Same-host backup, source/migration verification and service health checks passed; the schema remains at 12 migrations.
+
+Nine cloud checks passed after this deployment. Each existing schedule was paused and resumed through the revision-checked API, then completed a fresh real worker check. Next due minus completion was exactly 3600 seconds for both. Successful observations again showed three unchanged tools each, and their exact review IDs appeared under the internal scheduler audit identity. Full tool definitions were unchanged; zero business calls and zero model tasks were created. The existing hourly schedules remain enabled. The cloud UI showed the new last-success and next-check timestamps with no browser errors. Detailed evidence and the final screenshot remain in ignored local files. The later documentation commit records these results without altering the pinned deployed application.
