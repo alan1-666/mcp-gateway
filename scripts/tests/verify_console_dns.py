@@ -111,6 +111,13 @@ def verify(args):
         ipam = json.loads(docker("network", "inspect", "--format", "{{json .IPAM.Config}}", network))
         subnet = next(ipaddress.ip_network(row["Subnet"]) for row in ipam if ":" not in row["Subnet"])
         require(subnet.num_addresses > 32, "fixture network subnet is too small")
+        # Some Docker versions reject static endpoints on an automatically
+        # allocated subnet. Recreate only our empty network with Docker's own
+        # chosen subnet made explicit. A concurrent allocation fails safely.
+        docker("network", "rm", network)
+        created_network = False
+        docker("network", "create", "--internal", "--subnet", str(subnet), network)
+        created_network = True
 
         def start_backend(role, generation, offset):
             name = prefix + "-" + role + "-" + generation
