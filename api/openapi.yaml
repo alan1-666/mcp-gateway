@@ -220,6 +220,56 @@ paths:
           $ref: '#/components/responses/Unavailable'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /api/v1/mcp/servers/{id}/catalog-schedule:
+    parameters:
+      - $ref: '#/components/parameters/ResourceID'
+    get:
+      operationId: getMCPCatalogSchedule
+      summary: Read scheduled catalog check settings and latest outcome
+      x-required-roles: [admin]
+      description: Human administrator only. New servers return a disabled schedule with revision 0 and a one-hour interval. Does not contact the upstream. A disabled server pauses checks even when its schedule is enabled.
+      responses:
+        '200':
+          description: Schedule configuration and background status
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/MCPCatalogSchedule'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+    put:
+      operationId: setMCPCatalogSchedule
+      summary: Configure opt-in background catalog checks
+      x-required-roles: [admin]
+      description: |
+        Requires the last read configuration revision. A changed enabled configuration becomes due
+        immediately; an identical save is a no-op. Editing or pausing fences in-flight results.
+        Metadata discovery never publishes, retires or invokes a business tool. Failed checks preserve
+        successful history and back off exponentially from the configured interval, capped at 24 hours.
+        Disabling the server pauses the schedule. Re-enabling permits overdue work on the next worker poll.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [enabled, interval_seconds, expected_revision]
+              properties:
+                enabled: {type: boolean}
+                interval_seconds: {type: integer, minimum: 300, maximum: 86400}
+                expected_revision: {type: integer, minimum: 0}
+      responses:
+        '200':
+          description: Saved schedule with current revision
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/MCPCatalogSchedule'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
   /api/v1/mcp/servers/{id}/catalog-reviews:
     parameters:
       - name: id
@@ -2137,12 +2187,29 @@ components:
           type: integer
           minimum: 0
           maximum: 1000
+    MCPCatalogSchedule:
+      type: object
+      required: [server_id, enabled, interval_seconds, revision, next_check_at, lease_until, running, last_started_at, last_finished_at, last_success_at, consecutive_failures, last_error_code]
+      properties:
+        server_id: {type: string, format: uuid}
+        enabled: {type: boolean}
+        interval_seconds: {type: integer, minimum: 300, maximum: 86400}
+        revision: {type: integer, minimum: 0}
+        next_check_at: {type: [string, 'null'], format: date-time}
+        lease_until: {type: [string, 'null'], format: date-time}
+        running: {type: boolean}
+        last_started_at: {type: [string, 'null'], format: date-time}
+        last_finished_at: {type: [string, 'null'], format: date-time}
+        last_success_at: {type: [string, 'null'], format: date-time}
+        consecutive_failures: {type: integer, minimum: 0, maximum: 1000}
+        last_error_code: {type: string, enum: ['', discovery_failed, timeout, server_changed, comparison_failed]}
     MCPCatalogReview:
       type: object
-      required: [id, server_id, started_at, checked_at, counts, items]
+      required: [id, server_id, source, started_at, checked_at, counts, items]
       properties:
         id: {type: string, pattern: '^[0-9]+$'}
         server_id: {type: string, format: uuid}
+        source: {type: string, enum: [manual, scheduled]}
         started_at: {type: string, format: date-time}
         checked_at: {type: string, format: date-time}
         counts:

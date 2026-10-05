@@ -898,3 +898,39 @@
   color: var(--muted);
   overflow-wrap: anywhere;
 }
+
+/* Scheduling stays in server settings, alongside its saved state. */
+.schedule-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+.schedule-heading h3 {
+  margin: 0;
+}
+.schedule-status {
+  margin: 20px 0;
+}
+.schedule-controls {
+  display: flex;
+  align-items: end;
+  gap: 16px;
+  margin-top: 14px;
+}
+.schedule-controls label {
+  max-width: 210px;
+}
+.schedule-controls button {
+  flex-shrink: 0;
+  margin-bottom: 1px;
+}
+@media (max-width: 640px) {
+  .schedule-controls {
+    flex-wrap: wrap;
+  }
+  .schedule-heading {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}

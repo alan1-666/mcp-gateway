@@ -238,3 +238,35 @@ The visual reference is the public [Raft product page](https://raft.build/): a l
 The existing owner cookie session remained valid. Cloud browser verification loaded the redesigned overview with six registered/available tools and 15 existing operations; both existing upstreams discovered three in-sync tools each. Server activity/settings, stored catalog history, existing diagnostic records, the published tool v2 and its response-policy fields loaded correctly. Clients, operations, approvals, audit, credentials, capacity and team/account views completed loading with no visible alerts or document overflow. Browser error logs were empty. Pi showed Runtime ready with its existing configured model and a current worker heartbeat; this checks runtime continuity, not new model inference.
 
 No production publication, policy/credential/client mutation, business-tool dispatch or model task was needed for this UI release. The discovery actions did append normal catalog observations. The screenshot and private workspace evidence are retained locally, outside the public repository. A later documentation-only commit records this acceptance; the deployed application remains pinned to the source above. [PR 6](https://github.com/alan1-666/mcp-gateway/pull/6) contains the complete change and evidence. Off-host backup, webhook commissioning and a real application rollback remain open.
+
+
+## 2026-10-05 — scheduled catalog check source acceptance
+
+- PostgreSQL race tests cover opt-in defaults, bounds, admin/client/workspace isolation, revision conflicts and idempotent saves; eight concurrent claimers obtain one lease. Expired-lease takeover, late completion, pause/edit fencing and disable/re-enable fencing are verified.
+- Successful observations, failure backoff, bounded delays, safe error storage, preserved history, empty catalogs, comparison failure and worker shutdown are covered. No raw upstream exception is persisted.
+- The existing real SDK + HTTP management + PostgreSQL lifecycle test now enables scheduling, runs an actual scheduled discovery, checks failure/pause, and verifies the published tool version and business-call count remain unchanged.
+- `make test` passed with PostgreSQL and the Node cloud worker boundary enabled: Go race tests, 64 console tests and 31 Pi runner tests. `make check` passed (Go vet, TypeScript and production builds).
+- Browser acceptance uses an isolated workspace and synthetic MCP server: default off; enable/save; draft preservation across tabs; successful scheduled history; stale concurrent edit returns conflict and blocks retry until reload; upstream outage preserves last success and shows retry time; server disable displays paused; schedule pause persists; catalog history reload works. At 390 px the settings form has no horizontal document overflow; browser error logs are empty. All 39 release-tooling tests passed. Private fixture IDs, logs and screenshots stay outside source control.
+
+Cloud release acceptance follows separately; source tests do not establish deployed behavior.
+
+
+## 2026-10-06 — scheduled catalog check cloud acceptance
+
+The application artifact `20261005-cloud.13` pins source `3a90344294ef7908ce0147fd08c7edafd5932971`, SHA256 `815fe8620cda50482a071d5d20b73675c255285f3a91af5c573a2fdc1c0b1d89`. Both [push CI](https://github.com/alan1-666/mcp-gateway/actions/runs/37337162314) and [PR CI](https://github.com/alan1-666/mcp-gateway/actions/runs/37337304714) passed verify, release-tooling and console-proxy before deployment. Source/migration verification, same-host encrypted backup, migration and container health gates passed. Migration 012 is additive; the exact cloud.12 rollback compatibility declaration is retained on the host. No application rollback was exercised.
+
+Eight bounded checks passed: opt-in defaults, unauthenticated denial, enabling saved schedules, stale-revision denial, actual worker completion against both existing upstreams, source-labeled history, internal audit identity, and unchanged full tool definitions. Each upstream reported three registered tools in sync. Both schedules remain enabled at 3600 seconds; the first successful checks occurred at 16:04:33 and 16:04:34 UTC on October 5 (00:04 local on October 6). No business tools, model tasks, policy edits or new client keys were used.
+
+The existing browser owner session remained valid. Cloud settings showed the saved hourly interval, last success and next check; Activity displayed the scheduled observation alongside previous manual history. Browser error logs were empty. Overview retained six tools and 15 existing operations. The cloud screenshot and detailed private acceptance evidence remain in ignored local files. This documentation follow-up does not change the pinned application source. The full change is in [PR 7](https://github.com/alan1-666/mcp-gateway/pull/7); upstream OAuth, off-host recovery, external webhook commissioning and broader production architecture remain open.
+
+
+### Completion timestamp consistency
+
+The documentation-head push run [37338386983](https://github.com/alan1-666/mcp-gateway/actions/runs/37338386983) exposed a one-microsecond discrepancy in the scheduled-backoff assertion; the parallel PR run passed. Separate `clock_timestamp()` expressions in one update can be evaluated in different column order. Completion, last success and next due now share `statement_timestamp()`, and the test requires the exact configured delay. This is a runtime timestamp consistency fix, not a relaxed assertion. The exact-delay PostgreSQL regression passed 20 consecutive race-enabled runs. The cloud.13 acceptance above remains historical; the corrected source must pass CI and be released separately.
+
+
+### Cloud.14 verified deployment
+
+The corrected application release `20261006-cloud.14` pins source `e1e2f14317575319b09d2255cab598359daadd7b`, artifact SHA256 `78ea9825ad2d07a35d4b869b657d38a234a32648fea0cade290b2b47d2167cab`. Its [push CI](https://github.com/alan1-666/mcp-gateway/actions/runs/37339110600) and [PR CI](https://github.com/alan1-666/mcp-gateway/actions/runs/37339119207) passed all six gates before deployment. Same-host backup, source/migration verification and service health checks passed; the schema remains at 12 migrations.
+
+Nine cloud checks passed after this deployment. Each existing schedule was paused and resumed through the revision-checked API, then completed a fresh real worker check. Next due minus completion was exactly 3600 seconds for both. Successful observations again showed three unchanged tools each, and their exact review IDs appeared under the internal scheduler audit identity. Full tool definitions were unchanged; zero business calls and zero model tasks were created. The existing hourly schedules remain enabled. The cloud UI showed the new last-success and next-check timestamps with no browser errors. Detailed evidence and the final screenshot remain in ignored local files. The later documentation commit records these results without altering the pinned deployed application.

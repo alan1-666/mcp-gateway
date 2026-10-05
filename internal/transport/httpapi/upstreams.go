@@ -13,6 +13,20 @@ func (a *API) registerUpstreams(mux *http.ServeMux) {
 	if a.Upstreams == nil {
 		return
 	}
+	mux.HandleFunc("GET /api/v1/mcp/servers/{id}/catalog-schedule", func(w http.ResponseWriter, r *http.Request) {
+		value, err := a.Upstreams.CatalogSchedule(r.Context(), identity.Actor(r.Context()), r.PathValue("id"))
+		respond(w, value, err)
+	})
+	mux.HandleFunc("PUT /api/v1/mcp/servers/{id}/catalog-schedule", func(w http.ResponseWriter, r *http.Request) {
+		var in upstreams.ScheduleInput
+		if err := decode(w, r, &in); err != nil {
+			respond(w, nil, err)
+			return
+		}
+		value, err := a.Upstreams.SetCatalogSchedule(r.Context(), identity.Actor(r.Context()), r.PathValue("id"), in)
+		respond(w, value, err)
+	})
+
 	mux.HandleFunc("GET /api/v1/mcp/servers/{id}/catalog-reviews", func(w http.ResponseWriter, r *http.Request) {
 		q, err := strictCheckQuery(r)
 		if err != nil {
