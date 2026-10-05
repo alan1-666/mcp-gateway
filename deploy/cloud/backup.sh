@@ -1,16 +1,14 @@
 #!/bin/sh
+# Default is local-only encrypted backup. An explicit destination adds verified
+# offhost transfer; only last-offhost.json proves that offhost transfer succeeded.
 set -eu
 umask 077
-base=/opt/mcp-gateway
-mkdir -p "$base/backups"
-exec 9>"$base/backups/.lock"
-flock -n 9 || exit 0
-stamp=$(date -u +%Y%m%dT%H%M%SZ)
-target="$base/backups/gateway-$stamp.dump"
-trap 'rm -f "$target.tmp"' EXIT INT TERM
-docker compose --env-file "$base/cloud.env" -f "$base/current/deploy/compose/cloud.yaml" exec -T postgres pg_dump -U gateway -d gateway -Fc > "$target.tmp"
-test -s "$target.tmp"
-docker compose --env-file "$base/cloud.env" -f "$base/current/deploy/compose/cloud.yaml" exec -T postgres pg_restore --list < "$target.tmp" > /dev/null
-mv "$target.tmp" "$target"
-find "$base/backups" -maxdepth 1 -name 'gateway-*.dump' -type f -mtime +7 -delete
-echo "Database backup completed: $stamp"
+base=${GATEWAY_BASE:-/opt/mcp-gateway}
+script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
+set -- python3 "$script_dir/cloud-backup.py" create --base "$base" \
+  --key "${GATEWAY_BACKUP_KEY_FILE:-$base/backup-key}" \
+  --temp-dir "${GATEWAY_BACKUP_TEMP_DIR:-/dev/shm}"
+if [ -n "${GATEWAY_BACKUP_OFFHOST_CONFIG:-}" ]; then
+  set -- "$@" --offhost-config "$GATEWAY_BACKUP_OFFHOST_CONFIG" --scheduled
+fi
+exec "$@"

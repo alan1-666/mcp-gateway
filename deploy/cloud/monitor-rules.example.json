@@ -1,0 +1,12 @@
+{
+  "minimum_calls": 20,
+  "failure_ratio": 0.2,
+  "mean_duration_ms": 10000,
+  "unknown_calls": 1,
+  "unknown_oldest_age_seconds": 300,
+  "limit_rejections": 20,
+  "metrics_max_age_seconds": 300,
+  "local_backup_max_age_seconds": 129600,
+  "offhost_max_age_seconds": 129600,
+  "restore_max_age_seconds": 604800
+}

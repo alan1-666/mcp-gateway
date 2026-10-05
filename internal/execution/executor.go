@@ -2,8 +2,10 @@ package execution
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
+	"github.com/alan1-666/mcp-gateway/internal/capacity"
 	"github.com/alan1-666/mcp-gateway/internal/core"
 )
 
@@ -12,12 +14,41 @@ type Adapter interface {
 }
 
 type Executor struct {
-	Service *core.Service
-	Adapter Adapter
+	Service  *core.Service
+	Adapter  Adapter
+	Capacity *capacity.Service
 }
 
 func (e *Executor) Execute(ctx context.Context, actor core.Actor, id string) (core.Operation, error) {
-	op, tool, claimed, err := e.Service.Claim(ctx, actor, id)
+	if e.Capacity != nil {
+		current, err := e.Service.GetOperation(ctx, actor, id)
+		if err != nil {
+			return current, err
+		}
+		if current.State == core.StateWaitingApproval {
+			// Approval can race this read. Never enter Claim without admission
+			// simply because the operation was waiting a moment earlier.
+			return current, core.ErrConflict
+		}
+		if current.State == core.StateReady {
+			admissionCtx, admissionCancel := context.WithTimeout(ctx, 5*time.Second)
+			lease, err := e.Capacity.Acquire(admissionCtx, actor, id)
+			admissionCancel()
+			if err != nil {
+				return current, err
+			}
+			defer func() {
+				releaseCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 3*time.Second)
+				defer cancel()
+				if err := lease.Release(releaseCtx); err != nil {
+					slog.Error("capacity lease release failed", "operation_id", id)
+				}
+			}()
+		}
+	}
+	claimCtx, claimCancel := context.WithTimeout(ctx, 5*time.Second)
+	op, tool, claimed, err := e.Service.Claim(claimCtx, actor, id)
+	claimCancel()
 	if err != nil || !claimed {
 		return op, err
 	}
@@ -28,6 +59,7 @@ func (e *Executor) Execute(ctx context.Context, actor core.Actor, id string) (co
 		timeout = 122 * time.Second
 	}
 	callCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), timeout)
+	started := time.Now()
 	result := e.Adapter.Execute(callCtx, actor, tool, op)
 	cancel()
 	if tool.MCP != nil && result.State == core.StateSucceeded {
@@ -43,5 +75,17 @@ func (e *Executor) Execute(ctx context.Context, actor core.Actor, id string) (co
 	}
 	finishCtx, finishCancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 	defer finishCancel()
-	return e.Service.Finish(finishCtx, actor, id, result)
+	finished, err := e.Service.Finish(finishCtx, actor, id, result)
+	if e.Capacity != nil {
+		state := result.State
+		if err != nil {
+			state = core.StateUnknown
+		}
+		metricsCtx, metricsCancel := context.WithTimeout(context.WithoutCancel(ctx), 3*time.Second)
+		if observeErr := e.Capacity.Observe(metricsCtx, actor, tool, state, time.Since(started)); observeErr != nil {
+			slog.Error("execution metrics persistence failed", "operation_id", id)
+		}
+		metricsCancel()
+	}
+	return finished, err
 }

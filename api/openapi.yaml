@@ -4,7 +4,8 @@ info:
   version: 0.1.0
   description: |
     HTTP contract for the implemented tool registry, remote MCP server management,
-    approval and durable execution APIs.
+    scoped clients, encrypted credentials, reviewed tool releases, approval, durable
+    execution, audit and capacity APIs.
     The MCP transport is exposed separately and is not described by this document.
 
     These endpoints require a bearer identity or a cloud browser session. Its workspace,
@@ -17,13 +18,15 @@ info:
     POST requests require Content-Type application/json and one JSON object, with a
     maximum request body of 262144 bytes. Unknown request fields are rejected. Actions
     without arguments still require the body {}. Successful creation and action
-    responses currently use HTTP 200. An HTTP 200 response containing an Operation
+    responses use HTTP 200, except machine client creation (201). Capacity-limit
+    updates have a smaller 8192-byte body limit. Any authenticated endpoint may return
+    429 with Retry-After under the outer request concurrency limiter. An HTTP 200 response containing an Operation
     does not imply that the downstream action succeeded: inspect its state.
 
     Tool registry and discovery use bounded keyset pages with next_cursor and total.
     Search filters the complete authorized catalog before applying the page size.
-    Operations remain a bounded list; event polling provides an exclusive event-ID
-    cursor. These endpoints return JSON, not SSE. Management records expose credential
+    Operations and audit use filtered keyset pages; event polling provides an exclusive
+    event-ID cursor. These endpoints return JSON, not SSE. Management records expose credential
     references rather than credential values. Raw downstream headers are not returned;
     MCP result filtering and its limits are described by ResponsePolicy.
 servers:
@@ -37,6 +40,10 @@ tags:
   - name: Tools
   - name: Operations
   - name: MCP Servers
+  - name: Credentials
+  - name: Clients
+  - name: Audit
+  - name: Capacity
 x-max-request-body-bytes: 262144
 paths:
   /api/v1/me:
@@ -57,6 +64,8 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /api/v1/mcp/servers:
     get:
       operationId: listMCPServers
@@ -83,6 +92,8 @@ paths:
           $ref: '#/components/responses/Conflict'
         '503':
           $ref: '#/components/responses/Unavailable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
     post:
       operationId: createMCPServer
       tags: [MCP Servers]
@@ -114,6 +125,8 @@ paths:
           $ref: '#/components/responses/Conflict'
         '503':
           $ref: '#/components/responses/Unavailable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /api/v1/mcp/servers/{id}/enabled:
     parameters:
       - $ref: '#/components/parameters/ResourceID'
@@ -154,6 +167,8 @@ paths:
           $ref: '#/components/responses/NotFound'
         '503':
           $ref: '#/components/responses/Unavailable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /api/v1/mcp/servers/{id}/discover:
     parameters:
       - $ref: '#/components/parameters/ResourceID'
@@ -198,6 +213,8 @@ paths:
           $ref: '#/components/responses/Conflict'
         '503':
           $ref: '#/components/responses/Unavailable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /api/v1/mcp/servers/{id}/import:
     parameters:
       - $ref: '#/components/parameters/ResourceID'
@@ -240,6 +257,8 @@ paths:
           $ref: '#/components/responses/Conflict'
         '503':
           $ref: '#/components/responses/Unavailable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /api/v1/tools:
     get:
       operationId: listTools
@@ -272,6 +291,8 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '503':
           $ref: '#/components/responses/Unavailable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
     post:
       operationId: createTool
       tags: [Tools]
@@ -304,6 +325,8 @@ paths:
           $ref: '#/components/responses/Conflict'
         '503':
           $ref: '#/components/responses/Unavailable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /api/v1/catalog/tools:
     get:
       operationId: discoverTools
@@ -337,6 +360,8 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '503':
           $ref: '#/components/responses/Unavailable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /api/v1/tools/{id}:
     parameters:
       - $ref: '#/components/parameters/ResourceID'
@@ -350,7 +375,8 @@ paths:
         404. The response includes the configured HTTP target and credential reference,
         but not credential values. MCP tools instead include the pinned server ID,
         remote tool name, contract hash and response policy; the serialized http
-        field is an empty placeholder for these tools.
+        field is an empty placeholder for these tools. Machine clients additionally
+        require tools:read and a current tool or server grant.
       x-required-roles: [admin, operator, approver, viewer]
       responses:
         '200':
@@ -363,6 +389,8 @@ paths:
           $ref: '#/components/responses/NotFound'
         '503':
           $ref: '#/components/responses/Unavailable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /api/v1/tools/{id}/publish:
     parameters:
       - $ref: '#/components/parameters/ResourceID'
@@ -376,6 +404,7 @@ paths:
         published tool returns its existing state and does not re-enable it if it
         has been disabled. Tool content and version remain unchanged. Imported MCP
         tools require their upstream server to be enabled, including repeat requests.
+        Retired tools return 409; restoration requires a newly reviewed candidate.
       x-required-roles: [admin]
       requestBody:
         $ref: '#/components/requestBodies/EmptyAction'
@@ -394,6 +423,8 @@ paths:
           $ref: '#/components/responses/Conflict'
         '503':
           $ref: '#/components/responses/Unavailable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /api/v1/tools/{id}/enabled:
     parameters:
       - $ref: '#/components/parameters/ResourceID'
@@ -402,7 +433,7 @@ paths:
       tags: [Tools]
       summary: Enable or disable a published tool
       description: |
-        Requires admin in the tool's workspace. Draft tools return 409. Repeating
+        Requires admin in the tool's workspace. Draft and retired tools return 409. Repeating
         the current enabled value is idempotent. Disabling blocks new preparations
         and dispatch admission. It does not cancel a request already admitted or
         alter a recorded downstream result.
@@ -433,6 +464,8 @@ paths:
           $ref: '#/components/responses/Conflict'
         '503':
           $ref: '#/components/responses/Unavailable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /api/v1/tools/{id}/response-policy:
     parameters:
       - $ref: '#/components/parameters/ResourceID'
@@ -471,6 +504,8 @@ paths:
           $ref: '#/components/responses/Conflict'
         '503':
           $ref: '#/components/responses/Unavailable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /api/v1/tools/{id}/response-policy/preview:
     parameters:
       - $ref: '#/components/parameters/ResourceID'
@@ -511,30 +546,61 @@ paths:
           $ref: '#/components/responses/Conflict'
         '503':
           $ref: '#/components/responses/Unavailable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /api/v1/operations:
     get:
       operationId: listOperations
-      tags: [Operations]
-      summary: List visible operations
-      description: |
-        Admins and approvers see operations in their workspace. Operators and viewers
-        see only operations whose actor_id equals their identity ID. Returns the
-        newest 200 visible operations by created_at descending then ID descending.
-        There are currently no filtering or pagination parameters.
-      x-required-roles: [admin, operator, approver, viewer]
+      tags:
+      - Operations
+      summary: Search visible operations
+      description: 'Admins and approvers see workspace operations; operators and viewers see only their own. Machine
+        clients additionally require current client/key validity and live tool/server grants. Keyset order is immutable
+        created_at DESC, id DESC. The first request supplies a creation-time upper bound retained in later cursors.
+        total counts current authorized matches inside that boundary before the position cursor; live status and permissions
+        can change it. Pages are not a frozen database snapshot. Unknown/repeated query fields are rejected. '
+      x-required-roles:
+      - admin
+      - operator
+      - approver
+      - viewer
+      parameters:
+      - $ref: '#/components/parameters/HistoryLimit'
+      - $ref: '#/components/parameters/HistoryCursor'
+      - $ref: '#/components/parameters/HistoryActor'
+      - $ref: '#/components/parameters/HistoryFrom'
+      - $ref: '#/components/parameters/HistoryTo'
+      - name: state
+        in: query
+        required: false
+        description: Exact current state.
+        schema:
+          $ref: '#/components/schemas/OperationState'
+      - name: tool_id
+        in: query
+        required: false
+        description: Exact tool ID.
+        schema:
+          type: string
+          maxLength: 128
+          x-max-utf8-bytes: 128
       responses:
         '200':
-          description: At most 200 visible operations
+          description: Successful result
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/OperationList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
         '503':
           $ref: '#/components/responses/Unavailable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
     post:
       operationId: prepareOperation
       tags: [Operations]
@@ -552,7 +618,8 @@ paths:
         whitespace do not change the hash; numeric lexical forms are not normalized.
         Retry an uncertain preparation with the same key. Preparing never executes
         the downstream request, and clients must not create a new key to replay an
-        UNKNOWN write.
+        UNKNOWN write. Machine-client replays additionally recheck live scope/grants,
+        including the stored snapshot binding, rather than relying on the original key.
       x-required-roles: [admin, operator]
       requestBody:
         required: true
@@ -575,6 +642,8 @@ paths:
           $ref: '#/components/responses/Conflict'
         '503':
           $ref: '#/components/responses/Unavailable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /api/v1/operations/{id}:
     parameters:
       - $ref: '#/components/parameters/ResourceID'
@@ -585,7 +654,8 @@ paths:
       description: |
         Admins and approvers may read any operation in their workspace. Operators
         and viewers may read only their own operations. Missing, invisible and
-        cross-workspace operations return 404. This endpoint is the source of truth
+        cross-workspace operations return 404. Machine clients additionally need
+        current scopes and grants, including the snapshot upstream binding. This endpoint is the source of truth
         after request timeout, client disconnection or an uncertain execute response.
       x-required-roles: [admin, operator, approver, viewer]
       responses:
@@ -599,6 +669,8 @@ paths:
           $ref: '#/components/responses/NotFound'
         '503':
           $ref: '#/components/responses/Unavailable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /api/v1/operations/{id}/approve:
     parameters:
       - $ref: '#/components/parameters/ResourceID'
@@ -632,6 +704,8 @@ paths:
           $ref: '#/components/responses/Conflict'
         '503':
           $ref: '#/components/responses/Unavailable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /api/v1/operations/{id}/reject:
     parameters:
       - $ref: '#/components/parameters/ResourceID'
@@ -663,6 +737,8 @@ paths:
           $ref: '#/components/responses/Conflict'
         '503':
           $ref: '#/components/responses/Unavailable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /api/v1/operations/{id}/execute:
     parameters:
       - $ref: '#/components/parameters/ResourceID'
@@ -687,8 +763,13 @@ paths:
         interrupted/ambiguous write becomes UNKNOWN and is not automatically replayed.
         Client disconnection does not cancel an already admitted request. A 503 can
         mean the response or result could not be durably confirmed; query the same
-        operation before taking another action. Manual reconciliation is not exposed
-        by the current HTTP API.
+        operation before taking another action. Independent reviewers can append
+        evidence through /reconciliations without changing UNKNOWN or replaying it.
+        Capacity rejection returns 429 with Retry-After before business dispatch.
+        The separate MCP transport returns isError:true for tool-level capacity
+        rejection; its text JSON error also carries retry_after_seconds and scope.
+        Machine clients must retain access to both the current tool and the stored
+        operation snapshot; changing an upstream binding cannot bypass revoked grants.
       x-required-roles: [admin, operator]
       requestBody:
         $ref: '#/components/requestBodies/EmptyAction'
@@ -707,6 +788,8 @@ paths:
           $ref: '#/components/responses/Conflict'
         '503':
           $ref: '#/components/responses/Unavailable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /api/v1/operations/{id}/events:
     parameters:
       - $ref: '#/components/parameters/ResourceID'
@@ -749,6 +832,875 @@ paths:
           $ref: '#/components/responses/NotFound'
         '503':
           $ref: '#/components/responses/Unavailable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/credentials:
+    get:
+      operationId: listCredentials
+      tags:
+      - Credentials
+      summary: List credential metadata
+      description: Requires admin in the authenticated workspace. Complete list, including disabled entries; at most
+        1000 managed references per workspace. Secret values and ciphertext are never returned.
+      x-required-roles:
+      - admin
+      responses:
+        '200':
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CredentialList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    post:
+      operationId: createCredential
+      tags:
+      - Credentials
+      summary: Create an encrypted downstream credential
+      description: Requires admin in the authenticated workspace. Creates an enabled version-1 reference unique within
+        the workspace. Headers are AES-GCM encrypted using the external deployment master key. A static-file reference
+        cannot be shadowed. Only an allowed exact origin is accepted.
+      x-required-roles:
+      - admin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CredentialCreateInput'
+      responses:
+        '200':
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CredentialMetadata'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/credentials/{ref}/rotate:
+    parameters:
+    - $ref: '#/components/parameters/CredentialRef'
+    post:
+      operationId: rotateCredential
+      tags:
+      - Credentials
+      summary: Rotate downstream secret headers
+      description: Requires admin in the authenticated workspace. Atomically replaces headers and increments version,
+        preserving enabled state. New dispatch/discovery attempts resolve the new value without restart. Already admitted
+        sessions are not cancelled. Invalid, disabled, undecryptable or wrong-origin managed references fail closed
+        without static fallback.
+      x-required-roles:
+      - admin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CredentialRotateInput'
+      responses:
+        '200':
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CredentialMetadata'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/credentials/{ref}/enabled:
+    parameters:
+    - $ref: '#/components/parameters/CredentialRef'
+    post:
+      operationId: setCredentialEnabled
+      tags:
+      - Credentials
+      summary: Enable or disable a downstream credential
+      description: Requires admin in the authenticated workspace. Requires the current version. Same current enabled
+        value is a no-op; stale version returns 409. Disabling prevents subsequent credential resolution without restarting
+        services.
+      x-required-roles:
+      - admin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CredentialEnabledInput'
+      responses:
+        '200':
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CredentialMetadata'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/mcp/servers/{id}/check:
+    parameters:
+    - $ref: '#/components/parameters/ResourceID'
+    post:
+      operationId: checkMCPServer
+      tags:
+      - MCP Servers
+      summary: Check connection and definition compatibility
+      description: Requires admin in the authenticated workspace. Persists a bounded initialization and catalog diagnostic
+        without invoking business tools. A diagnostic failure still returns HTTP 200 with status failed, and mixed
+        supported/unsupported definitions return degraded. Normal discover/import remain complete-or-fail. Disabled
+        servers are reported at the policy stage.
+      x-required-roles:
+      - admin
+      requestBody:
+        $ref: '#/components/requestBodies/EmptyAction'
+      responses:
+        '200':
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MCPCheck'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/mcp/servers/{id}/checks:
+    parameters:
+    - $ref: '#/components/parameters/ResourceID'
+    get:
+      operationId: listMCPServerChecks
+      tags:
+      - MCP Servers
+      summary: Read connection check history
+      description: Requires admin in the authenticated workspace. Newest sequence ID first; before is exclusive. IDs
+        and next_cursor are decimal strings.
+      x-required-roles:
+      - admin
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        description: Page size.
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 50
+          default: 20
+      - name: before
+        in: query
+        required: false
+        description: Exclusive ID cursor from the preceding page; omitted or 0 starts newest.
+        schema:
+          type: string
+          pattern: ^(0|[1-9][0-9]*)$
+          maxLength: 19
+          description: Canonical nonnegative decimal string within signed int64 range.
+      responses:
+        '200':
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MCPCheckPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/clients:
+    get:
+      operationId: listClients
+      tags:
+      - Clients
+      summary: List machine client metadata
+      description: Requires an administrator browser session in cloud mode; personal API keys and machine-client keys
+        cannot manage clients. Development administrator tokens are accepted in token mode. Complete metadata list
+        with at most 500 clients per workspace; no plaintext keys.
+      x-required-roles:
+      - admin
+      responses:
+        '200':
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+      security:
+      - sessionCookie: []
+    post:
+      operationId: createClient
+      tags:
+      - Clients
+      summary: Create a scoped machine client
+      description: Requires an administrator browser session in cloud mode; personal API keys and machine-client keys
+        cannot manage clients. Development administrator tokens are accepted in token mode. Issues a one-time bearer
+        key stored only as a digest. Scope plus a tool grant or the imported tool server grant is required. Membership
+        in a workspace alone grants no tools.
+      x-required-roles:
+      - admin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClientCreateInput'
+      responses:
+        '201':
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IssuedClientKey'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+      security:
+      - sessionCookie: []
+  /api/v1/clients/{id}:
+    parameters:
+    - $ref: '#/components/parameters/ClientID'
+    post:
+      operationId: updateClient
+      tags:
+      - Clients
+      summary: Update live client permissions
+      description: Requires an administrator browser session in cloud mode; personal API keys and machine-client keys
+        cannot manage clients. Development administrator tokens are accepted in token mode. Atomically checks expected_version
+        and updates metadata/grants. Disablement and grant removal take effect on subsequent discovery, schema reads,
+        preparations and execution admission, including existing READY operations. Already admitted calls are not
+        cancelled.
+      x-required-roles:
+      - admin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClientUpdateInput'
+      responses:
+        '200':
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Client'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+      security:
+      - sessionCookie: []
+  /api/v1/clients/{id}/rotate:
+    parameters:
+    - $ref: '#/components/parameters/ClientID'
+    post:
+      operationId: rotateClientKey
+      tags:
+      - Clients
+      summary: Rotate a machine client key
+      description: Requires an administrator browser session in cloud mode; personal API keys and machine-client keys
+        cannot manage clients. Development administrator tokens are accepted in token mode. Issues a replacement key
+        once, increments version and immediately invalidates the old key. Enabled state and grants are preserved.
+      x-required-roles:
+      - admin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClientRotateInput'
+      responses:
+        '200':
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IssuedClientKey'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+      security:
+      - sessionCookie: []
+  /api/v1/tools/{id}/versions:
+    parameters:
+    - $ref: '#/components/parameters/ResourceID'
+    get:
+      operationId: listToolVersions
+      tags:
+      - Tools
+      summary: List immutable tool definition history
+      description: Requires admin in the authenticated workspace. Newest version first. Historical definitions include
+        policy revisions and retirement versions. An old version can be copied into a new candidate; history is not
+        modified.
+      x-required-roles:
+      - admin
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        description: Page size.
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      - name: before
+        in: query
+        required: false
+        description: Exclusive version cursor; zero starts newest.
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+      responses:
+        '200':
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ToolVersionPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/tools/{id}/candidates:
+    parameters:
+    - $ref: '#/components/parameters/ResourceID'
+    get:
+      operationId: listToolCandidates
+      tags:
+      - Tools
+      summary: List unpublished review candidates
+      description: Requires admin in the authenticated workspace. Returns all unpublished candidates, newest first.
+        At most 100 unpublished candidates per tool; fetch a candidate detail for its computed changes.
+      x-required-roles:
+      - admin
+      responses:
+        '200':
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ToolCandidateList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    post:
+      operationId: createToolCandidate
+      tags:
+      - Tools
+      summary: Create a reviewed contract change or rollback candidate
+      description: Requires admin in the authenticated workspace. Checks expected_version under a tool row lock and
+        validates the live upstream/egress contract. The active tool is unchanged until publication. A no-change candidate
+        is rejected except when restoring a retired tool. At most 100 unpublished candidates per tool.
+      x-required-roles:
+      - admin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ToolCandidateInput'
+      responses:
+        '200':
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ToolCandidate'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/tools/{id}/candidates/{candidate}:
+    parameters:
+    - $ref: '#/components/parameters/ResourceID'
+    - $ref: '#/components/parameters/CandidateID'
+    get:
+      operationId: getToolCandidate
+      tags:
+      - Tools
+      summary: Read a candidate and its field changes
+      description: Requires admin in the authenticated workspace. Returns the candidate with the diff against its
+        base version.
+      x-required-roles:
+      - admin
+      responses:
+        '200':
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ToolCandidate'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/tools/{id}/candidates/{candidate}/discard:
+    parameters:
+    - $ref: '#/components/parameters/ResourceID'
+    - $ref: '#/components/parameters/CandidateID'
+    post:
+      operationId: discardToolCandidate
+      tags:
+      - Tools
+      summary: Discard an unpublished candidate
+      description: Requires admin in the authenticated workspace. Deletes only an unpublished candidate. Published,
+        missing or already discarded candidates return 409. Tool definitions and operation snapshots are unchanged.
+      x-required-roles:
+      - admin
+      requestBody:
+        $ref: '#/components/requestBodies/EmptyAction'
+      responses:
+        '200':
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DiscardedCandidate'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/tools/{id}/candidates/{candidate}/publish:
+    parameters:
+    - $ref: '#/components/parameters/ResourceID'
+    - $ref: '#/components/parameters/CandidateID'
+    post:
+      operationId: publishToolCandidate
+      tags:
+      - Tools
+      summary: Publish a candidate as a new active version
+      description: Requires admin in the authenticated workspace. Requires expected_version to match the candidate
+        base and current tool. Revalidates the live target, locks the tool and candidate, publishes version+1 and
+        enables the tool. Concurrent changes return 409. Retrying a published candidate can return the current tool
+        only while its published version is still current and live validation passes. Existing prepared/approved operations
+        retain their complete prior definition; current access, server disablement and snapshot contract checks still
+        apply.
+      x-required-roles:
+      - admin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExpectedVersionInput'
+      responses:
+        '200':
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tool'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/tools/{id}/retire:
+    parameters:
+    - $ref: '#/components/parameters/ResourceID'
+    post:
+      operationId: retireTool
+      tags:
+      - Tools
+      summary: Retire a tool and prevent new dispatch
+      description: Requires admin in the authenticated workspace. Checks expected_version, increments version and
+        sets status retired/enabled false. Retired tools cannot be restored with ordinary publish/enable; create and
+        publish a newly reviewed candidate. Existing operation history is retained.
+      x-required-roles:
+      - admin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExpectedVersionInput'
+      responses:
+        '200':
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tool'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/audit:
+    get:
+      operationId: listAuditEvents
+      tags:
+      - Audit
+      summary: Search workspace audit history
+      description: 'Requires admin in the authenticated workspace. Keyset order is immutable created_at DESC, id DESC.
+        The first request supplies a creation-time upper bound retained in later cursors. total counts current authorized
+        matches inside that boundary before the position cursor; live status and permissions can change it. Pages
+        are not a frozen database snapshot. Unknown/repeated query fields are rejected. '
+      x-required-roles:
+      - admin
+      parameters:
+      - $ref: '#/components/parameters/HistoryLimit'
+      - $ref: '#/components/parameters/HistoryCursor'
+      - $ref: '#/components/parameters/HistoryActor'
+      - $ref: '#/components/parameters/HistoryFrom'
+      - $ref: '#/components/parameters/HistoryTo'
+      - name: action
+        in: query
+        required: false
+        description: Exact action.
+        schema:
+          type: string
+          maxLength: 128
+          x-max-utf8-bytes: 128
+      - name: resource_id
+        in: query
+        required: false
+        description: Exact resource ID.
+        schema:
+          type: string
+          maxLength: 128
+          x-max-utf8-bytes: 128
+      responses:
+        '200':
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/operations/{id}/reconciliations:
+    parameters:
+    - $ref: '#/components/parameters/ResourceID'
+    get:
+      operationId: listOperationReconciliations
+      tags:
+      - Operations
+      summary: Read append-only outcome evidence
+      description: 'Uses the same operation ownership, workspace and live client-grant checks as getOperation. Keyset
+        order is immutable created_at DESC, id DESC. The first request supplies a creation-time upper bound retained
+        in later cursors. total counts current authorized matches inside that boundary before the position cursor;
+        live status and permissions can change it. Pages are not a frozen database snapshot. Unknown/repeated query
+        fields are rejected. '
+      x-required-roles:
+      - admin
+      - operator
+      - approver
+      - viewer
+      parameters:
+      - $ref: '#/components/parameters/HistoryLimit'
+      - $ref: '#/components/parameters/HistoryCursor'
+      responses:
+        '200':
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReconciliationPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    post:
+      operationId: reconcileOperation
+      tags:
+      - Operations
+      summary: Append independent verification for an UNKNOWN operation
+      description: Requires admin or approver in the operation workspace. The requester and any identity recorded
+        as dispatching this operation cannot reconcile it; machine clients cannot write evidence. Only UNKNOWN operations
+        accept evidence. expected_last_id is checked under an operation row lock; corrections append rather than edit
+        history. Original state/result stay unchanged and this endpoint never invokes an upstream tool. Audit records
+        contain record IDs and outcome, not the submitted evidence/note.
+      x-required-roles:
+      - admin
+      - approver
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReconcileInput'
+      responses:
+        '200':
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Reconciliation'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/capacity:
+    get:
+      operationId: listCapacityLimits
+      tags:
+      - Capacity
+      summary: List admission defaults and workspace overrides
+      description: Requires admin in the authenticated workspace. Limits apply to workspace, client and upstream admission
+        before a business dispatch.
+      x-required-roles:
+      - admin
+      responses:
+        '200':
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CapacityLimits'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/capacity/limits:
+    post:
+      operationId: updateCapacityLimit
+      tags:
+      - Capacity
+      summary: Set a versioned admission limit
+      description: Requires admin in the authenticated workspace. Request body is limited to 8192 bytes. Applies on
+        later admissions without changing already admitted calls; successful updates increment version.
+      x-required-roles:
+      - admin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CapacityLimitInput'
+      responses:
+        '200':
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CapacityLimit'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+      x-max-request-body-bytes: 8192
+  /api/v1/capacity/metrics:
+    get:
+      operationId: getCapacityMetrics
+      tags:
+      - Capacity
+      summary: Read execution and admission aggregates
+      description: Requires admin in the authenticated workspace. Reports recorded HTTP/MCP terminal outcomes, rejection
+        counters and active leases.
+      x-required-roles:
+      - admin
+      responses:
+        '200':
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CapacityMetrics'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
 components:
   securitySchemes:
     sessionCookie:
@@ -759,7 +1711,7 @@ components:
     bearerAuth:
       type: http
       scheme: bearer
-      description: Expiring cloud personal API key, or a configured development token; never a client-supplied role or workspace assertion.
+      description: Expiring cloud personal API key, scoped machine-client key, or configured development token. Machine-client keys have live scope/grant checks and cannot administer resources. Identity, role and workspace are always supplied by the server.
   parameters:
     ToolQuery:
       name: query
@@ -799,6 +1751,75 @@ components:
       schema:
         type: string
         format: uuid
+    CredentialRef:
+      name: ref
+      in: path
+      required: true
+      description: Workspace credential reference.
+      schema:
+        type: string
+        pattern: ^[A-Z][A-Z0-9_]{0,127}$
+        maxLength: 128
+    ClientID:
+      name: id
+      in: path
+      required: true
+      description: Server-generated client identifier; not a UUID.
+      schema:
+        type: string
+    CandidateID:
+      name: candidate
+      in: path
+      required: true
+      description: Candidate belonging to this workspace and tool.
+      schema:
+        type: string
+        format: uuid
+    HistoryLimit:
+      name: limit
+      in: query
+      required: false
+      description: Number of history records per page; explicit zero is invalid.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 50
+    HistoryCursor:
+      name: cursor
+      in: query
+      required: false
+      description: Opaque keyset position bound to kind, workspace, actor, role, client/key identity and filters. Limit
+        may change. Live permissions and filters are applied on every page.
+      schema:
+        type: string
+        maxLength: 4096
+    HistoryFrom:
+      name: from
+      in: query
+      required: false
+      description: Inclusive created_at lower bound, RFC3339 with optional nanoseconds. Years 1970-9999; must not exceed
+        to.
+      schema:
+        type: string
+        format: date-time
+    HistoryTo:
+      name: to
+      in: query
+      required: false
+      description: Inclusive created_at upper bound, RFC3339 with optional nanoseconds. Years 1970-9999.
+      schema:
+        type: string
+        format: date-time
+    HistoryActor:
+      name: actor_id
+      in: query
+      required: false
+      description: Exact actor ID. A filter never broadens visibility.
+      schema:
+        type: string
+        maxLength: 128
+        x-max-utf8-bytes: 128
   requestBodies:
     EmptyAction:
       description: Send an empty JSON object with Content-Type application/json; an omitted body is rejected.
@@ -859,13 +1880,36 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorEnvelope'
     Conflict:
-      description: Duplicate tool name or namespace, conflicting idempotency key or MCP import contract, capacity exceeded, incompatible operation state, disabled tool/server or expired approval
+      description: Duplicate tool name or namespace, conflicting idempotency key or MCP import contract, resource-count cap, stale resource version, incompatible operation state, disabled tool/server or expired approval
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorEnvelope'
     Unavailable:
       description: Durable request completion could not be confirmed; query an existing operation before attempting another action
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    TooManyRequests:
+      description: Admission rejected before business dispatch. Retry-After is a positive number of seconds; wait and
+        inspect/retry the same operation ID, never create a new idempotency key for an uncertain write. Application
+        admission errors use capacity_exceeded. The outer request concurrency limiter may return a plain-text response.
+      headers:
+        Retry-After:
+          description: Delay in seconds.
+          schema:
+            type: string
+            pattern: ^[1-9][0-9]*$
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+        text/plain:
+          schema:
+            type: string
+    InternalError:
+      description: Client administration could not be completed; no secret is included in the error.
       content:
         application/json:
           schema:
@@ -885,6 +1929,9 @@ components:
           type: string
         role:
           $ref: '#/components/schemas/Role'
+        client_id:
+          type: string
+          description: Present for a machine client; its ID is also the actor ID. Client key IDs are not exposed.
     Risk:
       type: string
       enum: [read, write]
@@ -1304,11 +2351,11 @@ components:
           description: Effective visibility flag; false when the imported tool's upstream server is disabled, while its independent stored flag is preserved.
         status:
           type: string
-          enum: [draft, published]
+          enum: [draft, published, retired]
         version:
           type: integer
           minimum: 1
-          description: Content version captured by prepared operations. New tools start at 1; an actual MCP response policy change increments it. Existing operation snapshots remain unchanged.
+          description: Content version captured by prepared operations. New tools start at 1; policy changes, candidate publication and retirement increment it. Existing operation snapshots remain unchanged.
         created_at:
           type: string
           format: date-time
@@ -1397,7 +2444,8 @@ components:
         DISPATCHING means execution was admitted and may already have reached the
         downstream service. SUCCEEDED is a confirmed adapter result; FAILED is a
         reported failure. UNKNOWN requires downstream verification and cannot be
-        replayed automatically. REJECTED includes rejected or expired approval.
+        replayed automatically. Reconciliation adds evidence while retaining UNKNOWN.
+        REJECTED includes rejected or expired approval.
     Operation:
       type: object
       additionalProperties: false
@@ -1454,13 +2502,22 @@ components:
     OperationList:
       type: object
       additionalProperties: false
-      required: [items]
+      required:
+      - items
+      - total
       properties:
         items:
           type: array
-          maxItems: 200
           items:
             $ref: '#/components/schemas/Operation'
+          maxItems: 100
+        next_cursor:
+          type: string
+          maxLength: 4096
+          description: Omitted on the final page.
+        total:
+          type: integer
+          minimum: 0
     Event:
       type: object
       additionalProperties: false
@@ -1513,3 +2570,887 @@ components:
               enum: [unauthorized, forbidden, not_found, conflict, approval_expired, invalid_input, unavailable]
             message:
               type: string
+
+    CredentialHeaders:
+      type: object
+      minProperties: 1
+      maxProperties: 16
+      propertyNames:
+        type: string
+        minLength: 1
+        maxLength: 128
+      additionalProperties:
+        type: string
+        minLength: 1
+        maxLength: 8192
+        x-max-utf8-bytes: 8192
+      writeOnly: true
+      description: Secret HTTP headers, accepted only on create/rotate. Names must be ASCII HTTP tokens with case-insensitive
+        uniqueness. Values must not contain controls; total name/value UTF-8 bytes <=32768. Reserved transport, idempotency
+        and MCP headers are rejected. Never returned or recorded in audit data.
+    CredentialMetadata:
+      type: object
+      additionalProperties: false
+      required:
+      - ref
+      - origin
+      - version
+      - enabled
+      - header_names
+      - created_at
+      - updated_at
+      properties:
+        ref:
+          type: string
+          pattern: ^[A-Z][A-Z0-9_]{0,127}$
+        origin:
+          type: string
+          format: uri
+        version:
+          type: integer
+          minimum: 1
+        enabled:
+          type: boolean
+        header_names:
+          type: array
+          items:
+            type: string
+          minItems: 1
+          maxItems: 16
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      description: Secret-free metadata. Exact origin and reference are immutable; version changes on rotation or enabled-state
+        change.
+    CredentialList:
+      type: object
+      additionalProperties: false
+      required:
+      - items
+      - total
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CredentialMetadata'
+          maxItems: 1000
+        total:
+          type: integer
+          minimum: 0
+    CredentialCreateInput:
+      type: object
+      additionalProperties: false
+      required:
+      - ref
+      - origin
+      - headers
+      properties:
+        ref:
+          type: string
+          pattern: ^[A-Z][A-Z0-9_]{0,127}$
+          maxLength: 128
+        origin:
+          type: string
+          format: uri
+          description: Exact permitted scheme://host[:port] origin; no path, query, userinfo or fragment. Registering
+            a credential does not extend the deployment allowlist.
+        headers:
+          $ref: '#/components/schemas/CredentialHeaders'
+    CredentialRotateInput:
+      type: object
+      additionalProperties: false
+      required:
+      - expected_version
+      - headers
+      properties:
+        expected_version:
+          type: integer
+          minimum: 1
+          description: Current resource version. Stale values return 409 even for an otherwise identical request.
+        headers:
+          $ref: '#/components/schemas/CredentialHeaders'
+    CredentialEnabledInput:
+      type: object
+      additionalProperties: false
+      required:
+      - expected_version
+      - enabled
+      properties:
+        expected_version:
+          type: integer
+          minimum: 1
+          description: Current resource version. Stale values return 409 even for an otherwise identical request.
+        enabled:
+          type: boolean
+    ToolCompatibility:
+      type: object
+      additionalProperties: false
+      required:
+      - name
+      - status
+      - code
+      - message
+      properties:
+        name:
+          type: string
+        status:
+          type: string
+          enum:
+          - compatible
+          - incompatible
+        code:
+          type: string
+        message:
+          type: string
+    MCPCheck:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - server_id
+      - checked_at
+      - status
+      - stage
+      - code
+      - message
+      - duration_ms
+      - compatible_count
+      - incompatible_count
+      - tools
+      properties:
+        id:
+          type: string
+          pattern: ^[1-9][0-9]*$
+          maxLength: 19
+          description: Database int64 sequence encoded as a decimal string; do not convert to a JavaScript number.
+        server_id:
+          type: string
+          format: uuid
+        checked_at:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum:
+          - ok
+          - degraded
+          - failed
+        stage:
+          type: string
+          enum:
+          - policy
+          - authentication
+          - connect
+          - discovery
+          - compatibility
+          - complete
+        code:
+          type: string
+        message:
+          type: string
+        duration_ms:
+          type: integer
+          minimum: 0
+        compatible_count:
+          type: integer
+          minimum: 0
+        incompatible_count:
+          type: integer
+          minimum: 0
+        tools:
+          type: array
+          items:
+            $ref: '#/components/schemas/ToolCompatibility'
+          maxItems: 1000
+      description: Safe connection/definition diagnostic. A successful check does not demonstrate business execution;
+        no tools/call is made. No raw upstream error, credentials or full schema is exposed.
+    MCPCheckPage:
+      type: object
+      additionalProperties: false
+      required:
+      - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/MCPCheck'
+          maxItems: 50
+        next_cursor:
+          type: string
+          pattern: ^[1-9][0-9]*$
+          maxLength: 19
+          description: Database int64 sequence encoded as a decimal string; do not convert to a JavaScript number.
+    Client:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - workspace_id
+      - name
+      - enabled
+      - version
+      - scopes
+      - server_ids
+      - tool_ids
+      - key_id
+      - key_created_at
+      - key_expires_at
+      - created_at
+      - updated_at
+      properties:
+        id:
+          type: string
+        workspace_id:
+          type: string
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        enabled:
+          type: boolean
+        version:
+          type: integer
+          minimum: 1
+        scopes:
+          type: array
+          items:
+            type: string
+            enum:
+            - tools:read
+            - tools:invoke
+          maxItems: 2
+          uniqueItems: true
+          description: tools:invoke requires tools:read. Empty scopes grant no tool access.
+        server_ids:
+          type: array
+          items:
+            type: string
+            maxLength: 128
+            x-max-utf8-bytes: 128
+          maxItems: 100
+          description: Explicit IDs in this workspace. Empty means no grants of this kind. Duplicate IDs are normalized.
+        tool_ids:
+          type: array
+          items:
+            type: string
+            maxLength: 128
+            x-max-utf8-bytes: 128
+          maxItems: 1000
+          description: Explicit IDs in this workspace. Empty means no grants of this kind. Duplicate IDs are normalized.
+        key_id:
+          type: string
+        key_created_at:
+          type: string
+          format: date-time
+        key_expires_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    ClientList:
+      type: object
+      additionalProperties: false
+      required:
+      - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Client'
+          maxItems: 500
+    IssuedClientKey:
+      type: object
+      additionalProperties: false
+      required:
+      - client
+      - api_key
+      properties:
+        client:
+          $ref: '#/components/schemas/Client'
+        api_key:
+          type: string
+          description: One-time plaintext bearer key. Save securely now; list and update responses cannot retrieve it.
+    ClientCreateInput:
+      type: object
+      additionalProperties: false
+      required:
+      - name
+      - scopes
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        scopes:
+          type: array
+          items:
+            type: string
+            enum:
+            - tools:read
+            - tools:invoke
+          maxItems: 2
+          uniqueItems: true
+          description: tools:invoke requires tools:read. Empty scopes grant no tool access.
+        server_ids:
+          type: array
+          items:
+            type: string
+            maxLength: 128
+            x-max-utf8-bytes: 128
+          maxItems: 100
+          description: Explicit IDs in this workspace. Empty means no grants of this kind. Duplicate IDs are normalized.
+        tool_ids:
+          type: array
+          items:
+            type: string
+            maxLength: 128
+            x-max-utf8-bytes: 128
+          maxItems: 1000
+          description: Explicit IDs in this workspace. Empty means no grants of this kind. Duplicate IDs are normalized.
+        expires_at:
+          type: string
+          format: date-time
+          description: Future expiry no more than 366 days away; omitted defaults to 30 days.
+    ClientUpdateInput:
+      type: object
+      additionalProperties: false
+      required:
+      - expected_version
+      properties:
+        expected_version:
+          type: integer
+          minimum: 1
+          description: Current resource version. Stale values return 409 even for an otherwise identical request.
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        enabled:
+          type: boolean
+        scopes:
+          type: array
+          items:
+            type: string
+            enum:
+            - tools:read
+            - tools:invoke
+          maxItems: 2
+          uniqueItems: true
+          description: tools:invoke requires tools:read. Empty scopes grant no tool access.
+        server_ids:
+          type: array
+          items:
+            type: string
+            maxLength: 128
+            x-max-utf8-bytes: 128
+          maxItems: 100
+          description: Explicit IDs in this workspace. Empty means no grants of this kind. Duplicate IDs are normalized.
+        tool_ids:
+          type: array
+          items:
+            type: string
+            maxLength: 128
+            x-max-utf8-bytes: 128
+          maxItems: 1000
+          description: Explicit IDs in this workspace. Empty means no grants of this kind. Duplicate IDs are normalized.
+      description: Omitted fields preserve current values; an explicit empty grant/scope array clears it. Every successful
+        update increments version.
+    ClientRotateInput:
+      type: object
+      additionalProperties: false
+      required:
+      - expected_version
+      properties:
+        expected_version:
+          type: integer
+          minimum: 1
+          description: Current resource version. Stale values return 409 even for an otherwise identical request.
+        expires_at:
+          type: string
+          format: date-time
+          description: Future expiry no more than 366 days away; omitted defaults to 30 days.
+    ToolDefinition:
+      type: object
+      additionalProperties: false
+      required:
+      - name
+      - description
+      - risk
+      - input_schema
+      - http
+      properties:
+        name:
+          $ref: '#/components/schemas/ToolInput/properties/name'
+        description:
+          $ref: '#/components/schemas/ToolInput/properties/description'
+        risk:
+          $ref: '#/components/schemas/Risk'
+        input_schema:
+          $ref: '#/components/schemas/InputSchema'
+        output_schema:
+          $ref: '#/components/schemas/OutputSchema'
+        http:
+          oneOf:
+          - $ref: '#/components/schemas/HTTPConfig'
+          - $ref: '#/components/schemas/EmptyHTTPConfig'
+        mcp:
+          $ref: '#/components/schemas/MCPConfig'
+        response_policy:
+          $ref: '#/components/schemas/ResponsePolicy'
+      description: Normalized versioned definition. MCP definitions include mcp/response_policy and an empty http placeholder;
+        HTTP definitions use http and omit MCP fields. Historical definitions do not imply that the upstream still supports
+        them.
+    ToolVersion:
+      type: object
+      additionalProperties: false
+      required:
+      - version
+      - definition
+      - created_at
+      properties:
+        version:
+          type: integer
+          minimum: 1
+        definition:
+          $ref: '#/components/schemas/ToolDefinition'
+        created_at:
+          type: string
+          format: date-time
+    ToolVersionPage:
+      type: object
+      additionalProperties: false
+      required:
+      - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ToolVersion'
+          maxItems: 100
+        next_cursor:
+          type: integer
+          minimum: 1
+          description: Exclusive version cursor; supply as before on the next request. Omitted on last page.
+    ToolChange:
+      type: object
+      additionalProperties: false
+      required:
+      - field
+      - before
+      - after
+      properties:
+        field:
+          type: string
+        before: {}
+        after: {}
+    ToolCandidate:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - tool_id
+      - base_version
+      - definition
+      - changes
+      - reason
+      - created_by
+      - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        tool_id:
+          type: string
+          format: uuid
+        base_version:
+          type: integer
+          minimum: 1
+        source_version:
+          type: integer
+          minimum: 1
+        definition:
+          $ref: '#/components/schemas/ToolDefinition'
+        changes:
+          type:
+          - array
+          - 'null'
+          items:
+            $ref: '#/components/schemas/ToolChange'
+          description: Detailed diff on create/detail responses; the compact candidate list may return null.
+        reason:
+          type: string
+          maxLength: 1000
+          x-max-utf8-bytes: 1000
+        created_by:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        published_version:
+          type: integer
+          minimum: 1
+    ToolCandidateList:
+      type: object
+      additionalProperties: false
+      required:
+      - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ToolCandidate'
+          maxItems: 100
+    ToolCandidateInput:
+      type: object
+      additionalProperties: false
+      required:
+      - expected_version
+      - reason
+      properties:
+        expected_version:
+          type: integer
+          minimum: 1
+          description: Current resource version. Stale values return 409 even for an otherwise identical request.
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 1000
+          x-max-utf8-bytes: 1000
+        source_version:
+          type: integer
+          minimum: 1
+        server_id:
+          type: string
+          format: uuid
+        tool_name:
+          type: string
+          minLength: 1
+          maxLength: 128
+        risk:
+          $ref: '#/components/schemas/Risk'
+        response_policy:
+          $ref: '#/components/schemas/ResponsePolicy'
+        definition:
+          $ref: '#/components/schemas/ToolInput'
+      description: 'Choose one mode: source_version copies a historical definition and cannot accompany any override;
+        definition replaces an HTTP definition and cannot accompany MCP fields; otherwise an MCP candidate discovers
+        server_id/tool_name (defaulting to the current binding), with optional explicit risk/policy overrides. Gateway
+        name is immutable. Candidate creation and publication both validate the live target; schema hashes cannot be
+        supplied by callers.'
+    ExpectedVersionInput:
+      type: object
+      additionalProperties: false
+      required:
+      - expected_version
+      properties:
+        expected_version:
+          type: integer
+          minimum: 1
+          description: Current resource version. Stale values return 409 even for an otherwise identical request.
+    DiscardedCandidate:
+      type: object
+      additionalProperties: false
+      required:
+      - discarded
+      properties:
+        discarded:
+          const: true
+    AuditEvent:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - actor_id
+      - action
+      - resource_id
+      - data
+      - created_at
+      properties:
+        id:
+          type: string
+          pattern: ^[1-9][0-9]*$
+          maxLength: 19
+          description: Database int64 sequence encoded as a decimal string; do not convert to a JavaScript number.
+        actor_id:
+          type: string
+        action:
+          type: string
+        resource_id:
+          type: string
+        data: {}
+        created_at:
+          type: string
+          format: date-time
+      description: Action-specific metadata scoped to the workspace. Credential values and reconciliation note/evidence
+        text are not copied into audit payloads.
+    AuditPage:
+      type: object
+      additionalProperties: false
+      required:
+      - items
+      - total
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditEvent'
+          maxItems: 100
+        next_cursor:
+          type: string
+          maxLength: 4096
+          description: Omitted on the final page.
+        total:
+          type: integer
+          minimum: 0
+    ReconciliationOutcome:
+      type: string
+      enum:
+      - confirmed_success
+      - confirmed_failure
+      - inconclusive
+    Reconciliation:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - operation_id
+      - outcome
+      - evidence_ref
+      - note
+      - actor_id
+      - created_at
+      properties:
+        id:
+          type: string
+          pattern: ^[1-9][0-9]*$
+          maxLength: 19
+          description: Database int64 sequence encoded as a decimal string; do not convert to a JavaScript number.
+        operation_id:
+          type: string
+          format: uuid
+        outcome:
+          $ref: '#/components/schemas/ReconciliationOutcome'
+        evidence_ref:
+          type: string
+        note:
+          type: string
+        actor_id:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+      description: Immutable human evidence. Does not change the operation UNKNOWN state or dispatch any tool; later
+        corrections append another record.
+    ReconciliationPage:
+      type: object
+      additionalProperties: false
+      required:
+      - items
+      - total
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Reconciliation'
+          maxItems: 100
+        next_cursor:
+          type: string
+          maxLength: 4096
+          description: Omitted on the final page.
+        total:
+          type: integer
+          minimum: 0
+    ReconcileInput:
+      type: object
+      additionalProperties: false
+      required:
+      - expected_last_id
+      - outcome
+      - evidence_ref
+      - note
+      properties:
+        expected_last_id:
+          type: string
+          pattern: ^(0|[1-9][0-9]*)$
+          maxLength: 19
+          description: Latest reconciliation ID as a string, or "0" for the first entry. Concurrent/stale appends return
+            409.
+        outcome:
+          $ref: '#/components/schemas/ReconciliationOutcome'
+        evidence_ref:
+          type: string
+          minLength: 1
+          maxLength: 2048
+          x-max-utf8-bytes: 2048
+          description: Trimmed HTTPS URL without userinfo, query or fragment; or a plain record identifier matching
+            ^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$. Do not paste credentials or sensitive payloads.
+        note:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          x-max-utf8-bytes: 2000
+          description: Required trimmed explanation, no NUL. Visible to identities permitted to read this operation.
+    CapacityScope:
+      type: string
+      enum:
+      - workspace
+      - client
+      - upstream
+    CapacityLimit:
+      type: object
+      additionalProperties: false
+      required:
+      - scope
+      - scope_id
+      - version
+      - max_concurrent
+      - requests_per_minute
+      - updated_at
+      properties:
+        scope:
+          $ref: '#/components/schemas/CapacityScope'
+        scope_id:
+          type: string
+        version:
+          type: integer
+          minimum: 0
+        max_concurrent:
+          type: integer
+          minimum: 1
+          maximum: 256
+        requests_per_minute:
+          type: integer
+          minimum: 1
+          maximum: 60000
+        updated_at:
+          type: string
+          format: date-time
+      description: Persisted overrides have version >=1. Defaults use version 0, empty scope_id and zero updated_at;
+        they are fallback templates, not stored overrides.
+    CapacityLimits:
+      type: object
+      additionalProperties: false
+      required:
+      - defaults
+      - items
+      - total
+      properties:
+        defaults:
+          type: array
+          items:
+            $ref: '#/components/schemas/CapacityLimit'
+          maxItems: 3
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CapacityLimit'
+        total:
+          type: integer
+          minimum: 0
+      description: 'Defaults: workspace 32 concurrent/600 requests per minute; client and upstream each 8 concurrent/120
+        per minute. total counts stored overrides.'
+    CapacityLimitInput:
+      type: object
+      additionalProperties: false
+      required:
+      - scope
+      - scope_id
+      - expected_version
+      - max_concurrent
+      - requests_per_minute
+      properties:
+        scope:
+          $ref: '#/components/schemas/CapacityScope'
+        scope_id:
+          type: string
+          minLength: 1
+          maxLength: 512
+          x-max-utf8-bytes: 512
+          description: workspace uses "*"; client uses a workspace client ID; upstream uses "mcp:<serverID>" or "http:<scheme://host[:port]>"
+            (for example http:https://api.example.com).
+        expected_version:
+          type: integer
+          minimum: 0
+          description: Use 0 to create a missing override; otherwise the current stored version. A stale value returns
+            409.
+        max_concurrent:
+          type: integer
+          minimum: 1
+          maximum: 256
+        requests_per_minute:
+          type: integer
+          minimum: 1
+          maximum: 60000
+    CallMetric:
+      type: object
+      additionalProperties: false
+      required:
+      - transport
+      - state
+      - count
+      - duration_ms_total
+      properties:
+        transport:
+          type: string
+          enum:
+          - http
+          - mcp
+        state:
+          type: string
+          enum:
+          - SUCCEEDED
+          - FAILED
+          - UNKNOWN
+        count:
+          type: integer
+          minimum: 0
+        duration_ms_total:
+          type: integer
+          minimum: 0
+    RejectionMetric:
+      type: object
+      additionalProperties: false
+      required:
+      - scope
+      - reason
+      - count
+      properties:
+        scope:
+          type: string
+        reason:
+          type: string
+        count:
+          type: integer
+          minimum: 0
+    CapacityMetrics:
+      type: object
+      additionalProperties: false
+      required:
+      - calls
+      - rejections
+      - active_leases
+      - observed_at
+      properties:
+        calls:
+          type: array
+          items:
+            $ref: '#/components/schemas/CallMetric'
+        rejections:
+          type: array
+          items:
+            $ref: '#/components/schemas/RejectionMetric'
+        active_leases:
+          type: integer
+          minimum: 0
+        observed_at:
+          type: string
+          format: date-time
+      description: Workspace aggregates and active admission leases. Duration totals are not latency percentiles; no
+        per-request payloads are returned.

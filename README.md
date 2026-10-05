@@ -4,7 +4,7 @@
 
 MCP Gateway connects AI agents to existing HTTP APIs and remote MCP servers through a governed tool discovery and execution layer. Its Go backend manages upstream connections, reviewed tool contracts, permissions, approvals and bounded responses. A web console provides administration and execution history; Pi is a client for model-assisted tasks. OpenAPI import, gRPC integration and private-network Connectors remain planned.
 
-> **Project status:** Active development. The Go API and MCP gateway, PostgreSQL execution ledger, invitation-only cloud console, and Pi cloud task worker are runnable. The complete production architecture is still being implemented. See [implementation status](docs/implementation-status.md) for delivered capabilities and remaining acceptance gates.
+> **Project status:** Active development. The Go API and MCP gateway, PostgreSQL execution ledger, invitation-only cloud console, and Pi cloud task worker are runnable. The five core team-governance work packages are implemented in source and have passed local regression checks; their new cloud rollout and exact-commit remote CI acceptance are still pending. The complete production architecture is still being implemented. See [implementation status](docs/implementation-status.md) for delivered capabilities and remaining acceptance gates.
 
 ## Cloud Delivery
 
@@ -21,25 +21,30 @@ docker compose --env-file .local/compose.env -f deploy/compose/compose.yaml up -
 
 Open the console at `http://127.0.0.1:4782`. Use the private identities created in `.local/identities.json`; keep administrator, operator and approver identities separate. Downstream origins must be explicitly allowed before tools can be registered.
 
-For the delivery workflow, source development, downstream configuration and verification, see the [development guide](docs/development.md). The [ordered work packages](docs/implementation-status.md#development-order) describe the next implementation and acceptance priorities. The [Pi runner guide](apps/agent-runner/README.md) explains how to use an existing local subscription login without sending model credentials to the gateway.
+For the delivery workflow, source development, downstream configuration and verification, see the [development guide](docs/development.md). The [work package status](docs/implementation-status.md#development-order) separates implemented behavior from remaining release and acceptance gates. The [Pi runner guide](apps/agent-runner/README.md) explains how to use an existing local subscription login without sending model credentials to the gateway.
 
 ### Working Capabilities
 
 - Sign in, invite teammates, manage member access, revoke API keys and inspect account activity.
-
+- Issue separate machine-client keys with explicit tool/server grants, one-time key display, rotation and live revocation.
 - Register and publish HTTP tools with validated JSON Schemas.
 - Connect remote Streamable HTTP MCP servers, discover paginated upstream catalogs and import selected tools as disabled drafts with explicit risk.
+- Manage AES-GCM-encrypted downstream header credentials, rotate or disable them without restarting services, and inspect connection/definition check history.
 - Route namespaced MCP tools through the operation ledger, recheck upstream contracts and immediately gate new admissions when a server is disabled.
+- Review contract-change candidates, publish immutable tool versions, retire tools and restore a compatible prior definition through a newly reviewed version.
 - Select object and array-element result fields, retain valid pagination cursors and enforce response byte limits before returning data to agents.
 - Preview response policies against supplied samples and revise them with version checks while preserving prepared operation snapshots.
 - Search the complete authorized tool catalog with bounded cursor pages; load schemas on demand and invoke tools through an authenticated MCP endpoint.
 - Prepare fixed actions, approve writes independently and reject duplicate dispatches.
-- Inspect durable PostgreSQL operation records and event history in the console.
-- Preserve ambiguous writes as `UNKNOWN` instead of automatically sending them again.
+- Search paginated operation and audit history; inspect durable PostgreSQL records and events in the console.
+- Preserve ambiguous writes as `UNKNOWN`; independent reviewers can append outcome evidence without changing the recorded state or replaying the action.
+- Enforce workspace/client/upstream admission limits and report execution/rejection aggregates.
+- Package committed releases, check migrations and image provenance, create encrypted recovery snapshots and verify restores in an isolated database.
+- Collect health/backup signals and deliver deduplicated alerts when a host operator configures a webhook; verified off-host backup requires an explicit second destination.
 - Submit cloud Agent tasks, inspect event/output history, cancel work and resume after approval.
 - Run a restricted Pi agent with durable task leases, server-side sessions and intent persistence.
 
-Remote MCP currently supports operator-managed static credentials, text/structured results and bounded POST responses (JSON or SSE), with no upstream OAuth, legacy SSE transport, stdio processes or automatic replay. See the [remote MCP contract](docs/remote-mcp-contract.md) for onboarding, projection rules and compatibility limits.
+Remote MCP currently supports static-file and encrypted managed header credentials, text/structured results and bounded POST responses (JSON or SSE), with no upstream OAuth, legacy SSE transport, stdio processes or automatic replay. See the [remote MCP contract](docs/remote-mcp-contract.md) for onboarding, projection rules and compatibility limits.
 
 The sections below describe the target production system. Follow [implementation status](docs/implementation-status.md) for current limitations and [the OpenAPI contract](api/openapi.yaml) for implemented management endpoints.
 
@@ -60,11 +65,11 @@ The platform serves two types of users:
 | --- | --- |
 | Tool integration | Import OpenAPI definitions and Protobuf descriptors; extend existing remote MCP support with upstream OAuth and isolated stdio servers through a Connector. |
 | Tool discovery | Add semantic ranking and service/environment filters to the existing paginated lexical catalog. |
-| Access governance | Enforce organization, workspace, environment, tool, resource, and field permissions. |
-| Configuration lifecycle | Review changes, publish immutable versions, track rollout, and roll back configurations. |
-| Reliable execution | Extend the existing operation ledger with downstream outcome reconciliation and adapter-specific idempotency support. |
-| Human approval | Bind approval to the exact action, parameters, target environment, and expiration time. |
-| Agent workbench | Create tasks, follow execution, inspect evidence, provide input, cancel work, and resume interrupted tasks. |
+| Access governance | Extend existing workspace/role/client tool grants with organization, environment, resource and field policies. |
+| Configuration lifecycle | Extend reviewed immutable versions and compatible rollback with signed releases, instance acknowledgements and staged rollout. |
+| Reliable execution | Add adapter-specific outcome queries, compensation and downstream idempotency to the existing ledger and human evidence workflow. |
+| Human approval | Extend existing exact-parameter, version-bound and expiring independent approvals with environment/resource policies. |
+| Agent workbench | Extend existing task/event/cancellation/resume controls with structured user input and multi-host scheduling. |
 | Private connectivity | Reach internal services through an outbound-connected Connector with scoped credentials. |
 | Evaluation and observability | Compare agent configurations, replay isolated test cases, and trace tasks through tool execution. |
 
@@ -142,8 +147,8 @@ The same tool governance and execution model can support service investigations,
 - **System of record:** PostgreSQL.
 - **Search:** PostgreSQL full-text search and pgvector.
 - **Artifacts:** S3-compatible object storage.
-- **Caching and rate limits:** Redis.
-- **Observability:** OpenTelemetry and Prometheus-compatible metrics.
+- **Caching and rate limits:** Redis remains a target; current admission limits use PostgreSQL.
+- **Observability:** current audit, aggregates and host alert collector; OpenTelemetry and Prometheus-compatible telemetry remain targets.
 - **Deployment targets:** Docker Compose for dedicated environments and Kubernetes for high-availability deployments.
 
 Production acceptance includes tenant isolation, protocol interoperability, approval replay protection, failure injection, recovery of uncertain operations, load testing, and backup restoration.

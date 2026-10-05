@@ -10,23 +10,39 @@ import (
 	"strings"
 
 	"github.com/alan1-666/mcp-gateway/internal/adapters/httpadapter"
+	"github.com/alan1-666/mcp-gateway/internal/capacity"
+	"github.com/alan1-666/mcp-gateway/internal/clients"
 	"github.com/alan1-666/mcp-gateway/internal/core"
+	"github.com/alan1-666/mcp-gateway/internal/credentials"
 	"github.com/alan1-666/mcp-gateway/internal/execution"
 	"github.com/alan1-666/mcp-gateway/internal/identity"
+	"github.com/alan1-666/mcp-gateway/internal/observability"
+	"github.com/alan1-666/mcp-gateway/internal/releases"
 	"github.com/alan1-666/mcp-gateway/internal/upstreams"
 )
 
 type API struct {
-	Service   *core.Service
-	Executor  *execution.Executor
-	Adapter   *httpadapter.Adapter
-	Upstreams *upstreams.Service
+	Service       *core.Service
+	Executor      *execution.Executor
+	Adapter       *httpadapter.Adapter
+	Upstreams     *upstreams.Service
+	Credentials   *credentials.Store
+	Clients       *clients.Service
+	Releases      *releases.Service
+	Observability *observability.Service
+	Capacity      *capacity.Service
 }
 
 func (a *API) Handler(auth *identity.Auth) http.Handler {
 	mux := http.NewServeMux()
 	a.registerUpstreams(mux)
 	a.registerResponsePolicies(mux)
+	a.registerCredentials(mux)
+	a.registerDiagnostics(mux)
+	a.registerClients(mux)
+	a.registerReleases(mux)
+	a.registerObservability(mux)
+	a.registerCapacity(mux)
 	mux.HandleFunc("GET /api/v1/me", func(w http.ResponseWriter, r *http.Request) { respond(w, identity.Actor(r.Context()), nil) })
 	mux.HandleFunc("GET /api/v1/tools", a.listTools)
 	mux.HandleFunc("GET /api/v1/catalog/tools", a.discoverTools)
@@ -57,13 +73,17 @@ func (a *API) Handler(auth *identity.Auth) http.Handler {
 		result, err := a.Service.SetToolEnabled(r.Context(), identity.Actor(r.Context()), r.PathValue("id"), *input.Enabled)
 		respond(w, result, err)
 	})
-	mux.HandleFunc("GET /api/v1/operations", func(w http.ResponseWriter, r *http.Request) {
-		result, err := a.Service.ListOperations(r.Context(), identity.Actor(r.Context()))
-		if result == nil {
-			result = []core.Operation{}
-		}
-		respond(w, map[string]any{"items": result}, err)
-	})
+	if a.Observability != nil {
+		mux.HandleFunc("GET /api/v1/operations", a.listOperationsPage)
+	} else {
+		mux.HandleFunc("GET /api/v1/operations", func(w http.ResponseWriter, r *http.Request) {
+			result, err := a.Service.ListOperations(r.Context(), identity.Actor(r.Context()))
+			if result == nil {
+				result = []core.Operation{}
+			}
+			respond(w, map[string]any{"items": result}, err)
+		})
+	}
 	mux.HandleFunc("POST /api/v1/operations", func(w http.ResponseWriter, r *http.Request) {
 		var input core.PrepareInput
 		if err := decode(w, r, &input); err != nil {
@@ -150,7 +170,7 @@ func (a *API) createTool(w http.ResponseWriter, r *http.Request) {
 		respond(w, nil, fmt.Errorf("%w: import MCP tools through their registered server", core.ErrInvalid))
 		return
 	}
-	if err := a.Adapter.Validate(actor.WorkspaceID, input.HTTP); err != nil {
+	if err := a.Adapter.ValidateContext(r.Context(), actor.WorkspaceID, input.HTTP); err != nil {
 		respond(w, nil, err)
 		return
 	}
@@ -182,6 +202,10 @@ func decode(w http.ResponseWriter, r *http.Request, v any) error {
 	return nil
 }
 func ErrorDetails(err error) (int, string, string) {
+	var limit *capacity.LimitError
+	if errors.As(err, &limit) {
+		return 429, "capacity_exceeded", limit.Error()
+	}
 	switch {
 	case errors.Is(err, core.ErrUnauthorized):
 		return 401, "unauthorized", err.Error()
@@ -201,8 +225,13 @@ func ErrorDetails(err error) (int, string, string) {
 }
 func respond(w http.ResponseWriter, value any, err error) {
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
 	if err != nil {
 		status, code, message := ErrorDetails(err)
+		var limit *capacity.LimitError
+		if errors.As(err, &limit) {
+			w.Header().Set("Retry-After", strconv.Itoa(limit.RetryAfterSeconds))
+		}
 		w.WriteHeader(status)
 		value = map[string]any{"error": map[string]string{"code": code, "message": message}}
 	}

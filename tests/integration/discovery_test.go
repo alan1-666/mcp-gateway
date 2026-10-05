@@ -82,7 +82,7 @@ func TestDiscoveryAcrossRESTMCPAndLiveCloudIdentity(t *testing.T) {
   FROM generate_series(1,520) n`, definition); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = pool.Exec(ctx, `UPDATE tools SET definition=jsonb_set(definition,'{description}','"Ancient NEEDLE 中文 100%_literal"') WHERE name='catalog_0001'`); err != nil {
+	if _, err = pool.Exec(ctx, `UPDATE tools SET definition=jsonb_set(definition,'{description}','"Ancient NEEDLE 中文 100%_literal"'),version=version+1 WHERE name='catalog_0001'`); err != nil {
 		t.Fatal(err)
 	}
 	for _, record := range []struct {

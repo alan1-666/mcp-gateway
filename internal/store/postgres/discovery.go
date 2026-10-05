@@ -91,7 +91,7 @@ func (r *Repository) SearchTools(ctx context.Context, actor core.Actor, input co
 	// after pagination for registry pages only. Count, boundary and page share
 	// a single statement snapshot.
 	// strpos provides literal substring matching without SQL wildcard escaping.
-	const query = `
+	query := `
 WITH boundary AS (
  SELECT COALESCE($4::timestamptz,statement_timestamp()) AS upper_bound
 ), filtered AS MATERIALIZED (
@@ -101,6 +101,7 @@ WITH boundary AS (
    AND ($2 OR (t.status='published' AND t.enabled AND (t.definition->'mcp'->>'server_id' IS NULL OR EXISTS (SELECT 1 FROM mcp_servers ms WHERE ms.workspace_id=t.workspace_id AND ms.id=t.definition->'mcp'->>'server_id' AND ms.enabled))))
    AND ($3='' OR strpos(lower(t.name || ' ' || COALESCE(t.definition->>'description','')),lower($3))>0)
    AND t.created_at<=b.upper_bound
+   AND ` + clientToolAccessSQL("t", "$9", "$10") + `
 ), page AS (
  SELECT id,created_at FROM filtered
  WHERE $5::timestamptz IS NULL OR (created_at,id)<($5::timestamptz,$6::text)
@@ -120,7 +121,7 @@ SELECT (SELECT upper_bound FROM boundary),
 	var upper time.Time
 	var payload []byte
 	page := core.ToolPage{Items: []core.Tool{}}
-	if err := r.pool.QueryRow(ctx, query, actor.WorkspaceID, showUnpublished, input.Query, upperParam, afterParam, afterID, input.Limit+1, scope == core.ToolScopeRegistry).Scan(&upper, &page.Total, &payload); err != nil {
+	if err := r.pool.QueryRow(ctx, query, actor.WorkspaceID, showUnpublished, input.Query, upperParam, afterParam, afterID, input.Limit+1, scope == core.ToolScopeRegistry, actor.ClientID, actor.ClientKeyID).Scan(&upper, &page.Total, &payload); err != nil {
 		return page, dbError(err)
 	}
 	if err := json.Unmarshal(payload, &page.Items); err != nil {

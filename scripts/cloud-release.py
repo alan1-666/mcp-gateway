@@ -24,6 +24,10 @@ from datetime import datetime, timezone
 import urllib.request
 
 
+# Ops bundles are immutable; importing the adjacent backup helper must not
+# create an unmanifested __pycache__ directory inside the retained bundle.
+sys.dont_write_bytecode = True
+
 MANIFEST = "release.json"
 MAX_ARCHIVE_BYTES = 100 * 1024 * 1024
 SERVICES = ["api", "gateway", "worker", "pi-runner", "console"]
@@ -175,8 +179,14 @@ def verify_directory(directory, manifest):
         require(path.is_file() and not path.is_symlink() and directory.resolve() in path.resolve().parents,
                 "Release source is missing or contains a symlink")
         require(digest(path.read_bytes()) == checksum, f"Release file differs from manifest: {name}")
+    metadata = {MANIFEST}
+    revision = directory / "REVISION"
+    if "REVISION" not in manifest["files"] and revision.exists():
+        require(not revision.is_symlink() and revision.read_text().strip() == manifest["commit"],
+                "Legacy REVISION does not match the committed artifact")
+        metadata.add("REVISION")
     actual = {str(path.relative_to(directory)) for path in directory.rglob("*") if path.is_file()
-              and str(path.relative_to(directory)) != MANIFEST and not private_path(str(path.relative_to(directory)))}
+              and str(path.relative_to(directory)) not in metadata and not private_path(str(path.relative_to(directory)))}
     require(actual == set(manifest["files"]), "Release contains unrecorded source files")
 
 
@@ -217,7 +227,7 @@ def public_health(origin):
 
 
 class Host:
-    def __init__(self, base, runner=None, health=public_health):
+    def __init__(self, base, runner=None, health=public_health, *, allow_incomplete=False):
         self.base, self.runner, self.health = base.resolve(), runner or Runner(), health
         self.env_path = self.base / "cloud.env"
         require(self.env_path.is_file() and not self.env_path.is_symlink(), "Bootstrap cloud.env before using release tooling")
@@ -232,7 +242,8 @@ class Host:
         self.current = self.base / "current"
         require(self.current.is_symlink(), "current must point to an existing release directory")
         self.previous = self.current.resolve()
-        require(self.previous.parent == self.base / "releases" and self.previous.name == self.values["RELEASE_ID"],
+        require(self.previous.parent == self.base / "releases" and NAME.fullmatch(self.previous.name) and
+                (allow_incomplete or self.previous.name == self.values["RELEASE_ID"]),
                 "current, release directory and cloud.env RELEASE_ID disagree; repair explicitly before continuing")
         self.lock = None
 
@@ -280,23 +291,21 @@ class Host:
         return result
 
     def backup(self, release_id):
-        directory = self.base / "backups"
-        directory.mkdir(mode=0o700, exist_ok=True)
-        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
-        target = directory / f"pre-release-{release_id}-{stamp}.dump"
-        temporary = target.with_suffix(".tmp")
+        # Use the same encryption and recovery material as scheduled snapshots.
+        # The backup passphrase is deliberately separate from vault master-key.
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("gateway_backup", Path(__file__).with_name("cloud-backup.py"))
+        backup = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(backup)
+        def compose(*args, **kwargs):
+            return self.compose(self.previous, *args, **kwargs)
         try:
-            with open(temporary, "xb") as stream:
-                os.chmod(temporary, 0o600)
-                self.compose(self.previous, "exec", "-T", "postgres", "pg_dump", "-U", "gateway", "-d", "gateway", "-Fc", stdout=stream)
-            require(temporary.stat().st_size > 0, "Database backup is empty")
-            with open(temporary, "rb") as stream:
-                # pg_restore --list validates a dump catalog; it never restores.
-                self.compose(self.previous, "exec", "-T", "postgres", "pg_restore", "--list", stdin=stream)
-            os.replace(temporary, target)
-        finally:
-            temporary.unlink(missing_ok=True)
-        return str(target)
+            temporary = Path(os.environ.get("GATEWAY_BACKUP_TEMP_DIR", "/dev/shm"))
+            return str(backup.create_backup(self.base, "pre-" + release_id,
+                key=Path(os.environ.get("GATEWAY_BACKUP_KEY_FILE", str(self.base / "backup-key"))),
+                temp_dir=temporary if temporary.is_dir() else None, compose=compose))
+        except (backup.BackupError, OSError, subprocess.SubprocessError) as exc:
+            raise ReleaseError("Encrypted pre-release backup failed; previous snapshots are preserved") from exc
 
     def check_health(self, directory):
         output = self.compose(directory, "ps", "--all", "--format", "json", timeout=30).decode().strip()
@@ -428,6 +437,40 @@ def adopt(host, manifest, allowed, record):
     return "Legacy source, schema and health matched; " + ("manifest and current image IDs recorded" if record else "read-only comparison complete (use --record to adopt)")
 
 
+def repair_metadata(host):
+    """Finish only a health-verified metadata transition interrupted by a crash.
+
+    No service, image, database or secret changes are made. A failed deployment
+    without a verified target state must still use an explicit rollback.
+    """
+    transition_path = host.base / "release-transition.json"
+    require(transition_path.is_file(), "No recorded transition is available for metadata repair")
+    transition = json.loads(transition_path.read_text())
+    target = transition.get("target_release")
+    require(isinstance(target, str) and NAME.fullmatch(target), "Transition has an invalid target")
+    directory = host.base / "releases" / target
+    state = json.loads(host.state_path(target).read_text())
+    manifest = validate_manifest(json.loads((directory / MANIFEST).read_text()))
+    require(state.get("release_id") == target and manifest["release_id"] == target and
+            state.get("commit") == manifest["commit"] == transition.get("target_commit") and
+            state.get("action") in {"deploy", "rollback"} and state.get("verified_at"),
+            "Target has no matching verified release state; use an explicit rollback")
+    verify_directory(directory, manifest)
+    allowed = state.get("allowed_migrations", {})
+    require(isinstance(allowed, dict) and all(isinstance(k, str) and "/" not in k and k.endswith(".sql") and
+            isinstance(v, str) and HASH.fullmatch(v) and k not in manifest["migrations"] for k, v in allowed.items()),
+            "Recorded compatibility data is invalid")
+    check_schema(host.schema(), manifest, allowed, require_complete=True)
+    require(host.image_ids(target) == state.get("images"), "Target image provenance changed")
+    host.check_health(directory)
+    staged = host.base / ".current-next"
+    if staged.is_symlink():
+        require(staged.resolve() == directory.resolve(), "Staged current pointer names a different release")
+        staged.unlink()
+    host.finalize(directory, state)
+    return f"Verified release metadata repaired: {target}"
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="Failures never restore the DB or erase volumes. After a stopped/failed deployment, inspect the actual schema and use an explicit compatible rollback. Retain artifacts and images. A manifest binds source hashes; it is not an image signature or a guarantee of business health.")
@@ -437,6 +480,8 @@ def main(argv=None):
     pack.add_argument("--commit", required=True, help="Reviewed commit/ref; resolved and stored as its full SHA")
     pack.add_argument("--release", required=True)
     pack.add_argument("--output", type=Path, required=True)
+    repair = sub.add_parser("repair-metadata", help="Complete an interrupted, already verified pointer/env transition; never modifies services or the database")
+    repair.add_argument("--base", type=Path, default=Path("/opt/mcp-gateway"))
     for command in ["deploy", "rollback", "adopt"]:
         p = sub.add_parser(command, help={"deploy": "Build and deploy a packaged release to an existing host", "rollback": "Switch to recorded images after checking actual DB migrations; never run reverse migrations", "adopt": "Compare a legacy current directory against a committed artifact; read-only by default"}[command])
         p.add_argument("--base", type=Path, default=Path("/opt/mcp-gateway"))
@@ -454,6 +499,10 @@ def main(argv=None):
         if args.command == "package":
             manifest, checksum = package(args.source, args.commit, args.release, args.output)
             print(f"Packaged committed source {manifest['commit']} as {manifest['release_id']}; artifact SHA256 {checksum}")
+            return 0
+        if args.command == "repair-metadata":
+            with Host(args.base, allow_incomplete=True) as host:
+                print(repair_metadata(host))
             return 0
         if args.command == "adopt" and not args.record:
             manifest, _, _ = read_artifact(args.artifact)

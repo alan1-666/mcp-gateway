@@ -50,10 +50,15 @@ func New(egress *httpadapter.Adapter, resolver Resolver) *Adapter {
 }
 
 func (a *Adapter) ValidateServer(actor core.Actor, server core.MCPServer) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	return a.ValidateServerContext(ctx, actor, server)
+}
+func (a *Adapter) ValidateServerContext(ctx context.Context, actor core.Actor, server core.MCPServer) error {
 	if a.egress == nil || server.WorkspaceID != actor.WorkspaceID || server.TimeoutMS < 100 || server.TimeoutMS > 120000 {
 		return fmt.Errorf("%w: invalid MCP server policy or timeout", core.ErrInvalid)
 	}
-	_, closeClient, err := a.egress.NewClient(actor.WorkspaceID, server.URL, server.CredentialRef, time.Duration(server.TimeoutMS)*time.Millisecond)
+	_, closeClient, err := a.egress.NewClientContext(ctx, actor.WorkspaceID, server.URL, server.CredentialRef, time.Duration(server.TimeoutMS)*time.Millisecond)
 	if err != nil {
 		return err
 	}
@@ -62,10 +67,10 @@ func (a *Adapter) ValidateServer(actor core.Actor, server core.MCPServer) error 
 }
 
 func (a *Adapter) connect(ctx context.Context, actor core.Actor, server core.MCPServer) (*mcp.ClientSession, *protocolTransport, func(), error) {
-	if err := a.ValidateServer(actor, server); err != nil {
+	if err := a.ValidateServerContext(ctx, actor, server); err != nil {
 		return nil, nil, nil, err
 	}
-	client, closeClient, err := a.egress.NewClient(actor.WorkspaceID, server.URL, server.CredentialRef, time.Duration(server.TimeoutMS)*time.Millisecond)
+	client, closeClient, err := a.egress.NewClientContext(ctx, actor.WorkspaceID, server.URL, server.CredentialRef, time.Duration(server.TimeoutMS)*time.Millisecond)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -78,7 +83,7 @@ func (a *Adapter) connect(ctx context.Context, actor core.Actor, server core.MCP
 	session, err := sdk.Connect(ctx, &mcp.StreamableClientTransport{Endpoint: server.URL, HTTPClient: client, MaxRetries: -1, DisableStandaloneSSE: true}, nil)
 	if err != nil {
 		closeClient()
-		return nil, nil, nil, fmt.Errorf("MCP server connection failed")
+		return nil, transport, nil, fmt.Errorf("MCP server connection failed")
 	}
 	return session, transport, func() { _ = session.Close(); closeClient() }, nil
 }

@@ -9,6 +9,29 @@ export class APIError extends Error {
   }
 }
 
+const reloadConflictMessages = new Set([
+  "resource conflict",
+  "resource conflict: client was changed; reload before editing",
+  "resource conflict: client was changed; reload before rotating",
+  "resource conflict: credential changed; reload before retrying",
+  "resource conflict: reconciliation changed; reload before adding evidence",
+  "resource conflict: capacity limits changed; reload before saving",
+  "resource conflict: tool changed while this candidate was under review",
+]);
+
+export function requiresConflictReload(error: unknown): boolean {
+  // The current gateway uses one conflict code for both version checks and
+  // business constraints. Keep this list explicit: upstream contracts changing
+  // is a business failure, not evidence that the local record version changed.
+  // A bare legacy conflict is ambiguous, so require a read before another write.
+  return (
+    error instanceof APIError &&
+    error.status === 409 &&
+    error.code === "conflict" &&
+    reloadConflictMessages.has(error.message.trim())
+  );
+}
+
 export class APIClient {
   private csrf = "";
   constructor(private readonly token = "") {}
@@ -77,7 +100,10 @@ export class APIClient {
 }
 
 export function messageOf(error: unknown): string {
-  if (error instanceof APIError) return error.message;
+  if (error instanceof APIError)
+    return error.status === 429
+      ? "Workspace capacity or request rate has been reached. Wait for active work to finish, then try again."
+      : error.message;
   if (error instanceof DOMException && error.name === "TimeoutError")
     return "The gateway did not respond in time. Refresh the operation record to check its current state.";
   if (error instanceof TypeError)

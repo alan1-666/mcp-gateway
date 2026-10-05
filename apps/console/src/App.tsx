@@ -1,3 +1,15 @@
+import { Clients } from "./Clients";
+import { Credentials } from "./Credentials";
+import { Capacity } from "./Capacity";
+import { AuditTrail, Reconciliations } from "./Observability";
+import { ToolVersions } from "./ToolVersions";
+import {
+  AdminError,
+  AdminLoading,
+  MoreRecords,
+  useRecordPages,
+} from "./AdminUI";
+import { filterPath, isoDate } from "./admin-state";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import { APIClient, messageOf, parseObject } from "./api";
@@ -23,6 +35,10 @@ import type {
 } from "./types";
 
 type Page =
+  | "credentials"
+  | "clients"
+  | "audit"
+  | "capacity"
   | "overview"
   | "tools"
   | "mcp"
@@ -41,14 +57,39 @@ const navigation: { id: Page; label: string; icon: string }[] = [
   { id: "overview", label: "Overview", icon: "overview" },
   { id: "tools", label: "Tool registry", icon: "tools" },
   { id: "mcp", label: "MCP Servers", icon: "agent" },
+  { id: "credentials", label: "Credentials", icon: "approvals" },
+  { id: "clients", label: "Clients", icon: "agent" },
+  { id: "audit", label: "Audit trail", icon: "search" },
+  { id: "capacity", label: "Capacity", icon: "operations" },
   { id: "invoke", label: "New invocation", icon: "invoke" },
   { id: "operations", label: "Operations", icon: "operations" },
   { id: "approvals", label: "Approvals", icon: "approvals" },
 ];
 const pageCopy: Record<Page, { title: string; description: string }> = {
+  credentials: {
+    title: "Outbound credentials",
+    description:
+      "Manage encrypted authentication references for your integrations.",
+  },
+  clients: {
+    title: "Client access",
+    description:
+      "Grant independent application identities exactly the tools they need.",
+  },
+  audit: {
+    title: "Audit trail",
+    description:
+      "Inspect configuration and authorization changes across the workspace.",
+  },
+  capacity: {
+    title: "Capacity & limits",
+    description:
+      "Review execution demand and control admission by workspace, client, and upstream.",
+  },
   mcp: {
     title: "MCP Servers",
-    description: "Connect upstream servers and review each tool before it enters your registry.",
+    description:
+      "Connect upstream servers and review each tool before it enters your registry.",
   },
   runs: {
     title: "Agent tasks",
@@ -459,6 +500,12 @@ function Workspace({
   const [availableTools, setAvailableTools] = useState(0);
   const [registryTotal, setRegistryTotal] = useState(0);
   const [operations, setOperations] = useState<Operation[]>([]);
+  const [operationTotal, setOperationTotal] = useState(0);
+  const [pendingTotal, setPendingTotal] = useState(0);
+  const [unknownTotal, setUnknownTotal] = useState(0);
+  const [operationListVersion, setOperationListVersion] = useState(0);
+  const operationsFingerprint = useRef("");
+  const operationRevisions = useRef(new Map<string, string>());
   const [loaded, setLoaded] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
@@ -475,9 +522,6 @@ function Workspace({
   const canManage = identity.role === "admin";
   const canInvoke = identity.role === "admin" || identity.role === "operator";
   const canApprove = identity.role === "admin" || identity.role === "approver";
-  const pending = operations.filter(
-    (operation) => operation.state === "WAITING_APPROVAL",
-  );
 
   const refresh = useCallback(async () => {
     requestController.current?.abort();
@@ -486,19 +530,45 @@ function Workspace({
     refreshPending.current = true;
     setRefreshing(true);
     try {
-      const [toolResult, catalogResult, operationResult] = await Promise.all([
+      const [
+        toolResult,
+        catalogResult,
+        operationResult,
+        pendingResult,
+        unknownResult,
+      ] = await Promise.all([
         api.request<ToolPage>("/tools?limit=1", { signal: controller.signal }),
         api.request<ToolPage<ToolSummary>>("/catalog/tools?limit=1", {
           signal: controller.signal,
         }),
-        api.request<{ items: Operation[] }>("/operations", {
+        api.request<{ items: Operation[]; total: number }>(
+          "/operations?limit=50",
+          {
+            signal: controller.signal,
+          },
+        ),
+        api.request<{ total: number }>(
+          "/operations?state=WAITING_APPROVAL&limit=1",
+          { signal: controller.signal },
+        ),
+        api.request<{ total: number }>("/operations?state=UNKNOWN&limit=1", {
           signal: controller.signal,
         }),
       ]);
       if (controller.signal.aborted) return;
       setRegistryTotal(validateToolPage(toolResult).total);
       setAvailableTools(validateToolPage(catalogResult).total);
+      const signature = JSON.stringify(operationResult.items);
+      if (signature !== operationsFingerprint.current) {
+        operationsFingerprint.current = signature;
+        setOperationListVersion((value) => value + 1);
+      }
+      for (const op of operationResult.items)
+        operationRevisions.current.set(op.id, `${op.state}:${op.updated_at}`);
       setOperations(operationResult.items ?? []);
+      setOperationTotal(operationResult.total);
+      setPendingTotal(pendingResult.total);
+      setUnknownTotal(unknownResult.total);
       setLoaded(true);
       setUpdated(new Date().toISOString());
       setError("");
@@ -578,8 +648,17 @@ function Workspace({
                 ]
               : []),
           ]
-            .filter((item) => item.id !== "invoke" || canInvoke)
-            .filter((item) => item.id !== "mcp" || canManageMCPServers(identity))
+            .filter(
+              (item) =>
+                (item.id !== "invoke" || canInvoke) &&
+                (!["credentials", "clients", "audit", "capacity"].includes(
+                  item.id,
+                ) ||
+                  (canManage && !identity.client_id)),
+            )
+            .filter(
+              (item) => item.id !== "mcp" || canManageMCPServers(identity),
+            )
             .map((item) => (
               <button
                 key={item.id}
@@ -589,8 +668,8 @@ function Workspace({
               >
                 <Icon name={item.icon} />
                 <span>{item.label}</span>
-                {item.id === "approvals" && pending.length > 0 ? (
-                  <span className="nav-count">{pending.length}</span>
+                {item.id === "approvals" && pendingTotal > 0 ? (
+                  <span className="nav-count">{pendingTotal}</span>
                 ) : null}
               </button>
             ))}
@@ -657,12 +736,15 @@ function Workspace({
                   ? setRunRefreshVersion((current) => current + 1)
                   : page === "mcp"
                     ? setMCPRefreshVersion((current) => current + 1)
-                    : void refresh()
+                    : (setOperationListVersion((value) => value + 1),
+                      void refresh())
               }
               disabled={page !== "runs" && page !== "mcp" && refreshing}
             >
               <Icon name="refresh" />
-              {page !== "runs" && page !== "mcp" && refreshing ? "Refreshing…" : "Refresh"}
+              {page !== "runs" && page !== "mcp" && refreshing
+                ? "Refreshing…"
+                : "Refresh"}
             </button>
           </div>
           {error ? (
@@ -704,11 +786,26 @@ function Workspace({
                   refreshVersion={updated}
                 />
               ) : null}
+              {page === "credentials" && canManage ? (
+                <Credentials api={api} refreshVersion={updated} />
+              ) : null}
+              {page === "clients" && canManage ? (
+                <Clients api={api} refreshVersion={updated} />
+              ) : null}
+              {page === "audit" && canManage ? (
+                <AuditTrail api={api} refreshVersion={updated} />
+              ) : null}
+              {page === "capacity" && canManage ? (
+                <Capacity api={api} refreshVersion={updated} />
+              ) : null}
               {page === "overview" ? (
                 <Overview
                   canInvoke={canInvoke}
                   availableTools={availableTools}
                   registryTotal={registryTotal}
+                  operationTotal={operationTotal}
+                  pendingTotal={pendingTotal}
+                  unknownTotal={unknownTotal}
                   operations={operations}
                   onNavigate={navigate}
                   onOperation={showOperation}
@@ -764,8 +861,10 @@ function Workspace({
                   }
                 >
                   <OperationList
+                    key={page}
                     canInvoke={canInvoke}
-                    operations={page === "approvals" ? pending : operations}
+                    api={api}
+                    refreshVersion={String(operationListVersion)}
                     approvalView={page === "approvals"}
                     selectedId={selectedOperation}
                     onSelect={setSelectedOperation}
@@ -780,6 +879,15 @@ function Workspace({
                       canApprove={canApprove}
                       onClose={() => setSelectedOperation(null)}
                       onChanged={(operation) => {
+                        const revision = `${operation.state}:${operation.updated_at}`;
+                        const previous = operationRevisions.current.get(
+                          operation.id,
+                        );
+                        operationRevisions.current.set(operation.id, revision);
+                        if (previous && previous !== revision) {
+                          setOperationListVersion((value) => value + 1);
+                          void refresh();
+                        }
                         setOperations((current) =>
                           current.map((item) =>
                             item.id === operation.id ? operation : item,
@@ -802,7 +910,7 @@ function Workspace({
             <span>
               {page === "runs"
                 ? "Latest 100 accessible Agent tasks · Creator and administrator access"
-                : "Paginated tool catalog · Latest 200 accessible operations"}
+                : "Paginated tool catalog · Authorized operation history"}
             </span>
             <span>
               {page === "runs"
@@ -822,6 +930,9 @@ function Overview({
   canInvoke,
   availableTools,
   registryTotal,
+  operationTotal,
+  pendingTotal,
+  unknownTotal,
   operations,
   onNavigate,
   onOperation,
@@ -830,18 +941,17 @@ function Overview({
   canInvoke: boolean;
   availableTools: number;
   registryTotal: number;
+  operationTotal: number;
+  pendingTotal: number;
+  unknownTotal: number;
   operations: Operation[];
   onNavigate: (page: Page) => void;
   onOperation: (id: string) => void;
   onInvoke: () => void;
 }) {
   const published = availableTools;
-  const pending = operations.filter(
-    (operation) => operation.state === "WAITING_APPROVAL",
-  ).length;
-  const uncertain = operations.filter(
-    (operation) => operation.state === "UNKNOWN",
-  ).length;
+  const pending = pendingTotal;
+  const uncertain = unknownTotal;
   const stats = [
     {
       label: "Available tools",
@@ -852,8 +962,8 @@ function Overview({
     },
     {
       label: "Recorded operations",
-      value: operations.length,
-      detail: "In the loaded operation history",
+      value: operationTotal,
+      detail: "Across your authorized history",
       page: "operations" as Page,
       icon: "operations",
     },
@@ -1065,7 +1175,9 @@ function Registry({
   onInvoke: (id: string) => void;
 }) {
   const [showForm, setShowForm] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId || null);
+  const [selectedId, setSelectedId] = useState<string | null>(
+    initialSelectedId || null,
+  );
   const search = useToolSearch<Tool>(api, "registry", refreshVersion);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
@@ -1174,9 +1286,15 @@ function Registry({
                       </span>
                     </td>
                     <td>
-                      <span className="method-tag">{tool.mcp ? "MCP" : tool.http.method}</span>
+                      <span className="method-tag">
+                        {tool.mcp ? "MCP" : tool.http.method}
+                      </span>
                       <span className="version-label">v{tool.version}</span>
-                      {tool.mcp ? <span className="table-description mono">{tool.mcp.tool_name}</span> : null}
+                      {tool.mcp ? (
+                        <span className="table-description mono">
+                          {tool.mcp.tool_name}
+                        </span>
+                      ) : null}
                     </td>
                     <td>
                       <Status state={tool.risk} />
@@ -1184,8 +1302,8 @@ function Registry({
                     <td>
                       <Status
                         state={
-                          tool.status === "draft"
-                            ? "draft"
+                          tool.status !== "published"
+                            ? tool.status
                             : tool.enabled
                               ? "published"
                               : "disabled"
@@ -1328,7 +1446,18 @@ function Registry({
           </div>
         </section>
       ) : null}
-      {selectedId && canManage ? (
+      {selected && canManage ? (
+        <ToolVersions
+          key={`${selected.id}:${selected.version}`}
+          api={api}
+          tool={selected}
+          onChanged={async () => {
+            details.reload();
+            await Promise.all([search.controller.reload(), onRefresh()]);
+          }}
+        />
+      ) : null}
+      {selectedId && canManage && selected?.status !== "retired" ? (
         <ResponsePolicyEditor
           key={selectedId}
           api={api}
@@ -1789,9 +1918,28 @@ function Invocation({
                   </div>
                   <div>
                     <dt>Transport</dt>
-                    <dd>{tool.mcp ? "MCP · Streamable HTTP" : `HTTP · ${tool.http.method}`}</dd>
+                    <dd>
+                      {tool.mcp
+                        ? "MCP · Streamable HTTP"
+                        : `HTTP · ${tool.http.method}`}
+                    </dd>
                   </div>
-                  {tool.mcp ? <><div><dt>Remote tool</dt><dd className="mono break-word">{tool.mcp.tool_name}</dd></div><div><dt>MCP server ID</dt><dd className="mono break-word">{tool.mcp.server_id}</dd></div></> : null}
+                  {tool.mcp ? (
+                    <>
+                      <div>
+                        <dt>Remote tool</dt>
+                        <dd className="mono break-word">
+                          {tool.mcp.tool_name}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>MCP server ID</dt>
+                        <dd className="mono break-word">
+                          {tool.mcp.server_id}
+                        </dd>
+                      </div>
+                    </>
+                  ) : null}
                 </dl>
                 <ToolResponsePolicy tool={tool} />
                 <JsonBlock
@@ -1878,84 +2026,129 @@ function OperationTable({
 
 function OperationList({
   canInvoke,
-  operations,
+  api,
+  refreshVersion,
   approvalView,
   selectedId,
   onSelect,
   onInvoke,
 }: {
   canInvoke: boolean;
-  operations: Operation[];
+  api: APIClient;
+  refreshVersion: string;
   approvalView: boolean;
   selectedId: string | null;
   onSelect: (id: string) => void;
   onInvoke: () => void;
 }) {
-  const [filter, setFilter] = useState("all");
-  const visible =
-    approvalView || filter === "all"
-      ? operations
-      : operations.filter((operation) => operation.state === filter);
+  const [filters, setFilters] = useState({
+    state: approvalView ? "WAITING_APPROVAL" : "",
+    tool_id: "",
+    actor_id: "",
+    from: "",
+    to: "",
+  });
+  const [applied, setApplied] = useState<Record<string, string>>({
+    state: approvalView ? "WAITING_APPROVAL" : "",
+    limit: "50",
+  });
+  const [error, setError] = useState("");
+  const path = filterPath("/operations", {
+    ...applied,
+    ...(approvalView ? { state: "WAITING_APPROVAL" } : {}),
+  });
+  const pages = useRecordPages<Operation>(api, path, refreshVersion);
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    setError("");
+    try {
+      setApplied({
+        ...filters,
+        from: isoDate(filters.from) ?? "",
+        to: isoDate(filters.to) ?? "",
+        limit: "50",
+      });
+    } catch (error) {
+      setError(messageOf(error));
+    }
+  }
   return (
     <section className="operation-list">
       <div className="toolbar">
         <div className="list-summary">
-          <strong>{visible.length}</strong>{" "}
-          {approvalView ? "pending review" : "loaded operations"}
+          <strong>{pages.state.total ?? "—"}</strong>{" "}
+          {approvalView ? "pending review" : "matching operations"}
         </div>
-        {!approvalView ? (
-          <>
-            <select
-              aria-label="Filter operations by state"
-              value={filter}
-              onChange={(event) => setFilter(event.target.value)}
-            >
-              <option value="all">All states</option>
-              {(
-                [
-                  "WAITING_APPROVAL",
-                  "READY",
-                  "DISPATCHING",
-                  "SUCCEEDED",
-                  "FAILED",
-                  "UNKNOWN",
-                  "REJECTED",
-                ] as const
-              ).map((state) => (
-                <option key={state} value={state}>
-                  {state.toLowerCase().replaceAll("_", " ")}
-                </option>
-              ))}
-            </select>
-            {canInvoke ? (
-              <button className="button primary" onClick={onInvoke}>
-                <Icon name="plus" />
-                New invocation
-              </button>
-            ) : null}
-          </>
+        {canInvoke && !approvalView ? (
+          <button className="button primary" onClick={onInvoke}>
+            <Icon name="plus" />
+            New invocation
+          </button>
         ) : null}
       </div>
-      <OperationTable
-        operations={visible}
-        selectedId={selectedId}
-        onSelect={onSelect}
-        empty={
-          <Empty
-            title={
-              approvalView
-                ? "No requests awaiting approval"
-                : filter !== "all"
-                  ? "No operations in this state"
-                  : "No operations yet"
-            }
-          >
-            {approvalView
-              ? "Write requests will appear here with their exact arguments for review."
-              : "Prepare an invocation from a published tool to create a recorded operation."}
-          </Empty>
-        }
-      />
+      <form className="panel panel-body admin-filter-form" onSubmit={submit}>
+        {!approvalView ? (
+          <label>
+            State
+            <select
+              value={filters.state}
+              onChange={(event) =>
+                setFilters({ ...filters, state: event.target.value })
+              }
+            >
+              <option value="">All states</option>
+              {[
+                "WAITING_APPROVAL",
+                "READY",
+                "DISPATCHING",
+                "SUCCEEDED",
+                "FAILED",
+                "UNKNOWN",
+                "REJECTED",
+              ].map((state) => (
+                <option key={state}>{state}</option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+        {(["tool_id", "actor_id", "from", "to"] as const).map((name) => (
+          <label key={name}>
+            {name.replaceAll("_", " ")}
+            <input
+              type={
+                name === "from" || name === "to" ? "datetime-local" : "text"
+              }
+              value={filters[name]}
+              onChange={(event) =>
+                setFilters({ ...filters, [name]: event.target.value })
+              }
+            />
+          </label>
+        ))}
+        <button className="button secondary">Apply filters</button>
+      </form>
+      <AdminError error={error} />
+      {pages.state.phase === "loading" ? (
+        <AdminLoading />
+      ) : pages.state.loaded ? (
+        <OperationTable
+          operations={pages.state.items}
+          selectedId={selectedId}
+          onSelect={onSelect}
+          empty={
+            <Empty
+              title={
+                approvalView
+                  ? "No requests awaiting approval"
+                  : "No matching operations"
+              }
+            >
+              Try another filter or prepare an invocation from a published tool.
+            </Empty>
+          }
+        />
+      ) : null}
+      <MoreRecords pages={pages} />
     </section>
   );
 }
@@ -2248,6 +2441,13 @@ function OperationDetail({
             ) : null}
             {operation.result !== undefined ? (
               <JsonBlock label="Recorded result" value={operation.result} />
+            ) : null}
+            {operation.state === "UNKNOWN" ? (
+              <Reconciliations
+                api={api}
+                operation={operation}
+                identity={identity}
+              />
             ) : null}
             <details className="request-details">
               <summary>Request identity</summary>

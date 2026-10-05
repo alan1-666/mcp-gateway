@@ -2,6 +2,7 @@ export interface Identity {
   id: string;
   workspace_id: string;
   role: string;
+  client_id?: string;
 }
 
 export interface HTTPConfiguration {
@@ -51,7 +52,7 @@ export interface Tool {
   http: HTTPConfiguration;
   mcp?: { server_id: string; tool_name: string; schema_hash: string };
   response_policy?: ResponsePolicy;
-  status: "draft" | "published";
+  status: "draft" | "published" | "retired";
   enabled: boolean;
   version: number;
   created_at: string;

@@ -16,6 +16,9 @@ func authorize(actor Actor, roles ...Role) error {
 	if strings.TrimSpace(actor.ID) == "" || strings.TrimSpace(actor.WorkspaceID) == "" {
 		return ErrUnauthorized
 	}
+	if actor.ClientID != "" && (actor.Role != RoleOperator || actor.ID != actor.ClientID || actor.ClientKeyID == "") {
+		return ErrForbidden
+	}
 	switch actor.Role {
 	case RoleAdmin, RoleOperator, RoleApprover, RoleViewer:
 	default:

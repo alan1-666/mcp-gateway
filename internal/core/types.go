@@ -29,6 +29,8 @@ type Actor struct {
 	ID          string `json:"id"`
 	WorkspaceID string `json:"workspace_id"`
 	Role        Role   `json:"role"`
+	ClientID    string `json:"client_id,omitempty"`
+	ClientKeyID string `json:"-"`
 }
 type Risk string
 

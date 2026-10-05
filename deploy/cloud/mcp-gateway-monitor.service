@@ -1,0 +1,11 @@
+[Unit]
+Description=MCP Gateway health collection and configured alert delivery
+Requires=docker.service
+After=docker.service
+ConditionPathExists=/opt/mcp-gateway/cloud.env
+[Service]
+Type=oneshot
+UMask=0077
+EnvironmentFile=-/opt/mcp-gateway/monitor.env
+ExecStart=/bin/sh /opt/mcp-gateway/ops/monitor.sh
+TimeoutStartSec=60

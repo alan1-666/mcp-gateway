@@ -19,11 +19,12 @@ const maxResponseBytes = 1 << 20
 // error bodies), and prevents any tools/call replay even if SDK retry behavior
 // changes. A session is used for at most one business call.
 type protocolTransport struct {
-	base      http.RoundTripper
-	ctx       context.Context
-	mu        sync.Mutex
-	callSent  bool
-	responses map[string]*responseCapture
+	base       http.RoundTripper
+	ctx        context.Context
+	mu         sync.Mutex
+	callSent   bool
+	lastStatus int
+	responses  map[string]*responseCapture
 }
 
 func (t *protocolTransport) RoundTrip(req *http.Request) (*http.Response, error) {
@@ -76,6 +77,9 @@ func (t *protocolTransport) RoundTrip(req *http.Request) (*http.Response, error)
 		cancel()
 		return nil, err
 	}
+	t.mu.Lock()
+	t.lastStatus = resp.StatusCode
+	t.mu.Unlock()
 	if resp.ContentLength > maxResponseBytes {
 		resp.Body.Close()
 		stop()
@@ -92,6 +96,8 @@ func (t *protocolTransport) RoundTrip(req *http.Request) (*http.Response, error)
 	resp.Body = &boundedBody{body: resp.Body, capture: capture, remaining: maxResponseBytes, close: func() { stop(); cancel() }}
 	return resp, nil
 }
+
+func (t *protocolTransport) status() int { t.mu.Lock(); defer t.mu.Unlock(); return t.lastStatus }
 
 func (t *protocolTransport) result(method string) (json.RawMessage, error) {
 	t.mu.Lock()

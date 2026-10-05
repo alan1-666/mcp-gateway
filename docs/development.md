@@ -4,9 +4,9 @@ The repository contains executable Go services, a React console and a Pi integra
 
 ## Delivery workflow
 
-Upcoming delivery prioritizes the Gateway: connect an upstream, review its tools, grant a client access, discover the required schema, execute through policy, return a bounded result and inspect the outcome. Pi remains a client and a regression path through those same controls.
+Delivery prioritizes the Gateway: connect an upstream, review its tools, grant a client access, discover the required schema, execute through policy, return a bounded result and inspect the outcome. Pi remains a client and a regression path through those same controls.
 
-The ordered work packages and their acceptance scenarios are tracked in [implementation status](implementation-status.md#development-order). The complete product and architecture remain the target; a deployed feature does not establish production readiness for the whole system.
+The implemented work packages and their remaining release/acceptance gates are tracked in [implementation status](implementation-status.md#development-order). The complete product and architecture remain the target; a deployed feature does not establish production readiness for the whole system.
 
 ### One work package, one reviewable change
 
@@ -52,17 +52,31 @@ Each PR links the evidence in [verification](verification.md). Update delivered 
 
 ### GitHub and cloud release baseline
 
-The current cloud release was deployed from `feat/governed-tool-execution`. The first remote CI run on commit `59b8f53` failed at the Go race-test step; resolve and rerun that gate before merging. See the dated [verification record](verification.md). Integrate that tested baseline through a reviewed PR and successful remote CI before starting the next short feature branch from `main`. Branch protection and required-check enforcement must be verified separately; the presence of a workflow file does not enforce a merge gate.
+The prior feature baseline is integrated. After the initial race-test failure on `59b8f53`, the corrected baseline `e4e382cf574916b15793f27e4998149ffbecd70e` passed all four remote checks: Verify and release-tooling for both push and PR. [PR 1](https://github.com/alan1-666/mcp-gateway/pull/1) merged into `main` as `1163b157fbff6e2e278ee6c12b9be08b3a70b0fb`. The exact merge commit also passed its subsequent main CI run. See the dated [verification record](verification.md) for run links. The new five-package change still requires its own exact-commit remote CI and cloud rollout; baseline success does not cover later working-tree changes. Branch-protection enforcement remains a separate configuration check.
 
-Release automation is pending. Until it exists, the operator records and checks the same tuple throughout a manual release: **commit SHA, release directory, image version, `RELEASE_ID` and `current` symlink**. `cloud-bootstrap.py` preserves an existing `cloud.env`; supplying a new `--release` does not update that file. Record a successful backup, in-flight operation/run assessment, health checks and smoke result for each replacement.
+`scripts/cloud-release.py` packages committed Git content only, excluding uncommitted working-tree changes and rejecting tracked private/generated material. Its manifest records the full commit and source/migration hashes. Deployment verifies this manifest, retains image IDs, takes an encrypted pre-release backup, applies compatible migrations, waits for service/public HTTPS health and then updates the environment release ID and `current` symlink. Services are explicitly stopped for replacement; no zero-downtime guarantee is implied.
 
-Keep the previous application artifacts. Application rollback requires compatibility with the current database and tool contracts; switch the images, environment release ID and symlink together, then repeat the smoke checks. A database restore is a separate recovery operation with possible data loss, not an automatic application rollback. A rollback script, independent recovery exercise and off-host backups remain delivery work; no zero-downtime or high-availability guarantee is implied by the single-host deployment.
+```sh
+python3 scripts/cloud-release.py package --source . --commit REVIEWED_COMMIT \
+  --release RELEASE_ID --output /tmp/mcp-gateway-RELEASE_ID.tar.gz
+```
+
+On an existing cloud host, use `adopt --artifact ...` for a read-only comparison of a legacy current directory with its committed artifact, then `adopt --record` only after the match and health checks pass. Adoption records observed image IDs; it cannot retroactively attest how an old image was built. Use `deploy --artifact ... --base /opt/mcp-gateway` for the new package and `rollback --release PREVIOUS_ID --base /opt/mcp-gateway` for retained artifacts/images. Run each subcommand's `--help` before operation and follow the [cloud guide](cloud-deployment.md#host-preparation-and-release).
+
+Install the operations bundle separately with `scripts/cloud-install-ops.py`; `/opt/mcp-gateway/ops` selects a retained version independently of application `current`. Host release/backup/monitor commands then use that bundle, so rolling back the application does not downgrade backup encryption or remove alert collection. Installation does not enable units or copy credentials; see [operations installation](cloud-deployment.md#install-operations-tools-independently).
+
+Keep **commit SHA, release directory, image IDs/tags, `RELEASE_ID` and `current` symlink** consistent. `cloud-bootstrap.py` preserves an existing `cloud.env`; its `--release` does not change that file. Release tooling refuses unknown source/image/migration state. A rollback with extra database migrations needs a reviewed compatibility JSON naming the exact target release/commit and allowed migration hashes. It never reverses migrations or restores the database.
+
+If a crash interrupts only the pointer/environment transition after the target release was verified, `repair-metadata --base /opt/mcp-gateway` rechecks source, schema, image IDs and health before completing metadata. It does not restart services or repair an unverified deployment. Failed replacement can leave admission stopped: inspect actual state and use an explicit compatible rollback. Never replace this procedure with deletion of volumes or credentials.
+
+The current source includes this tooling; the new actual-host release/rollback and post-upgrade restore exercise remains a separate gate until recorded. A pre-upgrade encrypted snapshot through schema 005 has already passed an isolated restore drill. Local test success is not evidence of remote CI, cloud deployment, off-host delivery or alert delivery.
 
 ## Requirements
 
 - Go 1.26 or newer.
 - Node.js 22.19+ (Node 24 recommended) and npm.
 - PostgreSQL 16+ for source development, or Docker with Compose.
+- Python 3 for release/backup/monitor tools; GnuPG 2 for encrypted recovery snapshots; OpenSSH for an explicitly configured off-host destination.
 - A separately configured Pi subscription login for model-assisted work. The gateway itself does not require a model account.
 
 ## Docker Compose
@@ -125,7 +139,7 @@ Vite forwards `/api` and `/mcp` to the appropriate local services. Production co
 6. A different administrator or approver approves the write. Approval expires after 30 minutes.
 7. The requesting operator executes the fixed operation ID. Review its result and durable event history.
 
-HTTP definitions and imported MCP schemas/risk/bindings cannot yet be edited in place. Administrators can revise an imported MCP response policy with optimistic version checks and sample preview; existing operation snapshots retain their original policy. General contract upgrades, signed releases and rollback remain pending. See the [remote MCP contract](remote-mcp-contract.md#policy-editing-and-sample-preview).
+Administrators review HTTP or MCP contract changes as candidates, inspect field differences and publish a new immutable version using `expected_version`. A historical definition can be copied into a rollback candidate only while its upstream contract remains compatible. Retiring a tool disables admission; restoration requires a newly reviewed candidate. The separate MCP response-policy editor provides sample preview and version-checked changes. Existing prepared operations retain their full original snapshot. See the [remote MCP contract](remote-mcp-contract.md#reviewed-versions-and-retirement).
 
 `GET` is the only permitted method for a read tool. Arguments become query parameters; strings are encoded directly and other JSON values use their JSON representation. Other methods send the fixed arguments as JSON. Paths are static. The operator cannot override the URL, headers, method or credential reference.
 
@@ -152,9 +166,9 @@ Identity configuration is a private JSON array:
 
 Roles are `admin`, `operator`, `approver`, and `viewer`. Workspace and role are derived exclusively from the authenticated identity. Request headers cannot override them. Operators/viewers see their own operation records; administrators/approvers can inspect operations in their workspace. Approvers cannot execute tools. The Pi runner requires an operator identity.
 
-Tokens are loaded at process startup and hashed in memory for lookup. Rotation or revocation requires restarting both API and gateway. This static-token development mode does not provide live revocation. Cloud mode instead uses PostgreSQL-backed accounts, sessions and API keys; enterprise OIDC and scoped task credentials remain pending.
+Tokens are loaded at process startup and hashed in memory for lookup. Rotation or revocation requires restarting both API and gateway. This static-token development mode does not provide live revocation. Cloud mode instead uses PostgreSQL-backed accounts, sessions, personal API keys and scoped machine-client keys. Cloud client administration requires an administrator browser session; development administrator tokens can exercise those routes locally. Client grants/scopes, expiry and rotation are checked live, including before dispatch of old prepared operations. Enterprise OIDC and short-lived task credentials remain pending.
 
-Downstream credentials are separate. Set `GATEWAY_CREDENTIALS_FILE` on the API and gateway to a private JSON file:
+Downstream credentials are separate. For a deployment-managed static reference, set `GATEWAY_CREDENTIALS_FILE` on the API and gateway to a private JSON file:
 
 ```json
 [
@@ -169,6 +183,10 @@ Downstream credentials are separate. Set `GATEWAY_CREDENTIALS_FILE` on the API a
 
 The matching tool contains only `credential_ref: "ORDERS_API"`. The credential must belong to the same workspace and exact allowed origin. Reserved transport and idempotency headers cannot be overridden. Add a read-only mount and the environment variable explicitly if using Compose. Do not put this file into source control or send it to the model.
 
+For admin-managed credentials, configure `GATEWAY_MASTER_KEY_FILE` with a private file containing exactly 32 raw random bytes, then use the console or `/api/v1/credentials`. This key is required in cloud mode and optional in token development mode; without it the managed credential routes are unavailable. Keep it outside source control and preserve it with encrypted database recovery material. Create/rotate accepts header values but every response contains metadata only. Rotation and disablement affect new attempts without restart, while the same workspace/exact-origin and reserved-header rules remain in force. Static and managed references cannot shadow each other. Do not replace or re-encode an existing master key.
+
+A machine-client key authenticates an agent **to the Gateway**; a managed downstream credential authenticates the Gateway **to an upstream**. A Pi subscription is a third, independent model-provider connection. See the [credential/client contract](remote-mcp-contract.md#network-and-credential-controls) for bounds and one-time key behavior.
+
 ## Execution and recovery
 
 - `POST /operations` reserves a workspace-scoped idempotency key and fixed arguments. Reusing that key with a different tool or payload returns `409`.
@@ -177,8 +195,10 @@ The matching tool contains only `credential_ref: "ORDERS_API"`. The credential m
 - A confirmed valid result is stored with its event in one database transaction.
 - Ambiguous write outcomes become `UNKNOWN`. A new request must not be used as a substitute for determining the original outcome.
 - The recovery worker scans every 15 seconds and marks `DISPATCHING` operations older than 150 seconds as `UNKNOWN`. It never resends them. The maximum downstream timeout is 120 seconds.
-- A late completion cannot replace a recovered `UNKNOWN` state. Human reconciliation and adapter-specific outcome queries are still pending.
+- A late completion cannot replace a recovered `UNKNOWN` state. An independent admin/approver can append human evidence with `expected_last_id`; the original state/result remain unchanged and no tool is invoked. Requesters and recorded dispatchers cannot reconcile their own action. Adapter-specific outcome queries remain future work.
 - Client disconnects do not abandon a claimed operation; execution and final persistence each retain a finite deadline.
+
+Operation/audit history now has server-side filters, live totals and keyset pages (default 50, maximum 100). Capacity admission runs before a business dispatch and reports REST `429` plus `Retry-After`, or an MCP `isError` result with retry delay/scope. Inspect/retry the same operation after backoff rather than inventing a new key.
 
 This provides single dispatch of a recorded operation and conservative uncertainty handling. It does not promise exactly-once business effects in arbitrary external systems.
 
@@ -196,10 +216,11 @@ The CLI is user-hosted. The separate cloud worker uses server-side subscriptions
 npm ci --ignore-scripts
 make check
 RUN_CLOUD_WORKER_INTEGRATION=1 TEST_DATABASE_URL='postgres://user:password@127.0.0.1:5432/gateway_test?sslmode=disable' make test
+python3 -m unittest discover -s scripts/tests -v
 ```
 
 Use a dedicated empty test database. Integration tests apply migrations and create uniquely scoped workspace records; they do not truncate existing tables. Without `TEST_DATABASE_URL`, database tests are explicitly skipped. CI always provides PostgreSQL and runs them. `RUN_CLOUD_WORKER_INTEGRATION=1` additionally starts the production Node worker client against the real Go API and an isolated PostgreSQL schema; install npm dependencies first. Its model executor is deterministic and makes no provider request.
 
-Coverage includes independent approval, expiry, workspace and actor isolation, schema bounds, duplicate preparations, concurrent execution, interrupted writes, restart persistence, actual MCP SDK client/server calls, credential-bound egress, local Pi intent durability and HTTP failure handling. No automated test sends a real model request.
+Coverage includes independent approval, workspace/client/snapshot isolation, encrypted credential rotation/revocation, candidate concurrency, paginated audit/operations, append-only UNKNOWN evidence, scoped admission budgets, schema/projection bounds, duplicate preparation/dispatch, interrupted writes, actual MCP SDK calls and the Node worker boundary. Python tests cover release manifests/rollback/metadata transitions, encrypted bundles and monitoring/backup failure handling. Controlled fixtures do not establish a working external destination. No automated test sends a real model request.
 
 Architecture SLOs, throughput, full MCP client compatibility, backup restoration and container deployment are separate acceptance gates, not results inferred from unit tests.

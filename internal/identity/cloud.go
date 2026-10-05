@@ -36,6 +36,41 @@ type Cloud struct {
 }
 type sessionInfo struct{ token, csrf, username string }
 type sessionKey struct{}
+type cloudKey struct{}
+
+// CanManageClients permits local administrators and authenticated cloud browser
+// administrators. Personal and client API keys cannot mint machine identities.
+func CanManageClients(ctx context.Context) bool {
+	a := Actor(ctx)
+	if a.Role != core.RoleAdmin || a.ClientID != "" {
+		return false
+	}
+	if cloud, _ := ctx.Value(cloudKey{}).(bool); !cloud {
+		return true
+	}
+	_, ok := ctx.Value(sessionKey{}).(sessionInfo)
+	return ok
+}
+
+// LockClientAdministrator revalidates the browser session inside a management
+// transaction. Revoking the session or administrator role serializes with this
+// lock instead of relying on a middleware snapshot.
+func LockClientAdministrator(ctx context.Context, tx pgx.Tx) error {
+	if cloud, _ := ctx.Value(cloudKey{}).(bool); !cloud {
+		return nil
+	}
+	s, ok := ctx.Value(sessionKey{}).(sessionInfo)
+	if !ok {
+		return core.ErrForbidden
+	}
+	a := Actor(ctx)
+	var id string
+	err := tx.QueryRow(ctx, `SELECT u.id FROM gateway_users u JOIN gateway_sessions s ON s.user_id=u.id WHERE u.id=$1 AND u.workspace_id=$2 AND u.role='admin' AND NOT u.disabled AND s.token_hash=$3 AND s.expires_at>clock_timestamp() FOR SHARE OF u,s`, a.ID, a.WorkspaceID, digest(s.token)).Scan(&id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return core.ErrForbidden
+	}
+	return err
+}
 
 // NewCloud uses persisted identities. Static development tokens are never accepted.
 // bootstrapToken creates one durable, expiring admin invitation, once per database.
@@ -103,7 +138,7 @@ func readJSON(w http.ResponseWriter, r *http.Request, v any) bool {
 func (c *Cloud) authenticate(next http.Handler, w http.ResponseWriter, r *http.Request) {
 	var actor core.Actor
 	var err error
-	ctx := r.Context()
+	ctx := context.WithValue(r.Context(), cloudKey{}, true)
 	if header := r.Header.Get("Authorization"); header != "" {
 		parts := strings.Fields(header)
 		if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") || len(parts[1]) > 256 {
@@ -111,6 +146,12 @@ func (c *Cloud) authenticate(next http.Handler, w http.ResponseWriter, r *http.R
 			return
 		}
 		err = c.pool.QueryRow(ctx, `SELECT u.id,u.workspace_id,u.role FROM gateway_api_keys k JOIN gateway_users u ON u.id=k.user_id WHERE k.token_hash=$1 AND k.revoked_at IS NULL AND k.expires_at>clock_timestamp() AND NOT u.disabled`, digest(parts[1])).Scan(&actor.ID, &actor.WorkspaceID, &actor.Role)
+		if errors.Is(err, pgx.ErrNoRows) {
+			err = c.pool.QueryRow(ctx, `SELECT id,workspace_id,key_id FROM gateway_clients WHERE token_hash=$1 AND enabled AND key_expires_at>clock_timestamp()`, digest(parts[1])).Scan(&actor.ID, &actor.WorkspaceID, &actor.ClientKeyID)
+			if err == nil {
+				actor.ClientID, actor.Role = actor.ID, core.RoleOperator
+			}
+		}
 	} else {
 		cookie, e := r.Cookie(sessionCookie)
 		if e != nil || len(cookie.Value) > 256 {
