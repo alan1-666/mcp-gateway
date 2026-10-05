@@ -75,11 +75,31 @@ See the [remote MCP contract](remote-mcp-contract.md) for supported transports, 
 | OpenAPI | Strict duplicate-key YAML parsing, all 179 local references and 19 unique operation IDs passed |
 | Cloud rollout | `20261005-cloud.6` built and deployed after a database backup. Migration 005 applied; API, Gateway, database and console healthy; public trusted HTTPS served the new asset bundle. Pi remained online/model-ready with `openai / gpt-5.5` and preserved login/state volumes |
 
-Browser acceptance used a disposable local PostgreSQL schema and loopback-only synthetic MCP services; the schema, temporary identities and processes were removed afterwards. It created no cloud identities, contacted no company service and made no model calls. The deployed MCP registry is empty and the existing egress policy is unchanged. Compatibility with an independently operated third-party server still requires its actual endpoint and authentication configuration.
+Browser acceptance for that release used a disposable local PostgreSQL schema and loopback-only synthetic MCP services; the schema, temporary identities and processes were removed afterwards. That acceptance created no cloud identities, contacted no company service and made no model calls. At the initial `20261005-cloud.6` rollout, the deployed MCP registry was empty and the existing egress policy was unchanged. The subsequent Microsoft Learn onboarding below records the first independently operated third-party integration.
+
+## Microsoft Learn cloud integration — 2026-10-05
+
+Verified against the deployed workspace at [the public HTTPS entry point](https://76.13.220.236/) and Microsoft's public Streamable HTTP endpoint `https://learn.microsoft.com/api/mcp`. Initial administrator setup used the normal invitation-acceptance flow; subsequent calls used normal HTTPS authentication and application APIs. No direct tool/operation database insertion was used for this acceptance.
+
+| Check | Outcome |
+| --- | --- |
+| Upstream registration | Registered namespace `mslearn`, timeout 30000 ms, no credential reference. The exact `https://learn.microsoft.com` outbound origin was configured and loaded |
+| Discovery and publication | Three tools imported from the currently discovered contracts with explicit risk `read`, then published using the normal management endpoints |
+| Response policies | Both search tools select the whole `/results` field with `max_bytes:131072`; fetch uses the same byte limit without `include`, matching its text-only response |
+| Documentation search | `microsoft_docs_search` with query `Azure Container Apps health probes` reached `SUCCEEDED` and returned 10 official documentation results |
+| Code sample search | `microsoft_code_sample_search` with query `Azure Container Apps create container app` and `language:azurecli` reached `SUCCEEDED` and returned 10 results |
+| Document fetch | `microsoft_docs_fetch` fetched the first search result, `https://learn.microsoft.com/azure/container-apps/health-probes`, and reached `SUCCEEDED` with document text |
+| Governed execution | Each call went through the normal authenticated HTTPS prepare → execute flow and the Gateway's remote MCP adapter; all three completed successfully |
+| Preparation idempotency | Repeating preparation with the same tool, arguments and idempotency key returned the same operation ID for each tool |
+| Execution replay | Repeating execution of each operation returned the same recorded result; its event history contained exactly one `OPERATION_DISPATCHING` event |
+| Cloud browser | Administrator sign-in succeeded; the live MCP Servers page showed the server enabled. Running Discover returned all three tools, each marked Imported. This confirms the populated cloud discovery view; execution was verified through the HTTPS API |
+
+This is a real public-document integration, using no company data and making no model request. Selecting `/results` retains the complete result array; it is not evidence of per-item field reduction or a measured token saving. The operation ledger and replay checks establish one recorded Gateway dispatch per operation, not exactly-once effects inside the upstream service. Final wire-result byte sizes were not separately recorded.
 
 ## Explicitly unverified
 
-- A populated third-party MCP workflow in the cloud browser. Local browser approval/execution and real-protocol integration passed; the cloud workspace still has no configured downstream MCP origin.
+- The complete Microsoft Learn cloud browser import/publication/execution interaction sequence. Cloud sign-in, enabled-server visibility and live discovery of all three Imported tools passed; all three tools also passed authenticated HTTPS API execution. Local browser approval/execution passed separately.
+- Upstream OAuth, stdio and compatibility with other independently operated MCP servers have not been validated; the implemented transport/authentication limits remain in effect.
 - Live model behavior evaluation and a complete cloud task using the real model and downstream business tools; the live inference check above sent only a fixed connectivity prompt.
 - Other MCP client/protocol combinations, Kubernetes, load/SLO targets, high availability, off-host disaster recovery and live team/business-data rollout.
 
