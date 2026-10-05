@@ -118,11 +118,57 @@ The disposable local browser schema, identities and service processes were remov
 
 Preview counts are normalized supported-envelope bytes, not raw network size or model tokens. The backend preserves JSON numbers; the browser rejects sample numbers it cannot submit without changing their decimal value.
 
+## Team Gateway governance and recovery packages — 2026-10-05
+
+**Source and isolated-test acceptance; new cloud rollout and exact-commit remote CI are pending.** The five packages add managed credentials/diagnostics, machine clients, reviewed tool releases, operational evidence and capacity/recovery controls. Historical cloud releases above retain their original scope and are not evidence that these additions are already deployed.
+
+| Check | Outcome |
+| --- | --- |
+| Backend regression | Final complete Go test rerun with race detector passed using `RUN_CLOUD_WORKER_INTEGRATION=1`; real PostgreSQL and the Node cloud-worker boundary were included. Type/static checks and production build passed |
+| Credentials and diagnostics | Real PostgreSQL and authenticated official MCP fixtures covered encrypted storage, wrong key/authentication, rotation, disablement, workspace/origin isolation, fail-closed resolution and bounded compatibility/history reports; checks invoke no business tools |
+| Machine clients | Default-deny scopes/grants, one-time issuance, rotation/expiry/revocation, guessed-ID/workspace isolation and current/snapshot binding authorization covered by backend regression |
+| Tool lifecycle | Candidate creation/diffs, immutable definition history, concurrent publication, retirement, compatible rollback and preservation of old operation snapshots covered by backend regression |
+| Operational evidence | More than 200 operations traverse without truncation; stable creation-time cursors, live filters/grants, audit visibility, concurrent reconciliation, independent reviewer checks and unchanged UNKNOWN/dispatch state passed |
+| Capacity | Workspace/client/upstream admission bounds, explicit rejection semantics, isolation, terminal aggregates and generic failure HTTP 503 handling passed |
+| Console and runner | 62 console tests and 31 Pi runner tests passed, including the added error-code mapping cases; type checks and console production build passed |
+| Python delivery/recovery tools | All 39 tests passed, including release manifest/image/schema checks, rollback/metadata transition handling, encrypted backup validation, collector/webhook behavior and eight independent-operations installer cases. Shell syntax and diff checks passed |
+| Independent operations bundle | Actual repository scripts installed into a temporary base; installed release `--help`, repeated-install no-op and restore passed. Tests also exercised installed `Host.backup` dynamic import plus GPG bundle validation, retained/legacy bundles, damaged-current recovery, locking/interruption and exclusion of secrets/configuration. No cloud or systemd mutation was performed |
+| Collector database integration | Fixed read-only bounded collector SQL executed successfully against a dedicated PostgreSQL database, including unresolved UNKNOWN/evidence handling |
+| Isolated browser: connections | Wrong credential → failed check → rotate → successful check and persisted check history passed using controlled fixtures |
+| Isolated browser: clients | Default-deny behavior, one-time key display and key clearing passed |
+| Isolated browser: versions | Reviewed schema diff and publication v1 → v2 passed; incompatible rollback returned 409; a compatible rollback published v3; retirement produced v4 and disabled the tool |
+| Isolated browser: UNKNOWN | Appended independent evidence while retaining UNKNOWN and the existing four events; no business redispatch occurred |
+| Isolated browser: capacity and audit | Saved workspace `*` limits of 2 concurrent/120 per minute; exact credential-rotation audit action filter returned its one matching record |
+| Isolated browser: operator permissions | Administrative navigation was hidden; the operator could read visible UNKNOWN evidence but had no reconciliation submission form |
+| Isolated browser: layout and logs | Audit and capacity views had no horizontal overflow at 390px; no console errors |
+| Actual-host encrypted recovery | An encrypted snapshot from the existing cloud database through migration 005 restored successfully into an isolated PostgreSQL container with no network. Receipt: `/opt/mcp-gateway/backups/pre-team-controls-restore.json`. This verifies the old cloud snapshot, not a backup containing the new 006–010 tables |
+| API contract | Strict YAML duplicate-key check, 462 resolved local references, 44 unique operation IDs and all new handler route/path-parameter coverage passed |
+
+### Pending acceptance evidence
+
+| Gate | Current evidence status |
+| --- | --- |
+| New cloud browser journeys | Isolated browser versions/UNKNOWN/capacity/audit passed above; repeat the affected journeys after the new cloud rollout |
+| Exact-commit remote CI | Pending the new reviewed commit/run; local green results do not close this gate |
+| New cloud deployment | Pending; record commit SHA, release ID, migrations, image IDs, health and affected API/browser smoke results here after execution |
+| Actual-host release/recovery | The pre-upgrade encrypted restore drill passed for schema 005. New release adoption/deployment, metadata consistency, compatible application rollback and a post-upgrade restore need their own evidence |
+| Automatic off-host backup | Awaiting an independent SSH destination; no verified remote transfer receipt or independent disaster-recovery exercise is claimed |
+| External alert delivery | Awaiting the real webhook configuration; no external notification was sent by the tests |
+
+The encrypted bundle includes database, cloud configuration and secrets including the vault master key, protected by a separate backup key. Pi volumes and host TLS/nginx state are outside that bundle. Local backup, remote transfer and restore verification have distinct receipts and must be reported separately. Monitoring without a webhook explicitly reports local-only; a completed fixture test is not a sent production alert. No live model request or company business-data call was required for this package regression.
+
 ## Explicitly unverified
 
 - The complete Microsoft Learn cloud browser import/publication/execution interaction sequence. Cloud sign-in, enabled-server visibility and live discovery of all three Imported tools passed; all three tools also passed authenticated HTTPS API execution. Local browser approval/execution passed separately.
 - Upstream OAuth, stdio and compatibility with other independently operated MCP servers have not been validated; the implemented transport/authentication limits remain in effect.
 - Live model behavior evaluation and a complete cloud task using the real model and downstream business tools; the live inference check above sent only a fixed connectivity prompt.
-- Other MCP client/protocol combinations, Kubernetes, load/SLO targets, high availability, off-host disaster recovery and live team/business-data rollout.
+- The new five-package cloud rollout/remote CI and pending evidence table above; a configured external backup destination and alert webhook have not yet been supplied.
+- Other MCP client/protocol combinations, Kubernetes, load/SLO targets, high availability, independently exercised off-host disaster recovery and live team/business-data rollout.
 
-The GitHub CI workflow includes the database-backed Node/Go boundary test. The first remote Verify run for commit `59b8f53` completed on 2026-10-05 and failed at `go test -race ./...`; dependency installation, Go vet and govulncheck passed, while the later TypeScript/test/build/npm-audit steps were skipped. See [GitHub run 37271631614](https://github.com/alan1-666/mcp-gateway/actions/runs/37271631614). The failing test and root cause still require log inspection; local passing results above do not close this remote gate. See [development](development.md) for repeatable commands and [implementation status](implementation-status.md) for pending architecture work.
+## GitHub baseline integration — 2026-10-05
+
+The GitHub CI workflow includes the database-backed Node/Go boundary test. The first Verify run for `59b8f53` failed at `go test -race ./...`; dependency installation, Go vet and govulncheck passed, and subsequent TypeScript/build/audit steps were skipped. That historical failure is recorded in [run 37271631614](https://github.com/alan1-666/mcp-gateway/actions/runs/37271631614).
+
+After correcting the catalog-limit fixture deadline/assertions, baseline commit `e4e382cf574916b15793f27e4998149ffbecd70e` passed Verify and release-tooling on both push and PR: four successful checks across [run 37273876618](https://github.com/alan1-666/mcp-gateway/actions/runs/37273876618) and [run 37273830693](https://github.com/alan1-666/mcp-gateway/actions/runs/37273830693). [PR 1](https://github.com/alan1-666/mcp-gateway/pull/1) merged into `main` as `1163b157fbff6e2e278ee6c12b9be08b3a70b0fb`. The subsequent [main CI run 37274534904](https://github.com/alan1-666/mcp-gateway/actions/runs/37274534904) for that exact merge commit also passed.
+
+These runs close the earlier baseline failure. They do not cover the subsequent five-package working-tree implementation: its remote CI and new cloud release remain pending in the table above. See [development](development.md) for repeatable commands and [implementation status](implementation-status.md) for the remaining release and architecture gates.

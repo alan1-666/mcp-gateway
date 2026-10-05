@@ -1,0 +1,126 @@
+package mcpadapter
+
+import (
+	"context"
+	"encoding/json"
+	"github.com/alan1-666/mcp-gateway/internal/core"
+	"github.com/alan1-666/mcp-gateway/internal/upstreams"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"strings"
+	"time"
+	"unicode"
+	"unicode/utf8"
+)
+
+// Check performs initialization and complete bounded catalog inspection only.
+// No tools/call occurs. Error messages are fixed classifications, never upstream
+// error bodies, credential values or SDK error strings.
+func (a *Adapter) Check(ctx context.Context, actor core.Actor, server core.MCPServer) (report upstreams.CheckReport) {
+	start := time.Now()
+	defer func() { report.DurationMS = time.Since(start).Milliseconds() }()
+	report = upstreams.CheckReport{ServerID: server.ID, Status: "failed", Tools: []upstreams.ToolCompatibility{}}
+	fail := func(stage, code, message string) upstreams.CheckReport {
+		report.Stage = stage
+		report.Code = code
+		report.Message = message
+		return report
+	}
+	if !server.Enabled {
+		return fail("policy", "server_disabled", "Enable the server before checking its connection.")
+	}
+	ctx, cancel := context.WithTimeout(outboundContext{ctx}, time.Duration(server.TimeoutMS)*time.Millisecond)
+	defer cancel()
+	if a.ValidateServerContext(ctx, actor, server) != nil {
+		return fail("policy", "configuration_blocked", "The endpoint, timeout or credential is blocked by the configured policy.")
+	}
+	session, transport, closeSession, err := a.connect(ctx, actor, server)
+	if err != nil {
+		if transport != nil && (transport.status() == 401 || transport.status() == 403) {
+			return fail("authentication", "authentication_rejected", "The upstream server rejected authentication.")
+		}
+		return fail("connect", "connection_failed", "Connection or MCP initialization failed; inspect endpoint, network and protocol compatibility.")
+	}
+	defer closeSession()
+	cursor, totalBytes, count := "", 0, 0
+	seenNames, seenCursors := map[string]bool{}, map[string]bool{}
+	for page := 0; page < maxPages; page++ {
+		if _, err = session.ListTools(ctx, &mcp.ListToolsParams{Cursor: cursor}); err != nil {
+			if transport.status() == 401 || transport.status() == 403 {
+				return fail("authentication", "authentication_rejected", "The upstream server rejected authentication.")
+			}
+			return fail("discovery", "discovery_failed", "The upstream catalog could not be completely read.")
+		}
+		raw, err := transport.result("tools/list")
+		if err != nil {
+			return fail("discovery", "invalid_response", "The upstream catalog response is unsupported.")
+		}
+		totalBytes += len(raw)
+		if totalBytes > maxCatalogBytes {
+			return fail("discovery", "catalog_limit", "The upstream catalog exceeds the supported size.")
+		}
+		if _, err = core.DecodeResult(raw); err != nil {
+			return fail("discovery", "invalid_response", "The upstream catalog contains unsupported JSON.")
+		}
+		var result struct {
+			Tools []struct {
+				Name        string          `json:"name"`
+				Description string          `json:"description"`
+				Input       json.RawMessage `json:"inputSchema"`
+				Output      json.RawMessage `json:"outputSchema"`
+			} `json:"tools"`
+			NextCursor string `json:"nextCursor"`
+		}
+		if json.Unmarshal(raw, &result) != nil || result.Tools == nil {
+			return fail("discovery", "invalid_response", "The upstream catalog response is malformed.")
+		}
+		for _, tool := range result.Tools {
+			count++
+			if count > maxTools {
+				return fail("discovery", "catalog_limit", "The upstream catalog exceeds the supported tool count.")
+			}
+			item := upstreams.ToolCompatibility{Name: tool.Name, Status: "compatible", Code: "supported", Message: "Definition is compatible; business execution has not been tested."}
+			incompatible := func(code, message string) { item.Status = "incompatible"; item.Code = code; item.Message = message }
+			if tool.Name == "" || len(tool.Name) > 128 || !utf8.ValidString(tool.Name) || strings.IndexFunc(tool.Name, unicode.IsControl) >= 0 {
+				item.Name = "[invalid tool name]"
+				incompatible("invalid_name", "Tool name is unsupported.")
+			} else if seenNames[tool.Name] {
+				incompatible("duplicate_name", "The catalog repeats this tool name.")
+			} else if len(tool.Description) > 4000 {
+				incompatible("description_limit", "Tool description exceeds the supported size.")
+			} else if _, err := canonicalSchema(tool.Input, true); err != nil {
+				incompatible("input_schema_unsupported", "Input schema is unsupported or exceeds the schema limit.")
+			} else if len(tool.Output) > 0 {
+				if _, err := canonicalSchema(tool.Output, false); err != nil {
+					incompatible("output_schema_unsupported", "Output schema is unsupported or exceeds the schema limit.")
+				}
+			}
+			seenNames[tool.Name] = true
+			if item.Status == "compatible" {
+				report.CompatibleCount++
+			} else {
+				report.IncompatibleCount++
+			}
+			report.Tools = append(report.Tools, item)
+		}
+		if result.NextCursor == "" {
+			if report.IncompatibleCount > 0 {
+				report.Status = "degraded"
+				report.Stage = "compatibility"
+				report.Code = "unsupported_definitions"
+				report.Message = "Discovery completed with incompatible definitions; strict import and execution remain blocked."
+			} else {
+				report.Status = "ok"
+				report.Stage = "complete"
+				report.Code = "catalog_compatible"
+				report.Message = "Connection and catalog checks passed; no business tool was executed."
+			}
+			return report
+		}
+		if len(result.NextCursor) > 2048 || seenCursors[result.NextCursor] {
+			return fail("discovery", "repeated_cursor", "The upstream catalog repeated a pagination cursor.")
+		}
+		seenCursors[result.NextCursor] = true
+		cursor = result.NextCursor
+	}
+	return fail("discovery", "catalog_limit", "The upstream catalog exceeds the supported page count.")
+}

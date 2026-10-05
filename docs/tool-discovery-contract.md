@@ -18,6 +18,7 @@ Responses have `{ "items": [...], "next_cursor": "...", "total": 123 }`. `next_c
 ## Pagination and access
 
 - Filter by workspace, current visibility and query in PostgreSQL before limiting results. There is no 500-tool preselection.
+- Machine clients also require a live unexpired key, enabled client, `tools:read` scope and an explicit tool grant or the imported tool's server grant. Apply this predicate before counting and limiting. Schema reads use the same live grants; `tools:invoke` is additionally required for preparation/execution. Clients cannot administer or approve tools.
 - Order by `created_at DESC, id DESC` with keyset pagination. Subsequent pages retain the first request's creation-time upper bound.
 - Validate cursors against the current workspace, actor, role, normalized query and registry/discovery scope. Reusing a cursor with a different limit is allowed.
 - Cursors are pagination positions, not authorization grants. Validate their structure and bounds and apply current access checks to every page. An unsigned cursor does not claim tamper resistance.
@@ -32,6 +33,24 @@ TypeScript Gateway clients: `search(query, signal?, options?)` returns `{items: 
 
 The console queries the server, offers Load more, clears page state on a new query, discards stale responses, and fetches tool details by ID. Invocation selection also searches the complete published catalog. A failed next-page request retains existing results and can be retried. Counts must distinguish loaded records from all matches.
 
+## Operation and audit history
+
+Tool catalog pagination and operational history use separate contracts:
+
+| Route | Filters and access |
+| --- | --- |
+| `GET /api/v1/operations` | Exact `state`, `tool_id`, `actor_id`, inclusive `from`/`to`; administrators and approvers see workspace records, operators/viewers see their own, clients additionally pass live grants |
+| `GET /api/v1/audit` | Exact `actor_id`, `action`, `resource_id`, inclusive `from`/`to`; administrators only |
+| `GET /api/v1/operations/{id}/reconciliations` | History of one visible operation, with the same ownership and client checks as its detail endpoint |
+
+These routes use `limit` 1–100 (default 50) and an opaque `cursor` of at most 4096 bytes. The response is `{items,total,next_cursor?}`. Time filters accept RFC3339 with optional nanoseconds, years 1970–9999, and require `from <= to`. Unknown or repeated query fields are invalid. Exact identifier filters are at most 128 UTF-8 bytes without NUL/CR/LF.
+
+History is ordered by immutable `created_at DESC, id DESC`, with the first request's creation-time upper bound retained across pages. Cursors bind the history kind, workspace, actor, role, client/key identity and normalized filters; changing only the page size is allowed. Count and page selection share a database statement. `total` is the current authorized count inside the creation-time boundary before the position cursor. A later state change or revoked permission can change that count and remove rows; these pages are not a frozen database snapshot. Start over to include later-created records. Operation update timestamps are not ordering keys.
+
+History cursors cannot be interchanged with tool catalog, check-history or version-history cursors. MCP checks instead use an exclusive decimal-string `before` ID; versions use an exclusive integer `before` version. Audit and reconciliation IDs are decimal strings to preserve int64 precision in JavaScript.
+
+Independent outcome verification appends reconciliation entries; it never changes the original `UNKNOWN` state or dispatches a tool. Evidence read permissions follow the operation. Audit payloads contain evidence record IDs/outcome, without copying submitted notes or evidence-reference text. See the [remote MCP contract](remote-mcp-contract.md#operational-history-and-uncertain-outcomes) for write permissions and optimistic concurrency.
+
 ## Acceptance coverage
 
 - More than 500 tools: old matches remain searchable; a full page traversal has no duplicates or omissions in an unchanged catalog.
@@ -40,4 +59,6 @@ The console queries the server, offers Load more, clears page state on a new que
 - Equivalent results over REST, an actual MCP SDK client, and the leased Node worker client. Summaries never include schemas or connection details.
 - Console query reset, Load more, stale response isolation, error retry, selection of an older tool, and small-screen rendering.
 
-Each change is verified before deployment. Broader import, versioning, response projection and upstream protocol adapters remain separate Gateway capabilities.
+- History traversal beyond 200 records, stable ordering across later inserts, filter/cursor binding, live client revocation and independent append-only reconciliation are covered by PostgreSQL and HTTP tests.
+
+Broader import, reviewed versions, response projection, encrypted credentials and upstream protocol behavior are described in the [remote MCP contract](remote-mcp-contract.md). Source-level verification does not imply that every capability has already been deployed to a particular environment.

@@ -1,6 +1,7 @@
 package httpadapter
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -15,16 +16,22 @@ import (
 // headers, uses the same DNS policy as HTTP tools, and never follows redirects.
 // Call closeClient after the entire protocol session has closed.
 func (a *Adapter) NewClient(workspace, endpoint, credentialRef string, timeout time.Duration) (*http.Client, func(), error) {
+	ctx, cancel := validationContext()
+	defer cancel()
+	return a.NewClientContext(ctx, workspace, endpoint, credentialRef, timeout)
+}
+func (a *Adapter) NewClientContext(ctx context.Context, workspace, endpoint, credentialRef string, timeout time.Duration) (*http.Client, func(), error) {
 	if timeout < 100*time.Millisecond || timeout > 120*time.Second {
 		return nil, nil, fmt.Errorf("%w: invalid downstream timeout", core.ErrInvalid)
 	}
-	if err := a.Validate(workspace, core.HTTPConfig{URL: endpoint, CredentialRef: credentialRef}); err != nil {
+	credential, err := a.resolveCredential(ctx, workspace, core.HTTPConfig{URL: endpoint, CredentialRef: credentialRef})
+	if err != nil {
 		return nil, nil, err
 	}
 	u, _ := url.Parse(endpoint)
 	origin := u.Scheme + "://" + u.Host
 	headers := make(http.Header)
-	if credential, ok := a.credentials[workspace+"/"+credentialRef]; ok {
+	if credentialRef != "" {
 		for key, value := range credential.Headers {
 			// Authentication configuration must not override protocol negotiation,
 			// session identity or headers derived from reviewed tool parameters.

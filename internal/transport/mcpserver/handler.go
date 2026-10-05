@@ -3,9 +3,11 @@ package mcpserver
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 
+	"github.com/alan1-666/mcp-gateway/internal/capacity"
 	"github.com/alan1-666/mcp-gateway/internal/core"
 	"github.com/alan1-666/mcp-gateway/internal/execution"
 	"github.com/alan1-666/mcp-gateway/internal/identity"
@@ -81,7 +83,13 @@ func Handler(service *core.Service, executor *execution.Executor, auth *identity
 func result(value any, err error) (*mcp.CallToolResult, any, error) {
 	if err != nil {
 		_, code, message := httpapi.ErrorDetails(err)
-		value = map[string]any{"error": map[string]string{"code": code, "message": message}}
+		details := map[string]any{"code": code, "message": message}
+		var limit *capacity.LimitError
+		if errors.As(err, &limit) {
+			details["retry_after_seconds"] = limit.RetryAfterSeconds
+			details["scope"] = limit.Scope
+		}
+		value = map[string]any{"error": details}
 	}
 	data, marshalErr := json.Marshal(value)
 	if marshalErr != nil {

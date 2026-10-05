@@ -139,7 +139,7 @@ func (r *Repository) CreateTool(ctx context.Context, actor core.Actor, input cor
 	})
 }
 func (r *Repository) ListTools(ctx context.Context, actor core.Actor) ([]core.Tool, error) {
-	rows, err := r.pool.Query(ctx, `SELECT `+effectiveToolColumns+` FROM tools WHERE workspace_id=$1 AND ($2 OR (status='published' AND enabled AND `+serverAvailable+`)) ORDER BY created_at DESC,id DESC LIMIT 500`, actor.WorkspaceID, actor.Role == core.RoleAdmin)
+	rows, err := r.pool.Query(ctx, `SELECT `+effectiveToolColumns+` FROM tools WHERE workspace_id=$1 AND ($2 OR (status='published' AND enabled AND `+serverAvailable+`)) AND `+clientToolAccessSQL("tools", "$3", "$4")+` ORDER BY created_at DESC,id DESC LIMIT 500`, actor.WorkspaceID, actor.Role == core.RoleAdmin, actor.ClientID, actor.ClientKeyID)
 	if err != nil {
 		return nil, err
 	}
@@ -155,7 +155,7 @@ func (r *Repository) ListTools(ctx context.Context, actor core.Actor) ([]core.To
 	return items, rows.Err()
 }
 func (r *Repository) GetTool(ctx context.Context, actor core.Actor, id string) (core.Tool, error) {
-	return scanTool(r.pool.QueryRow(ctx, `SELECT `+effectiveToolColumns+` FROM tools WHERE workspace_id=$1 AND id=$2 AND ($3 OR (status='published' AND enabled AND `+serverAvailable+`))`, actor.WorkspaceID, id, actor.Role == core.RoleAdmin))
+	return scanTool(r.pool.QueryRow(ctx, `SELECT `+effectiveToolColumns+` FROM tools WHERE workspace_id=$1 AND id=$2 AND ($3 OR (status='published' AND enabled AND `+serverAvailable+`)) AND `+clientToolAccessSQL("tools", "$4", "$5"), actor.WorkspaceID, id, actor.Role == core.RoleAdmin, actor.ClientID, actor.ClientKeyID))
 }
 func (r *Repository) PublishTool(ctx context.Context, actor core.Actor, id string) (core.Tool, error) {
 	return transaction(ctx, r.pool, func(tx pgx.Tx) (core.Tool, error) {
@@ -168,6 +168,9 @@ func (r *Repository) PublishTool(ctx context.Context, actor core.Actor, id strin
 		}
 		if tool.Status == "published" {
 			return tool, nil
+		}
+		if tool.Status != "draft" {
+			return core.Tool{}, fmt.Errorf("%w: only draft tools can be published directly", core.ErrConflict)
 		}
 		tool, err = scanTool(tx.QueryRow(ctx, `UPDATE tools SET status='published',enabled=true WHERE workspace_id=$1 AND id=$2 RETURNING `+toolColumns, actor.WorkspaceID, id))
 		if err != nil {
@@ -207,6 +210,9 @@ func (r *Repository) Prepare(ctx context.Context, actor core.Actor, in core.Prep
 		if err != nil {
 			return core.Operation{}, err
 		}
+		if err := lockClientAccess(ctx, tx, actor, in.ToolID, true); err != nil {
+			return core.Operation{}, err
+		}
 		// Serialize a workspace/key pair before checking existence. The unique
 		// constraint remains the final guard and hash collisions only serialize.
 		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, actor.WorkspaceID+"\x1f"+in.IdempotencyKey); err != nil {
@@ -216,6 +222,9 @@ func (r *Repository) Prepare(ctx context.Context, actor core.Actor, in core.Prep
 		if err == nil {
 			if existing.ActorID != actor.ID || existing.ToolID != in.ToolID || existing.ArgumentsHash != hash {
 				return core.Operation{}, fmt.Errorf("%w: idempotency key is bound to another intent", core.ErrConflict)
+			}
+			if err := lockOperationClient(ctx, tx, actor, existing); err != nil {
+				return core.Operation{}, err
 			}
 			if existing.State == core.StateReady || existing.State == core.StateWaitingApproval {
 				if err := lockMCPServer(ctx, tx, actor.WorkspaceID, existingSnapshot.MCP); err != nil {
@@ -262,6 +271,9 @@ func (r *Repository) Approve(ctx context.Context, actor core.Actor, id string) (
 		if op.ActorID == actor.ID {
 			return core.Operation{}, fmt.Errorf("%w: a different person must approve the operation", core.ErrForbidden)
 		}
+		if err := lockOperationClient(ctx, tx, actor, op); err != nil {
+			return core.Operation{}, err
+		}
 		if op.State == core.StateReady && op.ApprovedBy != "" {
 			if err := lockMCPServer(ctx, tx, actor.WorkspaceID, snapshot.MCP); err != nil {
 				return core.Operation{}, err
@@ -278,6 +290,9 @@ func (r *Repository) Approve(ctx context.Context, actor core.Actor, id string) (
 			return core.Operation{}, err
 		}
 		if err := lockMCPServer(ctx, tx, actor.WorkspaceID, current.MCP); err != nil {
+			return core.Operation{}, err
+		}
+		if err := lockMCPServer(ctx, tx, actor.WorkspaceID, snapshot.MCP); err != nil {
 			return core.Operation{}, err
 		}
 		if !current.Enabled {
@@ -314,11 +329,11 @@ func (r *Repository) Reject(ctx context.Context, actor core.Actor, id string) (c
 }
 
 func (r *Repository) GetOperation(ctx context.Context, actor core.Actor, id string) (core.Operation, error) {
-	op, _, err := scanOperation(r.pool.QueryRow(ctx, `SELECT `+operationColumns+` FROM operations WHERE workspace_id=$1 AND id=$2 AND (actor_id=$3 OR $4)`, actor.WorkspaceID, id, actor.ID, actor.Role == core.RoleAdmin || actor.Role == core.RoleApprover))
+	op, _, err := scanOperation(r.pool.QueryRow(ctx, `SELECT `+operationColumns+` FROM operations WHERE workspace_id=$1 AND id=$2 AND (actor_id=$3 OR $4) AND `+clientOperationAccessSQL("$5", "$6"), actor.WorkspaceID, id, actor.ID, actor.Role == core.RoleAdmin || actor.Role == core.RoleApprover, actor.ClientID, actor.ClientKeyID))
 	return op, err
 }
 func (r *Repository) ListOperations(ctx context.Context, actor core.Actor) ([]core.Operation, error) {
-	rows, err := r.pool.Query(ctx, `SELECT `+operationColumns+` FROM operations WHERE workspace_id=$1 AND (actor_id=$2 OR $3) ORDER BY created_at DESC,id DESC LIMIT 200`, actor.WorkspaceID, actor.ID, actor.Role == core.RoleAdmin || actor.Role == core.RoleApprover)
+	rows, err := r.pool.Query(ctx, `SELECT `+operationColumns+` FROM operations WHERE workspace_id=$1 AND (actor_id=$2 OR $3) AND `+clientOperationAccessSQL("$4", "$5")+` ORDER BY created_at DESC,id DESC LIMIT 200`, actor.WorkspaceID, actor.ID, actor.Role == core.RoleAdmin || actor.Role == core.RoleApprover, actor.ClientID, actor.ClientKeyID)
 	if err != nil {
 		return nil, err
 	}
@@ -369,6 +384,9 @@ func (r *Repository) Claim(ctx context.Context, actor core.Actor, id string) (co
 		if !core.CanExecuteOperation(actor, op) {
 			return claimResult{}, core.ErrNotFound
 		}
+		if err := lockOperationClient(ctx, tx, actor, op); err != nil {
+			return claimResult{}, err
+		}
 		result := claimResult{op: op, tool: tool}
 		// Replays still require the same currently authorized actor. They do not
 		// dispatch even when a previous process died after sending the request.
@@ -383,6 +401,9 @@ func (r *Repository) Claim(ctx context.Context, actor core.Actor, id string) (co
 			return result, err
 		}
 		if err := lockMCPServer(ctx, tx, actor.WorkspaceID, current.MCP); err != nil {
+			return result, err
+		}
+		if err := lockMCPServer(ctx, tx, actor.WorkspaceID, tool.MCP); err != nil {
 			return result, err
 		}
 		if !current.Enabled {

@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/alan1-666/mcp-gateway/internal/capacity"
 	"github.com/alan1-666/mcp-gateway/internal/core"
 	"github.com/alan1-666/mcp-gateway/internal/execution"
 	"github.com/alan1-666/mcp-gateway/internal/identity"
@@ -66,6 +67,11 @@ func respond(w http.ResponseWriter, v any, err error) {
 			status, code, message = 409, "conflict", err.Error()
 		case errors.Is(err, core.ErrInvalid):
 			status, code, message = 400, "invalid_input", err.Error()
+		}
+		var limit *capacity.LimitError
+		if errors.As(err, &limit) {
+			status, code, message = httpapi.ErrorDetails(err)
+			w.Header().Set("Retry-After", strconv.Itoa(limit.RetryAfterSeconds))
 		}
 		v = map[string]any{"error": map[string]string{"code": code, "message": message}}
 	}
@@ -155,7 +161,13 @@ func (a *API) PublicHandler(auth *identity.Auth) http.Handler {
 		v, e := a.Repository.Resume(r.Context(), identity.Actor(r.Context()), r.PathValue("id"))
 		respond(w, v, e)
 	})
-	return auth.Middleware(mux)
+	return auth.Middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if identity.Actor(r.Context()).ClientID != "" {
+			respond(w, nil, core.ErrForbidden)
+			return
+		}
+		mux.ServeHTTP(w, r)
+	}))
 }
 func (a *API) InternalHandler() http.Handler {
 	mux := http.NewServeMux()

@@ -138,6 +138,9 @@ class ReleaseFixture(unittest.TestCase):
         secret = self.base / "secrets" / "credentials.json"
         secret.parent.mkdir()
         secret.write_text("fixture credentials preserved")
+        (secret.parent / "master-key").write_bytes(b"m" * 32)
+        (self.base / "backup-key").write_text("b" * 64)
+        (self.base / "backup-key").chmod(0o600)
         self.docker = FakeDocker(self.base, self.old)
 
     def tearDown(self):
@@ -190,6 +193,13 @@ class ReleaseFixture(unittest.TestCase):
         self.assertTrue((self.old_dir / release.MANIFEST).exists())
         self.assertEqual((self.base / "cloud.env").read_text(), self.env)
 
+    def test_legacy_revision_is_only_accepted_when_it_matches_the_artifact_commit(self):
+        (self.old_dir / "REVISION").write_text(self.old["commit"] + "\n")
+        release.adopt(self.host(), self.old, {}, False)
+        (self.old_dir / "REVISION").write_text("f" * 40)
+        with self.assertRaisesRegex(release.ReleaseError, "REVISION"):
+            release.adopt(self.host(), self.old, {}, False)
+
     def test_deploy_binds_metadata_after_health_and_repeated_deploy_does_not_mutate(self):
         self.adopt()
         target, record = self.new_release(extra=True)
@@ -198,7 +208,7 @@ class ReleaseFixture(unittest.TestCase):
         self.assertEqual((self.base / "current").resolve(), target)
         self.assertEqual((self.base / "cloud.env").read_text(), self.env.replace("cloud.7", "cloud.8"))
         self.assertEqual((self.base / "secrets/credentials.json").read_text(), "fixture credentials preserved")
-        self.assertTrue(list((self.base / "backups").glob("*.dump")))
+        self.assertTrue(list((self.base / "backups").glob("*.tar.gpg")))
         self.assertFalse((self.base / "release-transition.json").exists())
         calls = len(self.docker.calls)
         with self.host() as host:
@@ -219,6 +229,42 @@ class ReleaseFixture(unittest.TestCase):
                 self.assertFalse((self.base / "release-state/cloud.8.json").exists())
                 setattr(self.docker, fault, False)
                 self.docker.running, self.docker.running_release = True, "cloud.7"
+
+    def test_metadata_crash_repair_requires_verified_health_and_does_not_restart_services(self):
+        self.adopt()
+        target, record = self.new_release(extra=True)
+        with self.host() as host:
+            release.operate(host, target, record, {})
+        # Reproduce a crash after the new state/env was persisted, before the
+        # pointer was replaced. The process must not guess from the directory.
+        (self.base / "current").unlink()
+        (self.base / "current").symlink_to(self.old_dir)
+        transition = {"target_release": "cloud.8", "target_commit": record["commit"], "previous_release": "cloud.7"}
+        (self.base / "release-transition.json").write_text(json.dumps(transition))
+        with self.assertRaisesRegex(release.ReleaseError, "disagree"):
+            self.host()
+        before = len(self.docker.calls)
+        self.docker.fail_health = True
+        with release.Host(self.base, self.docker, lambda _: None, allow_incomplete=True) as host:
+            with self.assertRaisesRegex(release.ReleaseError, "not healthy"):
+                release.repair_metadata(host)
+        self.assertEqual((self.base / "current").resolve(), self.old_dir)
+        self.docker.fail_health = False
+        with release.Host(self.base, self.docker, lambda _: None, allow_incomplete=True) as host:
+            release.repair_metadata(host)
+        self.assertEqual((self.base / "current").resolve(), target)
+        self.assertFalse((self.base / "release-transition.json").exists())
+        self.assertFalse(any("stop" in cmd or "up" in cmd or "migrate" in cmd or "pg_dump" in cmd for cmd in self.docker.calls[before:]))
+
+    def test_failed_deployment_cannot_be_misrepresented_as_verified_metadata(self):
+        self.adopt()
+        target, record = self.new_release()
+        self.docker.fail_health = True
+        with self.host() as host, self.assertRaises(release.ReleaseError):
+            release.operate(host, target, record, {})
+        with self.host() as host, self.assertRaises(OSError):
+            release.repair_metadata(host)
+        self.assertEqual((self.base / "current").resolve(), self.old_dir)
 
     def test_rollback_uses_actual_database_and_requires_exact_extra_migration_approval(self):
         self.adopt()

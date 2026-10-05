@@ -30,6 +30,7 @@ type Adapter struct {
 	origins     map[string]bool
 	networks    []netip.Prefix
 	credentials map[string]Credential
+	resolver    CredentialResolver
 }
 
 func New(origins, cidrs []string, credentials []Credential) (*Adapter, error) {
@@ -77,17 +78,9 @@ func New(origins, cidrs []string, credentials []Credential) (*Adapter, error) {
 }
 
 func (a *Adapter) Validate(workspace string, cfg core.HTTPConfig) error {
-	u, err := url.Parse(cfg.URL)
-	if err != nil || u.Host == "" || u.User != nil || u.Fragment != "" || u.RawQuery != "" || !a.origins[u.Scheme+"://"+u.Host] {
-		return fmt.Errorf("%w: tool URL requires an explicitly allowed origin and must not contain credentials, query or fragment", core.ErrInvalid)
-	}
-	if cfg.CredentialRef != "" {
-		c, ok := a.credentials[workspace+"/"+cfg.CredentialRef]
-		if !ok || c.Origin != u.Scheme+"://"+u.Host {
-			return fmt.Errorf("%w: credential reference is not bound to this workspace and origin", core.ErrInvalid)
-		}
-	}
-	return nil
+	ctx, cancel := validationContext()
+	defer cancel()
+	return a.ValidateContext(ctx, workspace, cfg)
 }
 
 func (a *Adapter) allowedIP(ip netip.Addr) bool {
@@ -143,7 +136,8 @@ func (a *Adapter) Execute(ctx context.Context, actor core.Actor, tool core.Tool,
 		}
 		return core.FinishInput{State: state, Error: message}
 	}
-	if err := a.Validate(actor.WorkspaceID, tool.HTTP); err != nil {
+	credential, err := a.resolveCredential(ctx, actor.WorkspaceID, tool.HTTP)
+	if err != nil {
 		return fail("tool is blocked by the current egress or credential policy", false)
 	}
 	u, _ := url.Parse(tool.HTTP.URL)
@@ -173,10 +167,8 @@ func (a *Adapter) Execute(ctx context.Context, actor core.Actor, tool core.Tool,
 	request.Header.Set("Accept", "application/json")
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("Idempotency-Key", op.ID)
-	if c, ok := a.credentials[actor.WorkspaceID+"/"+tool.HTTP.CredentialRef]; ok {
-		for k, v := range c.Headers {
-			request.Header.Set(k, v)
-		}
+	for k, v := range credential.Headers {
+		request.Header.Set(k, v)
 	}
 	transport := a.newTransport(time.Duration(tool.HTTP.TimeoutMS) * time.Millisecond)
 	defer transport.CloseIdleConnections()

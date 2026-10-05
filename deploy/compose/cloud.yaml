@@ -22,6 +22,7 @@ x-backend: &backend
     PUBLIC_ORIGIN: "${PUBLIC_ORIGIN:?Set HTTPS origin}"
     GATEWAY_BOOTSTRAP_FILE: /run/gateway/bootstrap
     GATEWAY_CREDENTIALS_FILE: /run/gateway/credentials.json
+    GATEWAY_MASTER_KEY_FILE: /run/gateway/master-key
     RUNNER_SHARED_SECRET_FILE: /run/gateway/runner-token
     RUNNER_WORKSPACE_ID: "${RUNNER_WORKSPACE_ID:-team}"
     API_ADDR: 0.0.0.0:8090

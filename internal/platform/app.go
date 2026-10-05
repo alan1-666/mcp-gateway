@@ -14,9 +14,14 @@ import (
 
 	"github.com/alan1-666/mcp-gateway/internal/adapters/httpadapter"
 	"github.com/alan1-666/mcp-gateway/internal/adapters/mcpadapter"
+	"github.com/alan1-666/mcp-gateway/internal/capacity"
+	"github.com/alan1-666/mcp-gateway/internal/clients"
 	"github.com/alan1-666/mcp-gateway/internal/core"
+	"github.com/alan1-666/mcp-gateway/internal/credentials"
 	"github.com/alan1-666/mcp-gateway/internal/execution"
 	"github.com/alan1-666/mcp-gateway/internal/identity"
+	"github.com/alan1-666/mcp-gateway/internal/observability"
+	"github.com/alan1-666/mcp-gateway/internal/releases"
 	"github.com/alan1-666/mcp-gateway/internal/runs"
 	"github.com/alan1-666/mcp-gateway/internal/store/postgres"
 	"github.com/alan1-666/mcp-gateway/internal/transport/httpapi"
@@ -67,11 +72,13 @@ func Run(mode string) error {
 		return nil
 	}
 	service := core.NewService(postgres.New(pool))
+	budgets := capacity.New(pool)
 	if mode == "worker" {
 		ticker := time.NewTicker(15 * time.Second)
 		defer ticker.Stop()
 		slog.Info("operation and agent run recovery worker started")
 		runRepository := runs.NewRepository(pool)
+		lastRetention := time.Time{}
 		for {
 			recoverCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 			n, err := service.Recover(recoverCtx, 150*time.Second)
@@ -90,6 +97,15 @@ func Run(mode string) error {
 				} else if recovered > 0 {
 					slog.Warn("interrupted agent runs require review", "count", recovered)
 				}
+			}
+			if time.Since(lastRetention) >= time.Minute {
+				retentionCtx, retentionCancel := context.WithTimeout(ctx, 10*time.Second)
+				_, retentionErr := budgets.Retain(retentionCtx, capacity.DefaultRetentionConfig())
+				retentionCancel()
+				if retentionErr != nil && ctx.Err() == nil {
+					slog.Error("retention batch failed")
+				}
+				lastRetention = time.Now()
 			}
 			select {
 			case <-ctx.Done():
@@ -118,24 +134,39 @@ func Run(mode string) error {
 	if err != nil {
 		return err
 	}
-	credentials := []httpadapter.Credential{}
+	staticCredentials := []httpadapter.Credential{}
 	if path := os.Getenv("GATEWAY_CREDENTIALS_FILE"); path != "" {
 		b, e := os.ReadFile(path)
 		if e != nil {
 			return fmt.Errorf("cannot read credential file")
 		}
-		if e = json.Unmarshal(b, &credentials); e != nil {
+		if e = json.Unmarshal(b, &staticCredentials); e != nil {
 			return fmt.Errorf("invalid credential file")
 		}
 	}
-	adapter, err := httpadapter.New(strings.Split(os.Getenv("HTTP_ALLOWED_ORIGINS"), ","), strings.Split(os.Getenv("HTTP_ALLOWED_CIDRS"), ","), credentials)
+	adapter, err := httpadapter.New(strings.Split(os.Getenv("HTTP_ALLOWED_ORIGINS"), ","), strings.Split(os.Getenv("HTTP_ALLOWED_CIDRS"), ","), staticCredentials)
 	if err != nil {
 		return err
+	}
+	var vault *credentials.Store
+	if path := os.Getenv("GATEWAY_MASTER_KEY_FILE"); path != "" {
+		key, readErr := os.ReadFile(path)
+		if readErr != nil {
+			return fmt.Errorf("cannot read gateway master key")
+		}
+		vault, err = credentials.New(pool, key, adapter)
+		clear(key)
+		if err != nil {
+			return err
+		}
+		adapter.SetCredentialResolver(vault)
+	} else if env("AUTH_MODE", "token") == "cloud" {
+		return fmt.Errorf("GATEWAY_MASTER_KEY_FILE is required in cloud mode")
 	}
 	upstreamStore := upstreams.NewStore(pool)
 	remote := mcpadapter.New(adapter, upstreamStore)
 	upstreamService := upstreams.New(upstreamStore, remote)
-	executor := &execution.Executor{Service: service, Adapter: &execution.Router{HTTP: adapter, MCP: remote}}
+	executor := &execution.Executor{Service: service, Adapter: &execution.Router{HTTP: adapter, MCP: remote}, Capacity: budgets}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -155,7 +186,7 @@ func Run(mode string) error {
 		address = env("GATEWAY_ADDR", "127.0.0.1:8091")
 		mux.Handle("/mcp", mcpserver.Handler(service, executor, auth))
 	} else {
-		api := &httpapi.API{Service: service, Executor: executor, Adapter: adapter, Upstreams: upstreamService}
+		api := &httpapi.API{Service: service, Executor: executor, Adapter: adapter, Upstreams: upstreamService, Credentials: vault, Clients: clients.New(pool), Releases: releases.New(pool, remote, adapter), Observability: observability.New(pool), Capacity: budgets}
 
 		if env("AUTH_MODE", "token") == "cloud" {
 			secretPath := os.Getenv("RUNNER_SHARED_SECRET_FILE")

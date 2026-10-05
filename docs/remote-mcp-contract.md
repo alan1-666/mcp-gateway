@@ -23,7 +23,7 @@ The adapter uses the official MCP Go SDK. Every discovery or execution attempt c
 
 - **Transport:** remote Streamable HTTP. Responses to the original POST can be JSON or SSE. Standalone GET streams, stream resumption and reconnect/replay are disabled. This does not provide the legacy HTTP+SSE transport.
 - **Capabilities:** initialization, complete paginated `tools/list` discovery and one reviewed `tools/call` per execution session. Resource, prompt, sampling, elicitation and task APIs are not proxied or advertised as Gateway capabilities.
-- **Authentication:** operator-configured static credential references with headers such as `Authorization`. There is no upstream OAuth discovery, dynamic client registration, interactive authorization or refresh-token lifecycle. The Pi model subscription is separate from upstream MCP authentication.
+- **Authentication:** workspace/origin-bound credential references with headers such as `Authorization`. References can use a deployment file or the encrypted managed credential store. There is no upstream OAuth discovery, dynamic client registration, interactive authorization or refresh-token lifecycle. The Pi model subscription is separate from upstream MCP authentication.
 - **Results:** text content and optional structured JSON. Image, audio, resource and other content blocks are rejected. A tool requiring unsupported interaction does not become successful merely because it returned an MCP response.
 - **Processes:** the cloud Gateway does not launch local stdio servers. A private-network Connector and isolated stdio execution remain planned.
 
@@ -40,6 +40,8 @@ All `/api/v1/mcp/servers` endpoints require an administrator in the authenticate
 | `POST /api/v1/mcp/servers/{id}/enabled` | Set `{enabled:true\|false}` without changing imported tool definitions |
 | `POST /api/v1/mcp/servers/{id}/discover` | Send `{}`; read the current complete bounded upstream catalog |
 | `POST /api/v1/mcp/servers/{id}/import` | Verify a selected live contract and create a disabled draft, or return the identical existing import |
+| `POST /api/v1/mcp/servers/{id}/check` | Send `{}`; check connection and definitions without calling a business tool, and persist a safe diagnostic report |
+| `GET /api/v1/mcp/servers/{id}/checks` | Read check history with `limit` (default 20, maximum 50) and exclusive `before` ID |
 
 Registration accepts:
 
@@ -81,7 +83,23 @@ Repeating the same server/tool import with the same schema hash, risk and normal
 
 The schema hash covers the remote name and canonical input/output JSON schemas; whitespace and object-key order do not create a different contract. Descriptions and annotations are not execution authority. Each operation snapshot retains the imported MCP server ID, remote name, schema hash, risk and response policy.
 
-Immediately before a business call, the adapter performs discovery again and compares the live contract with both the imported hash and the persisted schemas. A removed or changed contract fails before `tools/call`. There is no in-place import upgrade, version rollout or rollback yet; a changed contract requires a separately reviewed registration until the version lifecycle is implemented.
+Immediately before a business call, the adapter performs discovery again and compares the live contract with both the snapshot hash and its persisted schemas. A removed or changed contract fails before `tools/call`. Administrators can review and publish contract changes through candidates; discovery does not silently refresh active definitions.
+
+### Reviewed versions and retirement
+
+| Method and path | Behavior |
+| --- | --- |
+| `GET /api/v1/tools/{id}/versions` | Immutable definition history, newest version first; `limit` defaults to 20 (maximum 100), `before` is the exclusive version cursor |
+| `GET /api/v1/tools/{id}/candidates` | Unpublished candidates, at most 100 per tool |
+| `POST /api/v1/tools/{id}/candidates` | Create a candidate using `expected_version` and a required review reason |
+| `GET /api/v1/tools/{id}/candidates/{candidate}` | Read the candidate definition and field-level changes |
+| `POST /api/v1/tools/{id}/candidates/{candidate}/publish` | Revalidate the live target, check `expected_version`, publish the next version and enable the tool |
+| `POST /api/v1/tools/{id}/candidates/{candidate}/discard` | Discard an unpublished candidate with `{}` |
+| `POST /api/v1/tools/{id}/retire` | Check `expected_version`, record the next version and set `retired`, `enabled:false` |
+
+An MCP candidate can select a server/tool binding and explicit risk or response policy. Its schemas and hash come from live discovery, not a client-supplied hash. An HTTP candidate supplies a complete replacement HTTP definition. Alternatively, `source_version` copies a historical definition into a rollback candidate; it cannot be combined with overrides. The Gateway tool name remains stable. Candidate creation and publication both validate current network, credential and upstream compatibility.
+
+Publication locks the active tool and candidate; a concurrent version change produces `409`, requiring a new review. A rollback publishes a new version and cannot restore an upstream contract that is no longer supported. Previously prepared or approved operations retain their original full snapshots. They still pass current permission, enablement and snapshot schema checks before dispatch. Retirement blocks new admission and preserves history. Restoring a retired tool requires a newly reviewed candidate, rather than the original draft publish action. There is no percentage rollout or automatic canary promotion.
 
 Disabling a server:
 
@@ -137,7 +155,7 @@ Save request:
 
 An actual change returns the Tool at version 2 and records the previous/new versions and policies in `TOOL_RESPONSE_POLICY_UPDATED`. An identical policy at the current version is a no-op. A stale `expected_version` always returns `409`; the console preserves the draft and requires reloading the current tool before saving again. Risk, schema, upstream binding, publication and independent enablement remain unchanged. Policy repair is allowed while a server is disabled; it does not enable that server or tool.
 
-Newly prepared operations capture the new version. Previously prepared or approved operations retain their exact prior policy and version. Live disablement and upstream schema-drift gates still apply at dispatch. This is response policy revision, not a general schema upgrade or release rollout mechanism.
+Newly prepared operations capture the new version. Previously prepared or approved operations retain their exact prior policy and version. Live disablement and upstream schema-drift gates still apply at dispatch. Use a reviewed candidate for schema, risk or upstream-binding changes; the policy endpoint changes response selection only.
 
 Preview takes the same fields plus `sample`, a successful MCP envelope with explicit `isError:false`, a text-only `content` array and optional object `structuredContent`. If an output schema exists, the original structured sample must satisfy it before projection. The total request, including sample and policy, must fit within the management API's 256 KiB body limit. Unsafe JavaScript numbers are rejected by the browser editor; direct API clients preserve large JSON integers.
 
@@ -155,7 +173,7 @@ Preview returns `{tool_version,original_bytes,projected_bytes,result}`. Byte cou
 | Gateway catalog | Separate database keyset pages, maximum 50 summaries or definitions; upstream discovery is not automatically inserted into model context |
 | Governed result envelope | Default 64 KiB, configurable from 1 to 128 KiB |
 
-Duplicate tool names, invalid definitions, repeated cursors, unsupported schemas and excess bounds fail the complete discovery attempt. Management discovery JSON can be larger than the raw upstream budget after normalized metadata and JSON encoding are added, but it remains bounded by the table above. One unsupported definition currently rejects the whole discovery; there is no partial-import quarantine flow.
+Duplicate tool names, invalid definitions, repeated cursors, unsupported schemas and excess bounds fail the complete discovery attempt. Management discovery JSON can be larger than the raw upstream budget after normalized metadata and JSON encoding are added, but it remains bounded by the table above. One unsupported definition rejects the whole normal discovery; there is no partial-import quarantine flow. Connection diagnostics can report each incompatible definition without weakening discovery or import.
 
 Before `tools/call`, a configuration, connection or schema-validation failure is `FAILED`. Once the call is attempted, timeout, malformed response, upstream tool error, unsupported interaction/content, output-schema failure or response-policy failure becomes `UNKNOWN` for writes and `FAILED` for reads. `UNKNOWN` requires checking the business outcome before any new action. A returned tool error does not prove that a write made no changes.
 
@@ -163,15 +181,54 @@ The transport prevents a second `tools/call` within the same execution session a
 
 ## Network and credential controls
 
-Remote MCP uses the existing static downstream egress policy:
+Deployment network controls remain independent of administrator-created credentials:
 
 - `HTTP_ALLOWED_ORIGINS` lists exact scheme/hostname/port origins; no wildcard origin is implied.
 - Private, loopback and carrier-grade NAT addresses additionally require an explicit `HTTP_ALLOWED_CIDRS` entry. Metadata, link-local, multicast and unspecified destinations remain blocked.
 - DNS answers are checked and dialing uses the validated address. Redirects are not followed, and proxy environment variables are not inherited.
-- `GATEWAY_CREDENTIALS_FILE` contains operator-managed credentials scoped to both workspace and exact origin. A server stores only its reference. Configured credentials cannot override transport/idempotency headers or MCP negotiation/session headers.
-- API and Gateway processes load this configuration at startup. Changing a database server record does not add an allowed network destination; changing an allowlist or credential file requires recreating both services.
+- Allowlist changes and changes to static `GATEWAY_CREDENTIALS_FILE` entries require restarting the API and Gateway services. Registering a server or credential does not add a network destination.
 
-See [cloud onboarding](cloud-deployment.md#downstream-onboarding) for the hosted deployment. An administrator's ability to register a URL does not grant new network access.
+### Managed downstream credentials
+
+Administrators can use `GET/POST /api/v1/credentials`, `POST /api/v1/credentials/{ref}/rotate` and `POST /api/v1/credentials/{ref}/enabled`. These APIs accept or return metadata in the authenticated workspace. Create accepts `{ref,origin,headers}`; rotate accepts `{expected_version,headers}`; enable/disable accepts `{expected_version,enabled}`. List, create and mutation responses return only `{ref,origin,version,enabled,header_names,created_at,updated_at}`. Secret values and ciphertext are never returned.
+
+A reference matches `^[A-Z][A-Z0-9_]{0,127}$`, is unique per workspace and is permanently bound to an exact allowed origin. At most 1000 managed references are supported per workspace. Headers have 1–16 entries, valid HTTP token names of at most 128 bytes, values of at most 8192 bytes and a combined 32768-byte name/value budget. Control characters, case-insensitive duplicates and reserved transport, idempotency or MCP negotiation headers are rejected.
+
+Headers are encrypted using AES-GCM with a random nonce and workspace/reference/origin-bound authenticated data. `GATEWAY_MASTER_KEY_FILE` supplies a raw 32-byte key outside the database and repository; cloud startup requires it. The database and this key must be retained together for recovery. Rotating a downstream credential updates the encrypted headers, increments its version and preserves enabled state. Concurrent or stale changes return `409`; setting the current enabled state with the current version is a no-op.
+
+Discovery and execution resolve credentials for each new attempt, so managed rotation or disablement takes effect without a restart. Already admitted sessions are not retroactively cancelled. Unknown references fail closed. When a managed record exists, a disabled, wrong-origin or undecryptable value cannot fall back to a static secret. A managed reference cannot shadow a static-file reference; an ambiguous runtime configuration is rejected without falling back to the other secret. This lifecycle covers downstream header secrets, not OAuth tokens or the Gateway client keys described below.
+
+See [cloud onboarding](cloud-deployment.md#downstream-onboarding) for the hosted deployment.
+
+## Connection diagnostics
+
+A check initializes a session and reads the bounded complete catalog, without `tools/call`. Reports contain status (`ok`, `degraded`, `failed`), safe stage/code/message, duration and per-tool compatibility summaries. Stages distinguish policy, authentication, connection, discovery and definition compatibility. Mixed compatible/incompatible tools can yield `degraded`; normal discovery and import still reject an incompatible catalog. An `ok` report verifies connection and definitions only, not authorization to execute every business tool or the correctness of its results.
+
+Checks persist a recent-history record and return HTTP 200 even when the diagnostic itself reports failure. An inability to authorize, find the server or persist the report instead produces the corresponding HTTP error. Record IDs and history cursors are decimal strings; clients must not convert them into JavaScript numbers. Reports omit upstream response bodies, credential values and raw upstream error text. A disabled server can be checked to obtain a policy-stage explanation without connecting to it.
+
+## Machine clients and live permissions
+
+Cloud client administration requires an administrator browser session. `GET/POST /api/v1/clients`, `POST /api/v1/clients/{id}` and `POST /api/v1/clients/{id}/rotate` manage clients, grants and key rotation. Personal API keys and machine keys cannot administer clients. Creation returns HTTP 201; rotation returns HTTP 200. Each returns `{client,api_key}` once. Only a digest is stored, so a lost key must be replaced by rotation rather than retrieved. List and update responses contain metadata only.
+
+A client has `tools:read` and optionally `tools:invoke` (which requires read), together with explicit tool IDs or MCP server IDs. An empty grant set gives no tool access. Clients use their own actor identity, cannot approve writes and cannot perform administration. Catalog counts and pages are filtered before limiting, and tool-schema access is subject to the same live grants. Client keys default to a 30-day expiry; an explicit future expiry may be at most 366 days away.
+
+Client changes and rotation use `expected_version`. Disabled clients, expired/replaced keys and removed grants are rechecked on later requests and at dispatch admission, including previously prepared operations and idempotency replays. Authorization covers both the current binding and the saved operation binding, so moving a tool to another MCP server does not grant access to an older snapshot of a revoked server. Client revocation cannot cancel a call already admitted downstream.
+
+## Operational history and uncertain outcomes
+
+`GET /api/v1/operations` supports exact state, tool and actor filters plus inclusive `from`/`to` timestamps. Admins and approvers see their workspace; operators/viewers see their own records; machine clients additionally pass current grants. `GET /api/v1/audit` is administrator-only and supports actor, action, resource and time filters. Both return `{items,total,next_cursor?}` using a default page size of 50, maximum 100. The [discovery contract](tool-discovery-contract.md#operation-and-audit-history) explains cursor boundaries and live counts.
+
+An `UNKNOWN` result is retained as uncertainty in the execution record. An independent administrator or approver can append `{expected_last_id,outcome,evidence_ref,note}` through `POST /api/v1/operations/{id}/reconciliations`. The requester and any recorded dispatching identity cannot verify their own operation. `outcome` is `confirmed_success`, `confirmed_failure` or `inconclusive`; `expected_last_id` is the latest evidence ID as a string, or `"0"` initially. Concurrent appends serialize and a stale ID returns `409`.
+
+Evidence uses a plain record identifier or HTTPS URL without userinfo, query or fragment, plus a required note of at most 2000 UTF-8 bytes. Corrections append a new immutable entry. `GET` on the same route reads the history using the operation's visibility rules. This process does not execute another tool, rewrite the recorded result or change `UNKNOWN` to `SUCCEEDED`. Audit stores evidence record IDs and outcome, without copying the note or evidence-reference text.
+
+## Admission controls and capacity reporting
+
+Administrators can inspect `GET /api/v1/capacity`, update `POST /api/v1/capacity/limits` and read `GET /api/v1/capacity/metrics`. Database-backed limits cover the workspace, individual machine clients and upstream targets. Defaults are 32 concurrent/600 requests per minute for a workspace and 8 concurrent/120 per minute for a client or upstream. Overrides use an optimistic version (0 creates a missing override), concurrency 1–256 and requests per minute 1–60000. Capacity updates have an 8 KiB request-body limit; other management mutations retain the 256 KiB limit.
+
+Admission rejection occurs before a business dispatch. REST returns `429` and `Retry-After` seconds. The outer request concurrency limiter can return a plain-text 429 response. MCP tool-level rejection can use a successful HTTP transport response with `isError:true`; its text error includes `code:capacity_exceeded`, `retry_after_seconds` and `scope`. Do not interpret HTTP success as business success or mint a new operation key to retry an uncertain write. Wait, then inspect/retry the same recorded operation. No automatic business replay is introduced by admission controls.
+
+Metrics report recorded terminal call counts and total durations by HTTP/MCP transport and state, rejection counters and active leases. These aggregates are not latency percentiles, per-request traces or a complete monitoring platform.
 
 ## Local synthetic acceptance server
 

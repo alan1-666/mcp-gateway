@@ -1,0 +1,5 @@
+{
+  "kind": "generic",
+  "url_file": "/opt/mcp-gateway/monitor-webhook-url",
+  "cooldown_seconds": 3600
+}

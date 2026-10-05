@@ -30,6 +30,14 @@ for name, value in (("bootstrap", secrets.token_urlsafe(32) + "\n"), ("credentia
             stream.write(value)
         os.chown(path, 0, 65532)
     path.chmod(0o640)
+master_key = private / "master-key"
+if not master_key.exists():
+    with os.fdopen(os.open(master_key, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o640), "wb") as stream:
+        stream.write(secrets.token_bytes(32))
+    os.chown(master_key, 0, 65532)
+if master_key.is_symlink() or not master_key.is_file() or master_key.stat().st_size != 32:
+    parser.error("master-key must be a regular file containing exactly 32 bytes; existing contents were preserved")
+master_key.chmod(0o640)
 env = base / "cloud.env"
 if not env.exists():
     with os.fdopen(os.open(env, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "w") as stream:

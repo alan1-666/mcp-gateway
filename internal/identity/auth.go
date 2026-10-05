@@ -29,6 +29,9 @@ func New(tokens []Token, origins []string) (*Auth, error) {
 		if len(t.Token) < 32 || t.ID == "" || t.WorkspaceID == "" {
 			return nil, fmt.Errorf("identity must have a token of at least 32 characters, id and workspace_id")
 		}
+		if t.ClientID != "" && (t.ClientID != t.ID || t.Role != core.RoleOperator) {
+			return nil, fmt.Errorf("client identities must use their client ID and operator role")
+		}
 		switch t.Role {
 		case core.RoleAdmin, core.RoleOperator, core.RoleApprover, core.RoleViewer:
 		default:

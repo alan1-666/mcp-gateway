@@ -2673,3 +2673,167 @@ th,
     flex-basis: 100%;
   }
 }
+
+/* Governance workspaces share the console's compact, paper-like surfaces. */
+.admin-workspace {
+  display: grid;
+  gap: 22px;
+  min-width: 0;
+}
+.admin-workspace .toolbar {
+  margin: 0;
+}
+.admin-workspace .toolbar > p {
+  margin: 0;
+  flex: 1;
+}
+.admin-empty {
+  padding: 28px 24px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.admin-grants {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
+  gap: 24px;
+  margin: 20px 0;
+}
+.admin-grant-list {
+  max-height: 300px;
+  overflow: auto;
+  padding: 4px;
+}
+.admin-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.admin-check input[type="checkbox"] {
+  width: 16px;
+  min-height: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  accent-color: var(--green);
+}
+.admin-check small {
+  display: block;
+  color: var(--muted);
+  font-weight: 400;
+}
+.admin-record {
+  display: block;
+  padding: 15px 18px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  margin-bottom: 10px;
+  background: var(--paper);
+  text-align: left;
+  overflow-wrap: anywhere;
+  width: 100%;
+}
+.admin-record summary {
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1.8;
+}
+.admin-record > span,
+.admin-record summary > span {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  margin-top: 5px;
+}
+.admin-record p {
+  margin: 12px 0;
+  font-size: 12px;
+}
+.admin-subsection {
+  border-top: 1px solid var(--line);
+  margin-top: 24px;
+  padding-top: 22px;
+  min-width: 0;
+}
+.admin-subsection h3 {
+  margin-bottom: 12px;
+}
+.admin-subsection .action-row > h3 {
+  margin: 0 auto 0 0;
+}
+.admin-filter-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 18px;
+}
+.admin-filter-form > label {
+  flex: 1 1 160px;
+  margin: 0;
+  min-width: 0;
+}
+.admin-filter-form > button {
+  margin-bottom: 2px;
+}
+.grant-chip {
+  display: flex;
+  align-items: start;
+  gap: 10px;
+  border-bottom: 1px solid var(--line);
+  padding: 9px 0;
+}
+.grant-chip code {
+  flex: 1;
+  overflow-wrap: anywhere;
+  font-size: 10px;
+}
+.secret-reveal {
+  border-color: #56977a;
+}
+.secret-reveal input {
+  font-family: var(--mono);
+}
+.candidate-preview {
+  margin-top: 20px;
+  padding: 20px;
+  background: #f1f5ef;
+  border-left: 3px solid var(--green);
+}
+.capacity-number {
+  font-size: 36px;
+  color: var(--green);
+  margin-right: 10px;
+  font-weight: 550;
+}
+.status-retired {
+  color: #775d56;
+  background: #f3ebe7;
+}
+.admin-workspace .notice {
+  overflow-wrap: anywhere;
+}
+.admin-workspace .notice > button {
+  margin-top: 12px;
+}
+.sidebar {
+  overflow-y: auto;
+}
+@media (max-width: 760px) {
+  .admin-grants {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .admin-record {
+    padding: 12px;
+  }
+  .candidate-preview {
+    padding: 14px;
+  }
+  .admin-filter-form > label {
+    flex-basis: 100%;
+  }
+  .admin-workspace .panel-heading {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+}
