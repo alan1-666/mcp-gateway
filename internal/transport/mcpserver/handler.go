@@ -53,7 +53,13 @@ func Handler(service *core.Service, executor *execution.Executor, auth *identity
 			if t.Status != "published" || !t.Enabled {
 				return result(nil, core.ErrNotFound)
 			}
-			return result(map[string]any{"id": t.ID, "name": t.Name, "description": t.Description, "risk": t.Risk, "version": t.Version, "input_schema": t.InputSchema, "output_schema": t.OutputSchema}, nil)
+			contract := map[string]any{"id": t.ID, "name": t.Name, "description": t.Description, "risk": t.Risk, "version": t.Version, "input_schema": t.InputSchema, "output_schema": t.OutputSchema}
+			if t.MCP != nil {
+				contract["result_format"] = "mcp_call_tool_result"
+				contract["output_schema_scope"] = "structuredContent_before_projection"
+				contract["response_policy"] = t.ResponsePolicy
+			}
+			return result(contract, nil)
 		})
 		mcp.AddTool(server, &mcp.Tool{Name: "prepare_action", InputSchema: map[string]any{"type": "object", "properties": map[string]any{"tool_id": map[string]any{"type": "string"}, "arguments": map[string]any{"type": "object"}, "idempotency_key": map[string]any{"type": "string", "minLength": 8, "maxLength": 128}}, "required": []string{"tool_id", "arguments", "idempotency_key"}, "additionalProperties": false}, Description: "Persist fixed arguments and a stable client idempotency key before execution. Writes wait for independent approval. Reuse the same key on an uncertain preparation response."}, func(ctx context.Context, _ *mcp.CallToolRequest, in core.PrepareInput) (*mcp.CallToolResult, any, error) {
 			op, err := service.Prepare(ctx, actor, in)

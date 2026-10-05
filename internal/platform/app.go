@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/alan1-666/mcp-gateway/internal/adapters/httpadapter"
+	"github.com/alan1-666/mcp-gateway/internal/adapters/mcpadapter"
 	"github.com/alan1-666/mcp-gateway/internal/core"
 	"github.com/alan1-666/mcp-gateway/internal/execution"
 	"github.com/alan1-666/mcp-gateway/internal/identity"
@@ -20,6 +21,7 @@ import (
 	"github.com/alan1-666/mcp-gateway/internal/store/postgres"
 	"github.com/alan1-666/mcp-gateway/internal/transport/httpapi"
 	"github.com/alan1-666/mcp-gateway/internal/transport/mcpserver"
+	"github.com/alan1-666/mcp-gateway/internal/upstreams"
 	"github.com/alan1-666/mcp-gateway/migrations"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -130,7 +132,10 @@ func Run(mode string) error {
 	if err != nil {
 		return err
 	}
-	executor := &execution.Executor{Service: service, Adapter: adapter}
+	upstreamStore := upstreams.NewStore(pool)
+	remote := mcpadapter.New(adapter, upstreamStore)
+	upstreamService := upstreams.New(upstreamStore, remote)
+	executor := &execution.Executor{Service: service, Adapter: &execution.Router{HTTP: adapter, MCP: remote}}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -150,7 +155,7 @@ func Run(mode string) error {
 		address = env("GATEWAY_ADDR", "127.0.0.1:8091")
 		mux.Handle("/mcp", mcpserver.Handler(service, executor, auth))
 	} else {
-		api := &httpapi.API{Service: service, Executor: executor, Adapter: adapter}
+		api := &httpapi.API{Service: service, Executor: executor, Adapter: adapter, Upstreams: upstreamService}
 
 		if env("AUTH_MODE", "token") == "cloud" {
 			secretPath := os.Getenv("RUNNER_SHARED_SECRET_FILE")

@@ -2,7 +2,7 @@
 
 **Governed access to enterprise tools for AI agents.**
 
-MCP Gateway is being built to connect AI agents to existing HTTP APIs, gRPC services, and MCP servers through a unified tool discovery and execution layer. It combines a Go backend with a Pi-powered agent runtime and a web console for managing tools, tasks, approvals, and audit trails.
+MCP Gateway connects AI agents to existing HTTP APIs and remote MCP servers through a governed tool discovery and execution layer. Its Go backend manages upstream connections, reviewed tool contracts, permissions, approvals and bounded responses. A web console provides administration and execution history; Pi is a client for model-assisted tasks. OpenAPI import, gRPC integration and private-network Connectors remain planned.
 
 > **Project status:** Active development. The Go API and MCP gateway, PostgreSQL execution ledger, invitation-only cloud console, and Pi cloud task worker are runnable. The complete production architecture is still being implemented. See [implementation status](docs/implementation-status.md) for delivered capabilities and remaining acceptance gates.
 
@@ -28,12 +28,17 @@ For source development, downstream configuration and verification, see the [deve
 - Sign in, invite teammates, manage member access, revoke API keys and inspect account activity.
 
 - Register and publish HTTP tools with validated JSON Schemas.
+- Connect remote Streamable HTTP MCP servers, discover paginated upstream catalogs and import selected tools as disabled drafts with explicit risk.
+- Route namespaced MCP tools through the operation ledger, recheck upstream contracts and immediately gate new admissions when a server is disabled.
+- Select structured result fields, retain valid pagination cursors and enforce response byte limits before returning data to agents.
 - Search the complete authorized tool catalog with bounded cursor pages; load schemas on demand and invoke tools through an authenticated MCP endpoint.
 - Prepare fixed actions, approve writes independently and reject duplicate dispatches.
 - Inspect durable PostgreSQL operation records and event history in the console.
 - Preserve ambiguous writes as `UNKNOWN` instead of automatically sending them again.
 - Submit cloud Agent tasks, inspect event/output history, cancel work and resume after approval.
 - Run a restricted Pi agent with durable task leases, server-side sessions and intent persistence.
+
+Remote MCP currently supports operator-managed static credentials, text/structured results and bounded POST responses (JSON or SSE), with no upstream OAuth, legacy SSE transport, stdio processes or automatic replay. See the [remote MCP contract](docs/remote-mcp-contract.md) for onboarding, projection rules and compatibility limits.
 
 The sections below describe the target production system. Follow [implementation status](docs/implementation-status.md) for current limitations and [the OpenAPI contract](api/openapi.yaml) for implemented management endpoints.
 
@@ -52,11 +57,11 @@ The platform serves two types of users:
 
 | Area | Scope |
 | --- | --- |
-| Tool integration | Import OpenAPI definitions and Protobuf descriptors; connect remote MCP servers and isolated local stdio servers. |
+| Tool integration | Import OpenAPI definitions and Protobuf descriptors; extend existing remote MCP support with upstream OAuth and isolated stdio servers through a Connector. |
 | Tool discovery | Add semantic ranking and service/environment filters to the existing paginated lexical catalog. |
 | Access governance | Enforce organization, workspace, environment, tool, resource, and field permissions. |
 | Configuration lifecycle | Review changes, publish immutable versions, track rollout, and roll back configurations. |
-| Reliable execution | Persist operation intent, apply idempotency where supported, and reconcile uncertain outcomes. |
+| Reliable execution | Extend the existing operation ledger with downstream outcome reconciliation and adapter-specific idempotency support. |
 | Human approval | Bind approval to the exact action, parameters, target environment, and expiration time. |
 | Agent workbench | Create tasks, follow execution, inspect evidence, provide input, cancel work, and resume interrupted tasks. |
 | Private connectivity | Reach internal services through an outbound-connected Connector with scoped credentials. |

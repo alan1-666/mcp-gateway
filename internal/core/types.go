@@ -44,26 +44,30 @@ type HTTPConfig struct {
 	TimeoutMS     int    `json:"timeout_ms"`
 }
 type ToolInput struct {
-	Name         string          `json:"name"`
-	Description  string          `json:"description"`
-	Risk         Risk            `json:"risk"`
-	InputSchema  json.RawMessage `json:"input_schema"`
-	OutputSchema json.RawMessage `json:"output_schema,omitempty"`
-	HTTP         HTTPConfig      `json:"http"`
+	Name           string          `json:"name"`
+	Description    string          `json:"description"`
+	Risk           Risk            `json:"risk"`
+	InputSchema    json.RawMessage `json:"input_schema"`
+	OutputSchema   json.RawMessage `json:"output_schema,omitempty"`
+	HTTP           HTTPConfig      `json:"http"`
+	MCP            *MCPConfig      `json:"mcp,omitempty"`
+	ResponsePolicy *ResponsePolicy `json:"response_policy,omitempty"`
 }
 type Tool struct {
-	ID           string          `json:"id"`
-	WorkspaceID  string          `json:"workspace_id"`
-	Name         string          `json:"name"`
-	Description  string          `json:"description"`
-	Risk         Risk            `json:"risk"`
-	InputSchema  json.RawMessage `json:"input_schema"`
-	OutputSchema json.RawMessage `json:"output_schema,omitempty"`
-	HTTP         HTTPConfig      `json:"http"`
-	Enabled      bool            `json:"enabled"`
-	Status       string          `json:"status"`
-	Version      int             `json:"version"`
-	CreatedAt    time.Time       `json:"created_at"`
+	ID             string          `json:"id"`
+	WorkspaceID    string          `json:"workspace_id"`
+	Name           string          `json:"name"`
+	Description    string          `json:"description"`
+	Risk           Risk            `json:"risk"`
+	InputSchema    json.RawMessage `json:"input_schema"`
+	OutputSchema   json.RawMessage `json:"output_schema,omitempty"`
+	HTTP           HTTPConfig      `json:"http"`
+	MCP            *MCPConfig      `json:"mcp,omitempty"`
+	ResponsePolicy *ResponsePolicy `json:"response_policy,omitempty"`
+	Enabled        bool            `json:"enabled"`
+	Status         string          `json:"status"`
+	Version        int             `json:"version"`
+	CreatedAt      time.Time       `json:"created_at"`
 }
 type State string
 

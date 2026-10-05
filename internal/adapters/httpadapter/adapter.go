@@ -178,7 +178,7 @@ func (a *Adapter) Execute(ctx context.Context, actor core.Actor, tool core.Tool,
 			request.Header.Set(k, v)
 		}
 	}
-	transport := &http.Transport{DialContext: a.dial, TLSHandshakeTimeout: 5 * time.Second, ResponseHeaderTimeout: time.Duration(tool.HTTP.TimeoutMS) * time.Millisecond, DisableKeepAlives: true, MaxResponseHeaderBytes: 32 << 10}
+	transport := a.newTransport(time.Duration(tool.HTTP.TimeoutMS) * time.Millisecond)
 	defer transport.CloseIdleConnections()
 	client := &http.Client{Transport: transport, Timeout: time.Duration(tool.HTTP.TimeoutMS) * time.Millisecond, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	resp, err := client.Do(request)

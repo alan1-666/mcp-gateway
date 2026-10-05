@@ -13,16 +13,19 @@ import (
 	"github.com/alan1-666/mcp-gateway/internal/core"
 	"github.com/alan1-666/mcp-gateway/internal/execution"
 	"github.com/alan1-666/mcp-gateway/internal/identity"
+	"github.com/alan1-666/mcp-gateway/internal/upstreams"
 )
 
 type API struct {
-	Service  *core.Service
-	Executor *execution.Executor
-	Adapter  *httpadapter.Adapter
+	Service   *core.Service
+	Executor  *execution.Executor
+	Adapter   *httpadapter.Adapter
+	Upstreams *upstreams.Service
 }
 
 func (a *API) Handler(auth *identity.Auth) http.Handler {
 	mux := http.NewServeMux()
+	a.registerUpstreams(mux)
 	mux.HandleFunc("GET /api/v1/me", func(w http.ResponseWriter, r *http.Request) { respond(w, identity.Actor(r.Context()), nil) })
 	mux.HandleFunc("GET /api/v1/tools", a.listTools)
 	mux.HandleFunc("GET /api/v1/catalog/tools", a.discoverTools)
@@ -140,6 +143,10 @@ func (a *API) createTool(w http.ResponseWriter, r *http.Request) {
 	actor := identity.Actor(r.Context())
 	if actor.Role != core.RoleAdmin {
 		respond(w, nil, core.ErrForbidden)
+		return
+	}
+	if input.MCP != nil || input.ResponsePolicy != nil {
+		respond(w, nil, fmt.Errorf("%w: import MCP tools through their registered server", core.ErrInvalid))
 		return
 	}
 	if err := a.Adapter.Validate(actor.WorkspaceID, input.HTTP); err != nil {

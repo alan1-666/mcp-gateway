@@ -178,26 +178,46 @@ func NormalizeTool(input ToolInput) (ToolInput, error) {
 	if input.Risk != RiskRead && input.Risk != RiskWrite {
 		return input, fmt.Errorf("%w: risk must be read or write", ErrInvalid)
 	}
-	switch input.HTTP.Method {
-	case "GET", "POST", "PUT", "PATCH", "DELETE":
-	default:
-		return input, fmt.Errorf("%w: unsupported HTTP method", ErrInvalid)
-	}
-	if input.Risk == RiskRead && input.HTTP.Method != "GET" {
-		return input, fmt.Errorf("%w: read tools require GET", ErrInvalid)
-	}
-	endpoint, err := url.Parse(input.HTTP.URL)
-	if err != nil || endpoint.Host == "" || (endpoint.Scheme != "http" && endpoint.Scheme != "https") || endpoint.User != nil || endpoint.Fragment != "" {
-		return input, fmt.Errorf("%w: tool URL must be an HTTP(S) URL without userinfo or fragment", ErrInvalid)
-	}
-	if input.HTTP.TimeoutMS == 0 {
-		input.HTTP.TimeoutMS = 10000
-	}
-	if input.HTTP.TimeoutMS < 100 || input.HTTP.TimeoutMS > 120000 {
-		return input, fmt.Errorf("%w: timeout must be between 100 and 120000 ms", ErrInvalid)
-	}
-	if input.HTTP.CredentialRef != "" && !credentialPattern.MatchString(input.HTTP.CredentialRef) {
-		return input, fmt.Errorf("%w: credential reference must contain uppercase letters, digits or underscores and start with a letter", ErrInvalid)
+	if input.MCP != nil {
+		if input.HTTP != (HTTPConfig{}) {
+			return input, fmt.Errorf("%w: an MCP tool cannot also configure HTTP", ErrInvalid)
+		}
+		if input.MCP.ServerID == "" || len(input.MCP.ServerID) > 128 || input.MCP.ToolName == "" || len(input.MCP.ToolName) > 128 || strings.ContainsAny(input.MCP.ToolName, "\x00\r\n") {
+			return input, fmt.Errorf("%w: invalid MCP binding", ErrInvalid)
+		}
+		hash, err := hex.DecodeString(input.MCP.SchemaHash)
+		if err != nil || len(hash) != 32 {
+			return input, fmt.Errorf("%w: MCP schema hash must be SHA-256", ErrInvalid)
+		}
+		input.ResponsePolicy, err = NormalizeResponsePolicy(input.ResponsePolicy)
+		if err != nil {
+			return input, err
+		}
+	} else {
+		if input.ResponsePolicy != nil {
+			return input, fmt.Errorf("%w: response policy currently requires an MCP tool", ErrInvalid)
+		}
+		switch input.HTTP.Method {
+		case "GET", "POST", "PUT", "PATCH", "DELETE":
+		default:
+			return input, fmt.Errorf("%w: unsupported HTTP method", ErrInvalid)
+		}
+		if input.Risk == RiskRead && input.HTTP.Method != "GET" {
+			return input, fmt.Errorf("%w: read tools require GET", ErrInvalid)
+		}
+		endpoint, err := url.Parse(input.HTTP.URL)
+		if err != nil || endpoint.Host == "" || (endpoint.Scheme != "http" && endpoint.Scheme != "https") || endpoint.User != nil || endpoint.Fragment != "" {
+			return input, fmt.Errorf("%w: tool URL must be an HTTP(S) URL without userinfo or fragment", ErrInvalid)
+		}
+		if input.HTTP.TimeoutMS == 0 {
+			input.HTTP.TimeoutMS = 10000
+		}
+		if input.HTTP.TimeoutMS < 100 || input.HTTP.TimeoutMS > 120000 {
+			return input, fmt.Errorf("%w: timeout must be between 100 and 120000 ms", ErrInvalid)
+		}
+		if input.HTTP.CredentialRef != "" && !credentialPattern.MatchString(input.HTTP.CredentialRef) {
+			return input, fmt.Errorf("%w: credential reference must contain uppercase letters, digits or underscores and start with a letter", ErrInvalid)
+		}
 	}
 	if _, err := CompileSchema(input.InputSchema, true); err != nil {
 		return input, err

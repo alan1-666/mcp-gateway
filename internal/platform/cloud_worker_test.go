@@ -16,15 +16,18 @@ import (
 	"time"
 
 	"github.com/alan1-666/mcp-gateway/internal/adapters/httpadapter"
+	"github.com/alan1-666/mcp-gateway/internal/adapters/mcpadapter"
 	"github.com/alan1-666/mcp-gateway/internal/core"
 	"github.com/alan1-666/mcp-gateway/internal/execution"
 	"github.com/alan1-666/mcp-gateway/internal/identity"
 	"github.com/alan1-666/mcp-gateway/internal/runs"
 	"github.com/alan1-666/mcp-gateway/internal/store/postgres"
 	"github.com/alan1-666/mcp-gateway/internal/transport/httpapi"
+	"github.com/alan1-666/mcp-gateway/internal/upstreams"
 	"github.com/alan1-666/mcp-gateway/migrations"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // This boundary test uses the production Node worker/client and Go HTTP/SQL
@@ -90,7 +93,15 @@ func TestCloudWorkerIntegration(t *testing.T) {
 		_, _ = w.Write([]byte(`{"status":"healthy"}`))
 	}))
 	defer downstream.Close()
-	adapter, err := httpadapter.New([]string{downstream.URL}, []string{"127.0.0.0/8"}, nil)
+	var mcpCalls atomic.Int32
+	remoteSDK := mcp.NewServer(&mcp.Implementation{Name: "node-boundary-mcp", Version: "1"}, nil)
+	remoteSDK.AddTool(&mcp.Tool{Name: "inventory", Description: "Synthetic MCP worker query", InputSchema: json.RawMessage(`{"type":"object","additionalProperties":false}`)}, func(context.Context, *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		mcpCalls.Add(1)
+		return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: "excluded private raw content"}}, StructuredContent: json.RawMessage(`{"id":"inventory-1","private":"must disappear","next_cursor":"cursor-2"}`)}, nil
+	})
+	remoteHost := httptest.NewServer(mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return remoteSDK }, &mcp.StreamableHTTPOptions{JSONResponse: true}))
+	defer remoteHost.Close()
+	adapter, err := httpadapter.New([]string{downstream.URL, remoteHost.URL}, []string{"127.0.0.0/8"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -110,6 +121,25 @@ func TestCloudWorkerIntegration(t *testing.T) {
 		}
 		toolIDs[string(risk)] = tool.ID
 	}
+	upstreamStore := upstreams.NewStore(pool)
+	remoteAdapter := mcpadapter.New(adapter, upstreamStore)
+	upstreamService := upstreams.New(upstreamStore, remoteAdapter)
+	remoteServer, err := upstreamService.Create(ctx, admin, core.MCPServerInput{Name: "Node worker MCP", Namespace: "remote", URL: remoteHost.URL, TimeoutMS: 2000})
+	if err != nil {
+		t.Fatal(err)
+	}
+	remoteTools, err := upstreamService.Discover(ctx, admin, remoteServer.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mcpTool, err := upstreamService.Import(ctx, admin, remoteServer.ID, upstreams.ImportInput{ToolName: "inventory", SchemaHash: remoteTools.Items[0].SchemaHash, Risk: core.RiskRead, ResponsePolicy: &core.ResponsePolicy{Include: []string{"/id"}, MaxBytes: 2048}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = service.PublishTool(ctx, admin, mcpTool.ID); err != nil {
+		t.Fatal(err)
+	}
+	toolIDs["mcp"] = mcpTool.ID
 	// Older relevant tools must remain discoverable beyond the old 500-row cap.
 	definition, _ := json.Marshal(core.ToolInput{Name: "fixture", Description: strings.Repeat("<>&\x01", 1000), Risk: core.RiskRead,
 		InputSchema: json.RawMessage(`{"type":"object","additionalProperties":false}`), HTTP: core.HTTPConfig{URL: downstream.URL, Method: "GET", TimeoutMS: 2000}})
@@ -122,7 +152,7 @@ func TestCloudWorkerIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	executor := &execution.Executor{Service: service, Adapter: adapter}
+	executor := &execution.Executor{Service: service, Adapter: &execution.Router{HTTP: adapter, MCP: remoteAdapter}}
 	secret := core.NewID() + core.NewID()
 	runAPI, err := runs.New(pool, service, executor, runs.Config{WorkspaceID: workspace, SharedSecret: secret})
 	if err != nil {
@@ -135,7 +165,7 @@ func TestCloudWorkerIntegration(t *testing.T) {
 	mux.Handle("/api/", (&httpapi.API{Service: service, Executor: executor, Adapter: adapter}).Handler(auth))
 	server := httptest.NewServer(requests(mux))
 	defer server.Close()
-	input, _ := json.Marshal(map[string]string{"baseURL": server.URL, "secret": secret, "token": tokens["operator"], "approverToken": tokens["approver"], "readToolID": toolIDs["read"], "writeToolID": toolIDs["write"], "stateDir": t.TempDir()})
+	input, _ := json.Marshal(map[string]string{"baseURL": server.URL, "secret": secret, "token": tokens["operator"], "approverToken": tokens["approver"], "readToolID": toolIDs["read"], "writeToolID": toolIDs["write"], "mcpToolID": toolIDs["mcp"], "stateDir": t.TempDir()})
 	root, err := filepath.Abs("../..")
 	if err != nil {
 		t.Fatal(err)
@@ -148,6 +178,9 @@ func TestCloudWorkerIntegration(t *testing.T) {
 		t.Fatalf("Node worker boundary test: %v\n%s", err, output)
 	}
 	t.Log(string(output))
+	if mcpCalls.Load() != 1 {
+		t.Fatalf("expected one projected remote MCP call, got %d", mcpCalls.Load())
+	}
 	if writes.Load() != 1 {
 		t.Fatalf("expected exactly one approved business write, got %d", writes.Load())
 	}

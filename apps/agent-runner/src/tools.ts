@@ -44,7 +44,7 @@ export function createGatewayTools(client: GatewayAPI, journal: IntentJournal, o
     defineTool({ name: "get_tool_schema", label: "Get tool schema", description: "Read the schema for one authorized tool before preparing arguments. This does not execute the tool.", parameters: Type.Object({ tool_id: id }),
       execute: async (_callId, params, signal) => invoke(async () => {
         const tool = await client.tool(params.tool_id, signal);
-        return { id: tool.id, name: tool.name, description: tool.description, risk: tool.risk, version: tool.version, input_schema: tool.input_schema, output_schema: tool.output_schema };
+        return { id: tool.id, name: tool.name, description: tool.description, risk: tool.risk, version: tool.version, input_schema: tool.input_schema, output_schema: tool.output_schema, ...(tool.mcp ? { result_format: "mcp_call_tool_result", output_schema_scope: "structuredContent_before_projection", response_policy: tool.response_policy } : {}) };
       }) }),
     defineTool({ name: "prepare_action", label: "Prepare action", description: "Create a durable operation for a tool and exact arguments. The host assigns an idempotency key. This never executes the business action. Repeating identical write arguments in this session reuses the operation; new read calls may fetch fresh data. WAITING_APPROVAL pauses for a human in the console.", parameters: Type.Object({ tool_id: id, arguments: Type.Record(Type.String(), Type.Unknown()) }),
       execute: async (callId, params, signal) => invoke(async () => {

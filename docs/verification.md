@@ -56,9 +56,30 @@ Implemented and deployed as `20261005-cloud.5`, following the on-demand discover
 
 The populated browser checks used a disposable local schema, which was removed afterwards. No new cloud administrator was created and no synthetic inventory was inserted into the cloud workspace. Public HTTPS served the new console. Cloud authentication and tool discovery share the integration-tested handlers, but a populated cloud browser workflow was not repeated for this release. No live model or downstream business requests were made for this feature.
 
+## Remote MCP aggregation and response projection — 2026-10-05
+
+See the [remote MCP contract](remote-mcp-contract.md) for supported transports, credentials, limits and remaining compatibility boundaries.
+
+| Check | Outcome |
+| --- | --- |
+| Complete Go suite | `RUN_CLOUD_WORKER_INTEGRATION=1 go test -race ./...` passed with real PostgreSQL and the Node worker; `go vet ./...` passed |
+| Upstream protocol | Real official SDK servers covered paginated discovery, independent sessions, two-server routing, static credential isolation, JSON/SSE responses, oversized/malformed results and uncertain writes without replay |
+| Nested MCP handshake | A real public MCP request through Gateway to an upstream server exposed inherited protocol context; fixed by isolating outbound context values while retaining cancellation/deadlines, with a regression test |
+| Registry and admission | Workspace/admin isolation, draft imports, advisory read-only hints, duplicate imports, schema changes, server limits and server disablement gates passed |
+| Projection | Nested object selection, escaping, common-secret redaction, raw-text replacement, preserved string/null cursors, numeric precision, missing fields and final byte limits passed; rejected write results remain `UNKNOWN` |
+| End-to-end MCP and Pi | Official MCP client → Gateway → remote MCP → recorded projected result passed. Production Node Pi bridge → leased Go API → remote MCP passed alongside approval/resume/cancellation checks |
+| TypeScript | 31 Pi runner tests and 39 console tests passed; both type checks and console production build passed |
+| Browser with isolated local data | Two loopback SDK fixtures discovered both pages, imported drafts, published and routed same-named inventory tools to different sources. Selected result fields and cursor remained; internal note and original text were absent |
+| Browser approval and disablement | Operator could not manage servers; write remained waiting until another identity approved. Fixture write count was zero before approval and one after execution. Server disablement removed its tools from the operator catalog; re-enable and rediscovery worked |
+| Browser layout and logs | MCP server list and registration form had no document overflow at 390px. No application errors/warnings; unrelated wallet-extension messages were present |
+| OpenAPI | Strict duplicate-key YAML parsing, all 179 local references and 19 unique operation IDs passed |
+| Cloud rollout | `20261005-cloud.6` built and deployed after a database backup. Migration 005 applied; API, Gateway, database and console healthy; public trusted HTTPS served the new asset bundle. Pi remained online/model-ready with `openai / gpt-5.5` and preserved login/state volumes |
+
+Browser acceptance used a disposable local PostgreSQL schema and loopback-only synthetic MCP services; the schema, temporary identities and processes were removed afterwards. It created no cloud identities, contacted no company service and made no model calls. The deployed MCP registry is empty and the existing egress policy is unchanged. Compatibility with an independently operated third-party server still requires its actual endpoint and authentication configuration.
+
 ## Explicitly unverified
 
-- The populated approval/execution workflow in the browser: API/MCP end-to-end tests cover it, while browser checks used an empty real workspace with no permitted downstream origins.
+- A populated third-party MCP workflow in the cloud browser. Local browser approval/execution and real-protocol integration passed; the cloud workspace still has no configured downstream MCP origin.
 - Live model behavior evaluation and a complete cloud task using the real model and downstream business tools; the live inference check above sent only a fixed connectivity prompt.
 - Other MCP client/protocol combinations, Kubernetes, load/SLO targets, high availability, off-host disaster recovery and live team/business-data rollout.
 

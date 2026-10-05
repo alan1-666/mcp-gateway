@@ -15,6 +15,204 @@
   --mono: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
 }
 
+.mcp-toolbar-copy {
+  margin: 0;
+  font-size: 12px;
+}
+.mcp-layout {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.75fr) minmax(0, 1.8fr);
+  align-items: start;
+  gap: 22px;
+}
+.mcp-workspace,
+.mcp-discovery,
+.mcp-server-list,
+.mcp-tool-review {
+  min-width: 0;
+}
+.mcp-retry {
+  margin-bottom: 20px;
+}
+.mcp-server-item + .mcp-server-item {
+  border-top: 1px solid var(--line);
+}
+.mcp-server-item.selected {
+  background: #edf4ef;
+  box-shadow: inset 3px 0 var(--green);
+}
+.mcp-server-select {
+  display: flex;
+  flex-direction: column;
+  align-items: start;
+  gap: 6px;
+  width: 100%;
+  padding: 18px 20px 10px;
+  text-align: left;
+  color: var(--ink);
+  background: transparent;
+}
+.mcp-server-select strong {
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.mcp-server-select > span {
+  font-size: 10px;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.mcp-server-url {
+  color: var(--muted);
+}
+.mcp-server-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 0 20px 15px;
+}
+.mcp-server-metadata {
+  margin-top: 0;
+}
+.mcp-discovery-summary {
+  margin: 20px 0 12px;
+}
+.mcp-remote-list {
+  max-height: 350px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+.mcp-remote-tool {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  background: transparent;
+  padding: 13px 15px;
+  color: var(--ink);
+  text-align: left;
+}
+.mcp-remote-tool + .mcp-remote-tool {
+  border-top: 1px solid var(--line);
+}
+.mcp-remote-tool.selected {
+  background: #edf4ef;
+  box-shadow: inset 3px 0 var(--green);
+}
+.mcp-remote-tool > span:first-child {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.mcp-remote-tool strong,
+.mcp-remote-tool small {
+  overflow-wrap: anywhere;
+}
+.mcp-remote-tool strong {
+  font-size: 12px;
+}
+.mcp-remote-tool small {
+  color: var(--muted);
+  font-size: 9px;
+}
+.mcp-remote-state {
+  font-size: 10px;
+  color: var(--green);
+  white-space: nowrap;
+}
+.mcp-tool-review {
+  border-top: 1px solid var(--line);
+}
+.mcp-alias {
+  margin: 18px 0;
+  padding: 12px 15px;
+  background: #edf4ef;
+  border-left: 3px solid var(--green);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.mcp-alias > span {
+  color: var(--muted);
+  font-size: 10px;
+}
+.mcp-alias strong {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.mcp-schema-grid {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+.mcp-schema {
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  min-width: 0;
+}
+.mcp-schema summary {
+  cursor: pointer;
+  padding: 12px 15px;
+  font-size: 11px;
+  color: var(--ink);
+}
+.mcp-schema pre {
+  max-height: 280px;
+  padding: 15px;
+  margin: 0;
+  overflow: auto;
+  font-size: 10px;
+  line-height: 1.7;
+  border-top: 1px solid var(--line);
+}
+.mcp-response-policy {
+  border-left: 2px solid var(--line);
+  padding-left: 15px;
+  margin-bottom: 22px;
+}
+.mcp-response-policy h3 {
+  font-size: 12px;
+}
+.mcp-response-policy p,
+.mcp-response-policy li {
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.mcp-response-policy ul {
+  padding-left: 16px;
+}
+.mcp-response-policy p:last-child {
+  margin-bottom: 0;
+}
+@media (max-width: 1100px) {
+  .mcp-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .mcp-server-items {
+    max-height: 300px;
+    overflow-y: auto;
+  }
+}
+@media (max-width: 720px) {
+  .mcp-workspace .toolbar {
+    flex-wrap: wrap;
+  }
+  .mcp-discovery > .panel-heading {
+    flex-wrap: wrap;
+  }
+  .mcp-server-select {
+    padding-left: 17px;
+    padding-right: 17px;
+  }
+  .mcp-server-actions {
+    padding-left: 17px;
+    padding-right: 17px;
+  }
+}
+
 * {
   box-sizing: border-box;
 }

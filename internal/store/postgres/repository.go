@@ -28,6 +28,26 @@ func New(pool DB) *Repository { return &Repository{pool: pool} }
 var _ core.Repository = (*Repository)(nil)
 
 const toolColumns = `id, workspace_id, name, risk, status, enabled, version, definition, created_at`
+
+// An admin can inspect a disabled upstream tool; all consumers observe its
+// effective enabled state. The stored tool flag is retained for reactivation.
+const serverAvailable = `(definition->'mcp'->>'server_id' IS NULL OR EXISTS (SELECT 1 FROM mcp_servers ms WHERE ms.workspace_id=tools.workspace_id AND ms.id=tools.definition->'mcp'->>'server_id' AND ms.enabled))`
+const effectiveToolColumns = `id, workspace_id, name, risk, status, (enabled AND ` + serverAvailable + `), version, definition, created_at`
+
+func lockMCPServer(ctx context.Context, tx pgx.Tx, workspaceID string, config *core.MCPConfig) error {
+	if config == nil {
+		return nil
+	}
+	var enabled bool
+	if err := tx.QueryRow(ctx, `SELECT enabled FROM mcp_servers WHERE workspace_id=$1 AND id=$2 FOR SHARE`, workspaceID, config.ServerID).Scan(&enabled); err != nil {
+		return dbError(err)
+	}
+	if !enabled {
+		return fmt.Errorf("%w: MCP server is disabled", core.ErrConflict)
+	}
+	return nil
+}
+
 const operationColumns = `id, workspace_id, tool_id, tool_name, tool_version, risk, actor_id, arguments, arguments_hash, idempotency_key, state, result, error, approved_by, approval_expires_at, created_at, updated_at, tool_snapshot`
 
 type scanner interface{ Scan(...any) error }
@@ -43,6 +63,7 @@ func scanTool(row scanner) (core.Tool, error) {
 		return tool, fmt.Errorf("decode stored tool: %w", err)
 	}
 	tool.Description, tool.InputSchema, tool.OutputSchema, tool.HTTP = input.Description, input.InputSchema, input.OutputSchema, input.HTTP
+	tool.MCP, tool.ResponsePolicy = input.MCP, input.ResponsePolicy
 	return tool, nil
 }
 func scanOperation(row scanner) (core.Operation, core.Tool, error) {
@@ -102,6 +123,9 @@ func appendAudit(ctx context.Context, tx pgx.Tx, actor core.Actor, action, id st
 
 func (r *Repository) CreateTool(ctx context.Context, actor core.Actor, input core.ToolInput) (core.Tool, error) {
 	return transaction(ctx, r.pool, func(tx pgx.Tx) (core.Tool, error) {
+		if err := lockMCPServer(ctx, tx, actor.WorkspaceID, input.MCP); err != nil {
+			return core.Tool{}, err
+		}
 		body, err := json.Marshal(input)
 		if err != nil {
 			return core.Tool{}, err
@@ -115,7 +139,7 @@ func (r *Repository) CreateTool(ctx context.Context, actor core.Actor, input cor
 	})
 }
 func (r *Repository) ListTools(ctx context.Context, actor core.Actor) ([]core.Tool, error) {
-	rows, err := r.pool.Query(ctx, `SELECT `+toolColumns+` FROM tools WHERE workspace_id=$1 AND ($2 OR (status='published' AND enabled)) ORDER BY created_at DESC,id DESC LIMIT 500`, actor.WorkspaceID, actor.Role == core.RoleAdmin)
+	rows, err := r.pool.Query(ctx, `SELECT `+effectiveToolColumns+` FROM tools WHERE workspace_id=$1 AND ($2 OR (status='published' AND enabled AND `+serverAvailable+`)) ORDER BY created_at DESC,id DESC LIMIT 500`, actor.WorkspaceID, actor.Role == core.RoleAdmin)
 	if err != nil {
 		return nil, err
 	}
@@ -131,12 +155,15 @@ func (r *Repository) ListTools(ctx context.Context, actor core.Actor) ([]core.To
 	return items, rows.Err()
 }
 func (r *Repository) GetTool(ctx context.Context, actor core.Actor, id string) (core.Tool, error) {
-	return scanTool(r.pool.QueryRow(ctx, `SELECT `+toolColumns+` FROM tools WHERE workspace_id=$1 AND id=$2 AND ($3 OR (status='published' AND enabled))`, actor.WorkspaceID, id, actor.Role == core.RoleAdmin))
+	return scanTool(r.pool.QueryRow(ctx, `SELECT `+effectiveToolColumns+` FROM tools WHERE workspace_id=$1 AND id=$2 AND ($3 OR (status='published' AND enabled AND `+serverAvailable+`))`, actor.WorkspaceID, id, actor.Role == core.RoleAdmin))
 }
 func (r *Repository) PublishTool(ctx context.Context, actor core.Actor, id string) (core.Tool, error) {
 	return transaction(ctx, r.pool, func(tx pgx.Tx) (core.Tool, error) {
 		tool, err := scanTool(tx.QueryRow(ctx, `SELECT `+toolColumns+` FROM tools WHERE workspace_id=$1 AND id=$2 FOR UPDATE`, actor.WorkspaceID, id))
 		if err != nil {
+			return tool, err
+		}
+		if err := lockMCPServer(ctx, tx, actor.WorkspaceID, tool.MCP); err != nil {
 			return tool, err
 		}
 		if tool.Status == "published" {
@@ -154,6 +181,11 @@ func (r *Repository) SetToolEnabled(ctx context.Context, actor core.Actor, id st
 		tool, err := scanTool(tx.QueryRow(ctx, `SELECT `+toolColumns+` FROM tools WHERE workspace_id=$1 AND id=$2 FOR UPDATE`, actor.WorkspaceID, id))
 		if err != nil {
 			return tool, err
+		}
+		if enabled {
+			if err := lockMCPServer(ctx, tx, actor.WorkspaceID, tool.MCP); err != nil {
+				return tool, err
+			}
 		}
 		if tool.Status != "published" {
 			return tool, fmt.Errorf("%w: only published tools can be enabled or disabled", core.ErrConflict)
@@ -180,10 +212,15 @@ func (r *Repository) Prepare(ctx context.Context, actor core.Actor, in core.Prep
 		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, actor.WorkspaceID+"\x1f"+in.IdempotencyKey); err != nil {
 			return core.Operation{}, err
 		}
-		existing, _, err := scanOperation(tx.QueryRow(ctx, `SELECT `+operationColumns+` FROM operations WHERE workspace_id=$1 AND idempotency_key=$2`, actor.WorkspaceID, in.IdempotencyKey))
+		existing, existingSnapshot, err := scanOperation(tx.QueryRow(ctx, `SELECT `+operationColumns+` FROM operations WHERE workspace_id=$1 AND idempotency_key=$2`, actor.WorkspaceID, in.IdempotencyKey))
 		if err == nil {
 			if existing.ActorID != actor.ID || existing.ToolID != in.ToolID || existing.ArgumentsHash != hash {
 				return core.Operation{}, fmt.Errorf("%w: idempotency key is bound to another intent", core.ErrConflict)
+			}
+			if existing.State == core.StateReady || existing.State == core.StateWaitingApproval {
+				if err := lockMCPServer(ctx, tx, actor.WorkspaceID, existingSnapshot.MCP); err != nil {
+					return core.Operation{}, err
+				}
 			}
 			return existing, nil
 		}
@@ -192,6 +229,9 @@ func (r *Repository) Prepare(ctx context.Context, actor core.Actor, in core.Prep
 		}
 		tool, err := scanTool(tx.QueryRow(ctx, `SELECT `+toolColumns+` FROM tools WHERE workspace_id=$1 AND id=$2 AND status='published' AND enabled FOR SHARE`, actor.WorkspaceID, in.ToolID))
 		if err != nil {
+			return core.Operation{}, err
+		}
+		if err := lockMCPServer(ctx, tx, actor.WorkspaceID, tool.MCP); err != nil {
 			return core.Operation{}, err
 		}
 		if err := core.ValidateArguments(tool.InputSchema, canonical); err != nil {
@@ -215,7 +255,7 @@ func (r *Repository) Prepare(ctx context.Context, actor core.Actor, in core.Prep
 
 func (r *Repository) Approve(ctx context.Context, actor core.Actor, id string) (core.Operation, error) {
 	return transaction(ctx, r.pool, func(tx pgx.Tx) (core.Operation, error) {
-		op, _, err := scanOperation(tx.QueryRow(ctx, `SELECT `+operationColumns+` FROM operations WHERE workspace_id=$1 AND id=$2 FOR UPDATE`, actor.WorkspaceID, id))
+		op, snapshot, err := scanOperation(tx.QueryRow(ctx, `SELECT `+operationColumns+` FROM operations WHERE workspace_id=$1 AND id=$2 FOR UPDATE`, actor.WorkspaceID, id))
 		if err != nil {
 			return op, err
 		}
@@ -223,6 +263,9 @@ func (r *Repository) Approve(ctx context.Context, actor core.Actor, id string) (
 			return core.Operation{}, fmt.Errorf("%w: a different person must approve the operation", core.ErrForbidden)
 		}
 		if op.State == core.StateReady && op.ApprovedBy != "" {
+			if err := lockMCPServer(ctx, tx, actor.WorkspaceID, snapshot.MCP); err != nil {
+				return core.Operation{}, err
+			}
 			return op, nil
 		}
 		if op.State != core.StateWaitingApproval {
@@ -230,11 +273,14 @@ func (r *Repository) Approve(ctx context.Context, actor core.Actor, id string) (
 		}
 		// Lock the current tool while granting approval so a committed disable is
 		// honored. Dispatch will independently repeat this check.
-		var enabled bool
-		if err := tx.QueryRow(ctx, `SELECT enabled FROM tools WHERE workspace_id=$1 AND id=$2 AND status='published' FOR SHARE`, actor.WorkspaceID, op.ToolID).Scan(&enabled); err != nil {
-			return core.Operation{}, dbError(err)
+		current, err := scanTool(tx.QueryRow(ctx, `SELECT `+toolColumns+` FROM tools WHERE workspace_id=$1 AND id=$2 AND status='published' FOR SHARE`, actor.WorkspaceID, op.ToolID))
+		if err != nil {
+			return core.Operation{}, err
 		}
-		if !enabled {
+		if err := lockMCPServer(ctx, tx, actor.WorkspaceID, current.MCP); err != nil {
+			return core.Operation{}, err
+		}
+		if !current.Enabled {
 			return core.Operation{}, fmt.Errorf("%w: tool is disabled", core.ErrConflict)
 		}
 		op, _, err = scanOperation(tx.QueryRow(ctx, `UPDATE operations SET state='READY',approved_by=$3,approval_expires_at=clock_timestamp()+interval '30 minutes',updated_at=clock_timestamp() WHERE workspace_id=$1 AND id=$2 RETURNING `+operationColumns, actor.WorkspaceID, id, actor.ID))
@@ -332,11 +378,14 @@ func (r *Repository) Claim(ctx context.Context, actor core.Actor, id string) (co
 		if op.State != core.StateReady {
 			return result, fmt.Errorf("%w: approval is required before dispatch", core.ErrConflict)
 		}
-		var enabled bool
-		if err := tx.QueryRow(ctx, `SELECT enabled FROM tools WHERE workspace_id=$1 AND id=$2 AND status='published' FOR SHARE`, actor.WorkspaceID, op.ToolID).Scan(&enabled); err != nil {
-			return result, dbError(err)
+		current, err := scanTool(tx.QueryRow(ctx, `SELECT `+toolColumns+` FROM tools WHERE workspace_id=$1 AND id=$2 AND status='published' FOR SHARE`, actor.WorkspaceID, op.ToolID))
+		if err != nil {
+			return result, err
 		}
-		if !enabled {
+		if err := lockMCPServer(ctx, tx, actor.WorkspaceID, current.MCP); err != nil {
+			return result, err
+		}
+		if !current.Enabled {
 			return result, fmt.Errorf("%w: tool is disabled", core.ErrConflict)
 		}
 		if op.Risk == core.RiskWrite {

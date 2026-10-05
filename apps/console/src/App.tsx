@@ -4,6 +4,9 @@ import { APIClient, messageOf, parseObject } from "./api";
 import { hasUnsafeNumbers } from "./json";
 import { Account, CloudLogin, restoreSession } from "./Account";
 import { AgentTasks } from "./AgentTasks";
+import { MCPServers } from "./MCPServers";
+import { canManageMCPServers } from "./mcp-servers";
+import { ToolConnection, ToolResponsePolicy } from "./ToolConnection";
 import { clearTaskDraft } from "./run-draft";
 import { useToolDetails, useToolSearch } from "./useToolSearch";
 import { validateToolPage } from "./tool-search";
@@ -21,6 +24,7 @@ import type {
 type Page =
   | "overview"
   | "tools"
+  | "mcp"
   | "invoke"
   | "operations"
   | "approvals"
@@ -35,11 +39,16 @@ type Session = {
 const navigation: { id: Page; label: string; icon: string }[] = [
   { id: "overview", label: "Overview", icon: "overview" },
   { id: "tools", label: "Tool registry", icon: "tools" },
+  { id: "mcp", label: "MCP Servers", icon: "agent" },
   { id: "invoke", label: "New invocation", icon: "invoke" },
   { id: "operations", label: "Operations", icon: "operations" },
   { id: "approvals", label: "Approvals", icon: "approvals" },
 ];
 const pageCopy: Record<Page, { title: string; description: string }> = {
+  mcp: {
+    title: "MCP Servers",
+    description: "Connect upstream servers and review each tool before it enters your registry.",
+  },
   runs: {
     title: "Agent tasks",
     description:
@@ -457,7 +466,9 @@ function Workspace({
     null,
   );
   const [invokeTool, setInvokeTool] = useState("");
+  const [registryTool, setRegistryTool] = useState("");
   const [runRefreshVersion, setRunRefreshVersion] = useState(0);
+  const [mcpRefreshVersion, setMCPRefreshVersion] = useState(0);
   const requestController = useRef<AbortController | null>(null);
   const refreshPending = useRef(false);
   const canManage = identity.role === "admin";
@@ -524,6 +535,7 @@ function Workspace({
   function navigate(nextPage: Page) {
     setPage(nextPage);
     setSelectedOperation(null);
+    setRegistryTool("");
   }
   function startInvocation(toolId = "") {
     setInvokeTool(toolId);
@@ -566,6 +578,7 @@ function Workspace({
               : []),
           ]
             .filter((item) => item.id !== "invoke" || canInvoke)
+            .filter((item) => item.id !== "mcp" || canManageMCPServers(identity))
             .map((item) => (
               <button
                 key={item.id}
@@ -641,12 +654,14 @@ function Workspace({
               onClick={() =>
                 page === "runs"
                   ? setRunRefreshVersion((current) => current + 1)
-                  : void refresh()
+                  : page === "mcp"
+                    ? setMCPRefreshVersion((current) => current + 1)
+                    : void refresh()
               }
-              disabled={page !== "runs" && refreshing}
+              disabled={page !== "runs" && page !== "mcp" && refreshing}
             >
               <Icon name="refresh" />
-              {page !== "runs" && refreshing ? "Refreshing…" : "Refresh"}
+              {page !== "runs" && page !== "mcp" && refreshing ? "Refreshing…" : "Refresh"}
             </button>
           </div>
           {error ? (
@@ -701,12 +716,26 @@ function Workspace({
               ) : null}
               {page === "tools" ? (
                 <Registry
+                  initialSelectedId={registryTool}
                   canInvoke={canInvoke}
                   api={api}
                   refreshVersion={updated}
                   canManage={canManage}
                   onRefresh={refresh}
                   onInvoke={startInvocation}
+                />
+              ) : null}
+              {page === "mcp" && canManageMCPServers(identity) ? (
+                <MCPServers
+                  api={api}
+                  identity={identity}
+                  refreshVersion={String(mcpRefreshVersion)}
+                  onImported={() => void refresh()}
+                  onRegistry={(id) => {
+                    setRegistryTool(id);
+                    setSelectedOperation(null);
+                    setPage("tools");
+                  }}
                 />
               ) : null}
               {page === "invoke" && canInvoke ? (
@@ -1018,6 +1047,7 @@ function ToolPagination<T extends { id: string }>({
 }
 
 function Registry({
+  initialSelectedId,
   canInvoke,
   api,
   refreshVersion,
@@ -1025,6 +1055,7 @@ function Registry({
   onRefresh,
   onInvoke,
 }: {
+  initialSelectedId: string;
   canInvoke: boolean;
   api: APIClient;
   refreshVersion: string;
@@ -1033,7 +1064,7 @@ function Registry({
   onInvoke: (id: string) => void;
 }) {
   const [showForm, setShowForm] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId || null);
   const search = useToolSearch<Tool>(api, "registry", refreshVersion);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
@@ -1108,7 +1139,7 @@ function Registry({
             Registered tools{" "}
             <span className="count-label">{search.state.total ?? "—"}</span>
           </h2>
-          <span className="muted">HTTP integrations</span>
+          <span className="muted">HTTP & MCP integrations</span>
         </div>
         {visible.length ? (
           <div className="table-scroll">
@@ -1142,8 +1173,9 @@ function Registry({
                       </span>
                     </td>
                     <td>
-                      <span className="method-tag">{tool.http.method}</span>
+                      <span className="method-tag">{tool.mcp ? "MCP" : tool.http.method}</span>
                       <span className="version-label">v{tool.version}</span>
+                      {tool.mcp ? <span className="table-description mono">{tool.mcp.tool_name}</span> : null}
                     </td>
                     <td>
                       <Status state={tool.risk} />
@@ -1188,7 +1220,7 @@ function Registry({
           >
             {search.state.query
               ? "Try another name or description."
-              : "Register an HTTP integration and review its input contract before publishing."}
+              : "Register an HTTP integration or import a tool from MCP Servers, then review its contract before publishing."}
           </Empty>
         ) : null}
         <ToolPagination {...search} />
@@ -1246,21 +1278,9 @@ function Registry({
                 <dt>Tool ID</dt>
                 <dd className="mono">{selected.id}</dd>
               </div>
-              <div>
-                <dt>Destination</dt>
-                <dd className="mono break-word">
-                  {selected.http.method} {selected.http.url}
-                </dd>
-              </div>
-              <div>
-                <dt>Timeout</dt>
-                <dd>{selected.http.timeout_ms.toLocaleString()} ms</dd>
-              </div>
-              <div>
-                <dt>Credential reference</dt>
-                <dd>{selected.http.credential_ref || "None configured"}</dd>
-              </div>
+              <ToolConnection tool={selected} />
             </dl>
+            <ToolResponsePolicy tool={selected} />
             <JsonBlock label="Input schema" value={selected.input_schema} />
             {selected.output_schema ? (
               <JsonBlock label="Output schema" value={selected.output_schema} />
@@ -1750,9 +1770,11 @@ function Invocation({
                   </div>
                   <div>
                     <dt>Transport</dt>
-                    <dd>HTTP · {tool.http.method}</dd>
+                    <dd>{tool.mcp ? "MCP · Streamable HTTP" : `HTTP · ${tool.http.method}`}</dd>
                   </div>
+                  {tool.mcp ? <><div><dt>Remote tool</dt><dd className="mono break-word">{tool.mcp.tool_name}</dd></div><div><dt>MCP server ID</dt><dd className="mono break-word">{tool.mcp.server_id}</dd></div></> : null}
                 </dl>
+                <ToolResponsePolicy tool={tool} />
                 <JsonBlock
                   label="Expected arguments"
                   value={tool.input_schema}

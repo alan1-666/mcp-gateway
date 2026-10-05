@@ -98,7 +98,7 @@ WITH boundary AS (
  SELECT t.id,t.created_at
  FROM tools t CROSS JOIN boundary b
  WHERE t.workspace_id=$1
-   AND ($2 OR (t.status='published' AND t.enabled))
+   AND ($2 OR (t.status='published' AND t.enabled AND (t.definition->'mcp'->>'server_id' IS NULL OR EXISTS (SELECT 1 FROM mcp_servers ms WHERE ms.workspace_id=t.workspace_id AND ms.id=t.definition->'mcp'->>'server_id' AND ms.enabled))))
    AND ($3='' OR strpos(lower(t.name || ' ' || COALESCE(t.definition->>'description','')),lower($3))>0)
    AND t.created_at<=b.upper_bound
 ), page AS (
@@ -112,7 +112,7 @@ SELECT (SELECT upper_bound FROM boundary),
          SELECT jsonb_agg((CASE WHEN $8 THEN t.definition
            ELSE jsonb_build_object('description',t.definition->>'description') END) || jsonb_build_object(
            'id',t.id,'workspace_id',t.workspace_id,'name',t.name,'risk',t.risk,
-           'status',t.status,'enabled',t.enabled,'version',t.version,'created_at',t.created_at
+           'status',t.status,'enabled',(t.enabled AND (t.definition->'mcp'->>'server_id' IS NULL OR EXISTS (SELECT 1 FROM mcp_servers ms WHERE ms.workspace_id=t.workspace_id AND ms.id=t.definition->'mcp'->>'server_id' AND ms.enabled))),'version',t.version,'created_at',t.created_at
          ) ORDER BY p.created_at DESC,p.id DESC)
          FROM page p JOIN tools t ON t.workspace_id=$1 AND t.id=p.id
        ),'[]'::jsonb)`

@@ -5,6 +5,7 @@ export type ToolSearchOptions = { cursor?: string; limit?: number };
 export type Tool = {
   id: string; name: string; description: string; risk: "read" | "write";
   input_schema: JsonObject; output_schema?: JsonObject; enabled: boolean; status: string; version: number;
+  mcp?: {server_id:string;tool_name:string;schema_hash:string}; response_policy?: {include?:string[];max_bytes:number};
 };
 export type Operation = {
   id: string; tool_id: string; state: string; risk: "read" | "write";

@@ -18,7 +18,7 @@ flowchart LR
   Worker[Recovery worker] --> DB
   Pi[Pi cloud worker] -->|Private leased control API| API
   Pi --> Model[Configured subscription provider]
-  Gateway -->|Explicit allowlist| Downstream[Business HTTP APIs]
+  Gateway -->|Explicit allowlist| Downstream[Business HTTP APIs and remote MCP servers]
 ```
 
 No database or backend port is published publicly. The cloud configuration runs the application as an unprivileged user with a read-only filesystem, CPU/memory/process limits and bounded Docker logs. A health failure is visible through Compose; restart policies restart exited processes, not merely unhealthy processes.
@@ -137,7 +137,42 @@ Preserve both `pi-config` and `pi-state` volumes. The PostgreSQL backup alone do
 
 ## Downstream onboarding
 
-Downstream access initially denies all destinations. Add exact origins and, if needed, explicit private CIDRs in `cloud.env`; place workspace-bound downstream credentials in `secrets/credentials.json`. Recreate the API and Gateway after a configuration change. Never mount the Docker socket into the Gateway to reach local workloads.
+Downstream access initially denies all destinations. HTTP tools and remote MCP servers use the same policy. Add exact origins and, if needed, explicit private CIDRs in `cloud.env`; place workspace-bound downstream credentials in `secrets/credentials.json`. Recreate the API and Gateway after a configuration change. Never mount the Docker socket into the Gateway to reach local workloads.
+
+### Register a remote MCP server
+
+1. Confirm the upstream offers a **Streamable HTTP** endpoint with static header credentials or no authentication. Upstream OAuth, legacy HTTP+SSE and local stdio execution are not implemented. Bounded SSE responses to the original Streamable HTTP POST are supported; standalone streams and resumption are disabled.
+2. Add its exact origin to `HTTP_ALLOWED_ORIGINS` in the private `cloud.env`, merging with existing entries. The scheme and port are part of the origin. Private or loopback destinations also require an explicit `HTTP_ALLOWED_CIDRS` entry. DNS/dial checks still apply; redirects, metadata and link-local destinations remain blocked. Do not use a broad private-network allowance when an individual host or narrower network suffices.
+3. If authentication is required, add a credential record such as the following to the existing private credential array, replacing placeholders only on the deployment host:
+
+```json
+{
+  "workspace_id": "team",
+  "ref": "WAREHOUSE_MCP",
+  "origin": "https://mcp.example.com",
+  "headers": {"Authorization": "Bearer <upstream-service-token>"}
+}
+```
+
+4. Recreate both services to load the same origin/CIDR/credential configuration:
+
+```sh
+docker compose --env-file /opt/mcp-gateway/cloud.env -f /opt/mcp-gateway/current/deploy/compose/cloud.yaml up -d --no-build --force-recreate api gateway
+```
+
+5. In the administrator console, register a display name, unique lowercase namespace, endpoint such as `https://mcp.example.com/mcp`, credential reference `WAREHOUSE_MCP` and timeout. URLs cannot embed credentials, query strings or fragments. A registration validates policy but does not perform the discovery or import tools.
+6. Discover the server, review the returned schemas, choose explicit `read` or `write` risk and an optional response policy, and import selected tools. The console defaults risk to `write`; upstream annotations do not authorize read access. New imports are disabled drafts and require a separate publish action.
+7. Exercise a read and, when relevant, an independently approved write in the intended workspace. Inspect operation results and upstream business state. Disable the server to verify new preparation/approval/dispatch is gated and tools disappear from the Agent catalog. Published tools on other servers remain unaffected.
+
+The registry stores only credential references. The adapter never forwards the caller's Gateway key or browser session to an upstream. Each attempt uses an isolated MCP session; credentials cannot override MCP negotiation/session headers. Header credentials are static configuration and do not implement upstream OAuth or automatic token refresh. Pi's subscription login remains a separate model-provider connection.
+
+A server endpoint and namespace cannot be edited after creation. Imports pin the remote name and schema hash; a live schema change blocks execution until a separately reviewed contract is introduced. There is no automatic schema synchronization or in-place version rollout. Server disablement preserves tool-local flags and recorded operations, and does not guarantee cancellation of calls already admitted.
+
+Administrators can register at most 100 servers per workspace. Discovery permits at most 1000 tools, 100 pages and 4 MiB cumulative upstream result bytes, with 1 MiB per protocol response and 64 KiB per schema. Registration and discovery are available without a model account. The configured timeout, 100–120000 ms with a 10000 ms default, covers the whole upstream attempt.
+
+MCP response policies select object fields from structuredContent, regenerate text and enforce a final envelope limit of 1–128 KiB, default 64 KiB. Original structuredContent is validated against output_schema before projection. Valid string/null root pagination cursors survive selection; arrays must be selected as a whole field. Text-only results cannot use field selection, and unsupported or oversized content is rejected. A write whose response cannot be confirmed or processed is retained as UNKNOWN and is never automatically resent. See the [remote MCP contract](remote-mcp-contract.md) for exact limits and local synthetic acceptance instructions.
+
+Deployments must apply migration `005_mcp_servers.sql` before starting this code. Existing HTTP definitions do not need conversion. Preserve server/tool/operation records together in PostgreSQL backups, and retain the separately managed credential file and allowlist configuration; database records alone cannot reconstruct upstream access.
 
 ## Previous workloads
 
