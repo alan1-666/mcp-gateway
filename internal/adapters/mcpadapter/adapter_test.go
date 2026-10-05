@@ -344,7 +344,14 @@ func TestDiscoveryRejectsDuplicateCursorToolsAndLimits(t *testing.T) {
 			defer host.Close()
 			egress, _ := httpadapter.New([]string{host.URL}, []string{"127.0.0.0/8"}, nil)
 			a := New(egress, nil)
-			if _, err := a.Discover(context.Background(), core.Actor{WorkspaceID: "w"}, serverConfig(host.URL, "s", "w")); err == nil {
+			config := serverConfig(host.URL, "s", "w")
+			// These cases exercise catalog bounds, not elapsed-time bounds. The
+			// race detector on shared CI hosts needs time to validate several MiB
+			// of schemas before the aggregate limit is reached. Timeout behavior
+			// has its own dedicated test above.
+			config.TimeoutMS = 30000
+			_, err := a.Discover(context.Background(), core.Actor{WorkspaceID: "w"}, config)
+			if err == nil {
 				t.Fatal("unsafe catalog accepted")
 			}
 			if mode == "cursor" && pages.Load() != 2 {
@@ -353,8 +360,8 @@ func TestDiscoveryRejectsDuplicateCursorToolsAndLimits(t *testing.T) {
 			if mode == "pages" && pages.Load() != maxPages {
 				t.Fatalf("pagination bound: %d", pages.Load())
 			}
-			if mode == "bytes" && pages.Load() != 7 {
-				t.Fatalf("aggregate byte bound: %d", pages.Load())
+			if mode == "bytes" && (pages.Load() != 7 || err.Error() != "MCP tool catalog exceeds the size limit") {
+				t.Fatalf("aggregate byte bound: pages=%d err=%v", pages.Load(), err)
 			}
 		})
 	}

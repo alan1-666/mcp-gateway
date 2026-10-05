@@ -61,6 +61,8 @@ All paths below start with `/api/v1/auth`. JSON input is limited to 8 KiB. The e
 
 ## Host preparation and release
 
+Follow the [delivery workflow](development.md#github-and-cloud-release-baseline) for review, commit tracking and rollback conditions. Release steps are currently operated manually.
+
 Use an independent release directory under `/opt/mcp-gateway/releases/<release>`. Transfer source without `.env`, `.local`, `.gateway`, model credentials or `node_modules`. Point `/opt/mcp-gateway/current` at that release. Backups and secrets live outside release directories.
 
 Run as the deployment operator:
@@ -71,7 +73,7 @@ docker compose --env-file /opt/mcp-gateway/cloud.env -f deploy/compose/cloud.yam
 docker compose --env-file /opt/mcp-gateway/cloud.env -f deploy/compose/cloud.yaml up -d --no-build
 ```
 
-The bootstrap script creates random credentials without printing them or overwriting existing values. The private `owner-setup.txt` contains the owner invitation. The application user can read only the mounted secret files; the environment file remains root-readable. The source archive and images contain no deployment credentials.
+The bootstrap script creates random credentials without printing them or overwriting existing values. It also preserves an existing `cloud.env`: `--release` alone does not update `RELEASE_ID`. Keep the selected commit, release directory, image tags, environment release ID and `current` symlink consistent during every upgrade. The private `owner-setup.txt` contains the owner invitation. The application user can read only the mounted secret files; the environment file remains root-readable. The source archive and images contain no deployment credentials.
 
 Migrations run as a required job before the services start. A failed migration prevents application startup. Back up before schema changes. An image rollback does not automatically reverse migrations; confirm backward compatibility before switching releases.
 
@@ -170,7 +172,7 @@ A server endpoint and namespace cannot be edited after creation. Imports pin the
 
 Administrators can register at most 100 servers per workspace. Discovery permits at most 1000 tools, 100 pages and 4 MiB cumulative upstream result bytes, with 1 MiB per protocol response and 64 KiB per schema. Registration and discovery are available without a model account. The configured timeout, 100–120000 ms with a 10000 ms default, covers the whole upstream attempt.
 
-MCP response policies select object fields from structuredContent, regenerate text and enforce a final envelope limit of 1–128 KiB, default 64 KiB. Original structuredContent is validated against output_schema before projection. Valid string/null root pagination cursors survive selection; arrays must be selected as a whole field. Text-only results cannot use field selection, and unsupported or oversized content is rejected. A write whose response cannot be confirmed or processed is retained as UNKNOWN and is never automatically resent. See the [remote MCP contract](remote-mcp-contract.md) for exact limits and local synthetic acceptance instructions.
+MCP response policies select object and array-element fields from structuredContent, regenerate text and enforce a final envelope limit of 1–128 KiB, default 64 KiB. Original structuredContent is validated against output_schema before projection. Valid string/null root pagination cursors survive selection. Use `/results/*/title` to retain a field in each array element, or `/results` to retain the complete array. Administrators can preview a supplied sample and revise a response policy with version checks; previously prepared operations retain their original snapshot. Text-only results cannot use field selection, and unsupported or oversized content is rejected. A write whose response cannot be confirmed or processed is retained as UNKNOWN and is never automatically resent. See the [remote MCP contract](remote-mcp-contract.md) for exact limits and local synthetic acceptance instructions.
 
 Deployments must apply migration `005_mcp_servers.sql` before starting this code. Existing HTTP definitions do not need conversion. Preserve server/tool/operation records together in PostgreSQL backups, and retain the separately managed credential file and allowlist configuration; database records alone cannot reconstruct upstream access.
 

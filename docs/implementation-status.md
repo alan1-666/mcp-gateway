@@ -23,6 +23,23 @@ The [product design](product-design.md) and [system architecture](architecture.m
 | Agent tasks | PostgreSQL Run queue, leases/fencing, creator isolation, live role checks, cancellation, explicit resume and browser task/event views |
 | Delivery | Locked dependencies, source startup, Compose configuration, backend/container build definitions, OpenAPI contract and CI checks |
 
+## Development order
+
+The order below is the next delivery plan, based on the current invitation-only team workspace. These are pending work packages with acceptance targets, not implemented features. Each package follows the [delivery workflow](development.md#delivery-workflow) and includes backend, console, failure handling and evidence. Connection diagnostics begin with the first package and continue as later controls are added.
+
+| Order | User outcome and scope | Acceptance target |
+| --- | --- | --- |
+| Engineering baseline | Resolve the first remote Go test failure, then integrate the existing feature branch through GitHub PR/CI; make release and rollback steps repeatable and tied to one commit | Verify the remote result for the exact merge commit, record the cloud release tuple, and exercise an application rollback with compatible migrations in an isolated environment |
+| 1. Connections and credentials | Admin-managed credential references, protected secret storage, rotation/revocation and configuration activation; connection-stage diagnostics and a tool compatibility report | Connect a credential-protected MCP fixture, distinguish authentication from transport/schema failure, rotate its secret, verify activation and absence of secrets in UI/logs; report unsupported definitions explicitly |
+| 2. Clients and tool access | Client identities, scoped API keys and explicit Server/Tool grants built on existing roles/workspace isolation | Two clients see/use only their granted tools; guessed IDs cannot bypass checks; revoked access blocks an already prepared operation at dispatch |
+| 3. Tool changes and publication | Upstream schema differences, reviewable candidate versions, compatible publication, retirement and controlled rollback | Detect a contract change, review and publish the candidate, preserve prior snapshots and check live upstream compatibility before allowing a rollback |
+| 4. Diagnostics and audit | Correlated connection/call stages, health history, searchable paginated operations, configuration audit queries and evidence-based UNKNOWN reconciliation | Distinguish wrong credentials, schema drift, timeout and oversized results; find records older than the current 200-item window; record human findings without rewriting evidence or replaying a write |
+| 5. Capacity and recovery | Workspace/client/upstream concurrency and rate budgets, metrics, external alerts, retention and encrypted off-host backup | A slow upstream cannot exhaust another's allocation; limits produce clear results; restore identities, tool versions and operations in an independent environment without replaying writes |
+
+Existing safeguards remain relevant: request IDs and JSON logs, a process-wide concurrency bound, edge IP throttles, bounded payloads, health checks and host-local database backups already exist. The planned work adds operational detail and isolation to those foundations.
+
+Upstream OAuth, private-network Connector/stdio, OpenAPI/gRPC import, richer MCP capabilities, result artifacts and enterprise identity remain in the complete architecture. Schedule a separate package for each against a named integration need and compatibility contract. OAuth may move forward when the selected real upstream requires it; it must not silently change the supported authentication claims. Performance targets and live model quality remain explicit acceptance work, measured on fixed workloads.
+
 ## Remaining production architecture
 
 - Enterprise OIDC/OAuth interoperability, MFA, self-service account recovery and short-lived Runner identity.

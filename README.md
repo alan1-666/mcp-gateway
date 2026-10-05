@@ -21,7 +21,7 @@ docker compose --env-file .local/compose.env -f deploy/compose/compose.yaml up -
 
 Open the console at `http://127.0.0.1:4782`. Use the private identities created in `.local/identities.json`; keep administrator, operator and approver identities separate. Downstream origins must be explicitly allowed before tools can be registered.
 
-For source development, downstream configuration and verification, see the [development guide](docs/development.md). The [Pi runner guide](apps/agent-runner/README.md) explains how to use an existing local subscription login without sending model credentials to the gateway.
+For the delivery workflow, source development, downstream configuration and verification, see the [development guide](docs/development.md). The [ordered work packages](docs/implementation-status.md#development-order) describe the next implementation and acceptance priorities. The [Pi runner guide](apps/agent-runner/README.md) explains how to use an existing local subscription login without sending model credentials to the gateway.
 
 ### Working Capabilities
 
