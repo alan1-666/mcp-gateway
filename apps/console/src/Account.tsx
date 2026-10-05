@@ -64,7 +64,7 @@ export function CloudLogin({
             M
           </span>
           <div>
-            MCP Gateway<span>CONTROL WORKSPACE</span>
+            MCP Gateway<span>Team workspace</span>
           </div>
         </div>
         <div className="connect-story-body">

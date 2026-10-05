@@ -22,24 +22,28 @@ interface Report {
   tools: { name: string; status: string; code: string; message: string }[];
 }
 export function MCPDiagnostics({
+  expanded = false,
   api,
   serverID,
 }: {
+  expanded?: boolean;
   api: APIClient;
   serverID: string;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(expanded);
   return (
     <section className="admin-subsection">
       <div className="action-row">
         <h3>Connection diagnostics</h3>
-        <button
-          type="button"
-          className="button secondary"
-          onClick={() => setOpen(!open)}
-        >
-          {open ? "Hide checks" : "Open connection checks"}
-        </button>
+        {!expanded ? (
+          <button
+            type="button"
+            className="button secondary"
+            onClick={() => setOpen(!open)}
+          >
+            {open ? "Hide checks" : "Open connection checks"}
+          </button>
+        ) : null}
       </div>
       {open ? <Reports api={api} serverID={serverID} /> : null}
     </section>

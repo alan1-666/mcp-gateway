@@ -1,0 +1,900 @@
+/* Workspace composition. Warm paper, charcoal ink and a single amber accent.
+   Existing feature classes share these tokens; state colours remain semantic. */
+:root {
+  --ink: #292a27;
+  --muted: #6c6e67;
+  --line: #e4e5df;
+  --paper: #ffffff;
+  --green: #3b4c42;
+  --green-hover: #29392f;
+  --sidebar: #f7f7f2;
+  --accent: #f4d66f;
+  --accent-soft: #fcf5d9;
+  color: var(--ink);
+  background: #fff;
+}
+[hidden] {
+  display: none !important;
+}
+.app-shell {
+  font-size: 13px;
+}
+.app-shell .sidebar {
+  width: 216px;
+  padding: 22px 12px 0;
+  background: var(--sidebar);
+  border-right: 1px solid var(--line);
+  color: var(--ink);
+}
+.app-shell .sidebar > .brand {
+  margin: 0 9px 22px;
+}
+.app-shell .brand {
+  color: var(--ink);
+  font-size: 15px;
+  gap: 9px;
+  letter-spacing: -0.35px;
+}
+.app-shell .brand-mark {
+  color: var(--ink);
+  background: var(--accent);
+  border: 1px solid #34352f;
+  border-radius: 6px;
+  width: 31px;
+  height: 33px;
+}
+.app-shell .brand-mark svg {
+  width: 23px;
+}
+.app-shell .brand > div > span {
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0;
+  margin-top: 3px;
+  text-transform: none;
+}
+.app-shell .workspace-label {
+  display: flex;
+  padding: 9px;
+  margin: 0 3px 22px;
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 6px;
+}
+.app-shell .workspace-avatar {
+  background: #efefe8;
+  color: #51564c;
+  width: 29px;
+  height: 29px;
+}
+.app-shell .workspace-label strong {
+  color: var(--ink);
+  font-size: 12px;
+}
+.app-shell .workspace-label > div > span {
+  color: var(--muted);
+  font-size: 10px;
+}
+.app-shell .sidebar nav {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  overflow: visible;
+  padding: 0;
+}
+.app-shell .nav-group-label {
+  display: block;
+  color: #777970;
+  margin: 0 11px 7px;
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.app-shell .nav-item {
+  width: 100%;
+  padding: 9px 11px;
+  margin: 2px 0;
+  min-height: 36px;
+  gap: 10px;
+  color: #62665d;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 5px;
+}
+.app-shell .nav-item svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+.app-shell .nav-item:hover {
+  background: #eceee6;
+  color: var(--ink);
+}
+.app-shell .nav-item.active {
+  color: #34382c;
+  background: #ececdf;
+  box-shadow: none;
+  font-weight: 600;
+}
+.app-shell .nav-item.active svg {
+  color: #737349;
+}
+.app-shell .nav-count {
+  background: var(--accent);
+  color: #4d4325;
+  font-size: 10px;
+}
+.app-shell .sidebar-bottom {
+  position: static;
+  margin-top: auto;
+  padding-top: 24px;
+}
+.app-shell .identity {
+  border-color: var(--line);
+  min-height: 69px;
+  padding: 13px 5px;
+}
+.app-shell .identity-avatar {
+  background: #e6e8de;
+  color: #535b46;
+  border-radius: 6px;
+}
+.app-shell .identity > div {
+  display: block;
+}
+.app-shell .identity strong {
+  color: var(--ink);
+  font-size: 11px;
+}
+.app-shell .identity > div > span {
+  color: var(--muted);
+  font-size: 10px;
+  margin-top: 2px;
+}
+.app-shell .identity .icon-button {
+  color: var(--muted);
+}
+.app-shell .identity .icon-button:hover {
+  background: #e6e8de;
+  color: var(--ink);
+}
+.app-shell .workspace-main {
+  margin-left: 216px;
+  width: calc(100% - 216px);
+}
+.app-shell .topbar {
+  min-height: 56px;
+  padding: 0 32px;
+  background: #fff;
+  gap: 16px;
+}
+.app-shell .breadcrumb {
+  min-width: 0;
+  font-size: 12px;
+  color: var(--muted);
+  gap: 10px;
+  overflow-wrap: anywhere;
+}
+.app-shell .breadcrumb strong {
+  color: #3b4037;
+}
+.app-shell .topbar-end {
+  gap: 12px;
+  flex-shrink: 0;
+}
+.app-shell .workspace-status {
+  color: #71756b;
+  font-size: 11px;
+}
+.app-shell .role-tag {
+  font-size: 10px;
+  padding: 3px 7px;
+  background: #f7f8f4;
+  border-color: var(--line);
+  color: #62675b;
+}
+.app-shell .mobile-menu {
+  display: none;
+}
+.app-shell .content {
+  padding: 29px 32px 0;
+  max-width: 1600px;
+  min-height: calc(100dvh - 56px);
+}
+.app-shell .page-heading {
+  gap: 20px;
+  margin-bottom: 25px;
+}
+.app-shell .page-heading h1 {
+  margin: 0 0 7px;
+  font-size: 25px;
+  line-height: 1.25;
+  font-weight: 600;
+  letter-spacing: -0.7px;
+}
+.app-shell .page-heading p {
+  font-size: 12px;
+  color: var(--muted);
+  max-width: 680px;
+  line-height: 1.6;
+}
+.app-shell .refresh-button {
+  align-self: center;
+  min-width: 0;
+  margin: 0;
+}
+.app-shell .button {
+  min-height: 34px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 5px;
+  gap: 7px;
+  box-shadow: none;
+}
+.app-shell .button.primary {
+  color: #292c21;
+  background: var(--accent);
+  border: 1px solid #dfc05b;
+}
+.app-shell .button.primary:hover:not(:disabled) {
+  background: #edca53;
+  border-color: #c8aa4f;
+}
+.app-shell .button.secondary {
+  color: #4e5549;
+  background: #fff;
+  border: 1px solid #dfe2d8;
+}
+.app-shell .button.secondary:hover:not(:disabled) {
+  color: #292c21;
+  border-color: #bcc1b3;
+  background: #f8f9f5;
+}
+.app-shell .text-button {
+  color: #525e44;
+  font-size: 12px;
+}
+.app-shell .icon-button {
+  min-width: 30px;
+  min-height: 30px;
+}
+.app-shell button:focus-visible,
+.app-shell input:focus-visible,
+.app-shell select:focus-visible,
+.app-shell textarea:focus-visible,
+.app-shell [role="tabpanel"]:focus-visible {
+  outline: 2px solid #847425;
+  outline-offset: 3px;
+}
+.app-shell .panel {
+  border-radius: 7px;
+  border-color: var(--line);
+  box-shadow: none;
+}
+.app-shell .panel-heading {
+  padding: 16px 20px;
+  gap: 14px;
+}
+.app-shell .panel-heading h2 {
+  font-size: 14px;
+  font-weight: 600;
+}
+.app-shell .panel-body {
+  padding: 20px;
+}
+.app-shell .panel-heading .eyebrow {
+  color: #73776b;
+  font-size: 10px;
+  letter-spacing: 0.65px;
+}
+.app-shell .panel-heading .muted,
+.app-shell .toolbar > .muted {
+  font-size: 11px;
+}
+.app-shell .field-help {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.65;
+}
+.app-shell .section-note {
+  color: var(--muted);
+  font-size: 11px;
+}
+.app-shell .count-label {
+  font-size: 10px;
+  margin-left: 6px;
+  background: #f4f5ef;
+  border-color: #e7e9df;
+  color: #626b58;
+}
+.app-shell input,
+.app-shell select,
+.app-shell textarea {
+  font-size: 12px;
+  color: var(--ink);
+  background: #fff;
+  border-color: #dfe3d8;
+  border-radius: 5px;
+}
+.app-shell label {
+  font-size: 12px;
+}
+.app-shell .toolbar {
+  margin-bottom: 18px;
+  gap: 12px;
+}
+.app-shell .search-field {
+  max-width: 420px;
+}
+.app-shell .search-field input {
+  min-height: 37px;
+}
+.app-shell table {
+  font-size: 12px;
+}
+.app-shell th {
+  padding: 12px 20px;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 11px;
+  color: #74796d;
+  font-weight: 500;
+  background: #fafbf7;
+}
+.app-shell td {
+  padding: 15px 20px;
+  font-size: 12px;
+}
+.app-shell .table-link {
+  color: #363e2f;
+  font-size: 12px;
+  font-weight: 600;
+}
+.app-shell .table-description {
+  color: #73796c;
+  font-size: 11px;
+  line-height: 1.55;
+  max-width: 440px;
+}
+.app-shell .status {
+  font-size: 10px;
+  padding: 4px 7px;
+  border-radius: 4px;
+}
+.app-shell .method-tag,
+.app-shell .version-label {
+  font-size: 10px;
+}
+.app-shell .metadata-grid {
+  gap: 18px 25px;
+}
+.app-shell .metadata-grid dt {
+  font-size: 11px;
+  color: #71786a;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.app-shell .metadata-grid dd {
+  font-size: 12px;
+  line-height: 1.7;
+}
+.app-shell .workspace-footer {
+  padding: 25px 0 18px;
+  color: #787d70;
+  font-size: 10px;
+}
+.app-shell .workspace-footer > span:first-child {
+  display: none;
+}
+.app-shell .workspace-footer > span:last-child {
+  margin-left: auto;
+}
+/* A compact home surface, with live numbers and direct actions instead of a hero. */
+.app-shell .metrics-grid {
+  margin-bottom: 24px;
+  border-radius: 7px;
+  background: #fff;
+  overflow: hidden;
+}
+.app-shell .metric {
+  padding: 20px;
+  background: transparent;
+}
+.app-shell .metric:hover {
+  background: #fafbf5;
+}
+.app-shell .metric-label {
+  font-size: 11px;
+  color: #66705d;
+}
+.app-shell .metric-label svg {
+  color: #8b9480;
+}
+.app-shell .metric > strong {
+  font-size: 30px;
+  font-weight: 500;
+  color: #333c29;
+  margin: 12px 0 8px;
+  letter-spacing: -1px;
+}
+.app-shell .metric-detail {
+  font-size: 10px;
+  color: #737c68;
+  line-height: 1.6;
+}
+.app-shell .metric-detail svg {
+  display: none;
+}
+.overview-shortcuts {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 0 26px;
+  margin-bottom: 26px;
+  border-bottom: 1px solid var(--line);
+}
+.overview-shortcuts > div {
+  margin-right: auto;
+}
+.overview-shortcuts strong,
+.overview-shortcuts span {
+  display: block;
+}
+.overview-shortcuts strong {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 5px;
+}
+.overview-shortcuts span {
+  color: var(--muted);
+  font-size: 11px;
+}
+.app-shell .section-heading {
+  margin-bottom: 16px;
+}
+.app-shell .section-heading h2 {
+  font-size: 14px;
+}
+/* Connections use a quiet list + detail split, with one job per tab. */
+.app-shell .mcp-layout {
+  grid-template-columns: minmax(200px, 0.7fr) minmax(0, 2fr);
+  gap: 20px;
+  align-items: start;
+}
+.app-shell .mcp-server-select {
+  padding: 17px 17px 7px;
+  gap: 6px;
+}
+.app-shell .mcp-server-select strong {
+  font-size: 12px;
+}
+.app-shell .mcp-server-select > span {
+  font-size: 10px;
+  color: #7b806f;
+}
+.app-shell .mcp-server-actions {
+  padding: 0 17px 16px;
+}
+.app-shell .mcp-server-item.selected,
+.app-shell .mcp-remote-tool.selected {
+  background: #f9f7ed;
+  box-shadow: inset 2px 0 #d0b552;
+}
+.app-shell .mcp-server-item:hover,
+.app-shell .mcp-remote-tool:hover {
+  background: #f9faf5;
+}
+.app-shell .mcp-server-items {
+  max-height: 60vh;
+  overflow-y: auto;
+}
+.app-shell .mcp-discovery .panel-heading {
+  min-height: 75px;
+}
+.app-shell .mcp-discovery-summary {
+  margin: 15px 0 12px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.app-shell .mcp-remote-list {
+  border-radius: 5px;
+  max-height: 360px;
+}
+.app-shell .mcp-remote-tool {
+  padding: 13px 15px;
+}
+.app-shell .mcp-remote-tool strong {
+  font-size: 12px;
+}
+.app-shell .mcp-remote-tool small {
+  font-size: 10px;
+}
+.app-shell .mcp-remote-state {
+  color: #646e56;
+  font-size: 10px;
+}
+.app-shell .catalog-summary {
+  margin: 0 0 16px;
+  padding: 0 0 13px;
+  border-top: 0;
+  font-size: 12px;
+}
+.app-shell .catalog-counts {
+  gap: 9px 15px;
+  font-size: 11px;
+  margin: 12px 0 0;
+}
+.app-shell .catalog-summary .field-help {
+  margin-bottom: 0;
+  font-size: 10px;
+}
+.app-shell .catalog-filter {
+  font-size: 11px;
+  margin-bottom: 12px;
+}
+.app-shell .catalog-filter input {
+  width: 14px;
+  height: 14px;
+  accent-color: #7a743b;
+}
+.app-shell .admin-subsection {
+  margin-top: 0;
+}
+.app-shell .admin-subsection + .admin-subsection {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+.server-control {
+  border-top: 1px solid var(--line);
+  margin-top: 24px;
+  padding-top: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+.server-control h3 {
+  margin: 0;
+  font-size: 13px;
+}
+.server-control .field-help {
+  margin-bottom: 0;
+}
+.section-tab-list {
+  display: flex;
+  gap: 24px;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--line);
+  overflow-x: auto;
+}
+.section-tab-list > button {
+  flex-shrink: 0;
+  background: transparent;
+  color: #79806f;
+  font-size: 12px;
+  padding: 13px 0;
+  font-weight: 500;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+}
+.section-tab-list > button[aria-selected="true"] {
+  color: #373d2c;
+  border-bottom-color: #a99238;
+}
+.section-tab-list > button:hover {
+  color: var(--ink);
+}
+.section-tabs {
+  min-width: 0;
+}
+.section-tabs > [role="tabpanel"] {
+  outline: none;
+  min-width: 0;
+}
+.app-shell .section-tabs .detail-panel {
+  margin: 18px 0 0;
+}
+.app-shell .detail-back {
+  align-self: flex-start;
+  margin: 0 0 15px;
+}
+.app-shell .tool-detail-tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.app-shell .policy-editor {
+  border-top: 1px solid var(--line);
+}
+.app-shell .mcp-schema pre,
+.app-shell .json-block pre {
+  background: #f7f8f3;
+  font-size: 11px;
+}
+.app-shell .mcp-alias {
+  background: #f7f8f1;
+  border-left: 2px solid #bbbd9e;
+}
+.app-shell .tool-pagination {
+  padding: 14px 20px;
+}
+.app-shell .tool-pagination-row {
+  font-size: 10px;
+}
+@media (max-width: 1100px) {
+  .app-shell .content {
+    padding: 25px 24px 0;
+  }
+  .app-shell .topbar {
+    padding-inline: 24px;
+  }
+  .app-shell .mcp-layout {
+    grid-template-columns: minmax(180px, 0.7fr) minmax(0, 1.7fr);
+    gap: 14px;
+  }
+  .app-shell .metrics-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .app-shell .metric:nth-child(2) {
+    border-right: 0;
+  }
+  .app-shell .metric:nth-child(-n + 2) {
+    border-bottom: 1px solid var(--line);
+  }
+  .overview-shortcuts {
+    flex-wrap: wrap;
+  }
+  .overview-shortcuts > div {
+    flex-basis: 100%;
+    margin-bottom: 6px;
+  }
+}
+@media (max-width: 800px) {
+  .app-shell .sidebar {
+    width: 190px;
+  }
+  .app-shell .workspace-main {
+    margin-left: 190px;
+    width: calc(100% - 190px);
+  }
+  .app-shell .mcp-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .app-shell .mcp-server-items {
+    max-height: 240px;
+  }
+  .app-shell .topbar-end .role-tag {
+    display: none;
+  }
+}
+@media (max-width: 640px) {
+  .app-shell {
+    display: block;
+  }
+  .app-shell .sidebar {
+    display: none;
+    position: fixed;
+    inset: 56px 0 0;
+    width: 100%;
+    padding: 20px;
+    z-index: 20;
+    overflow-y: auto;
+  }
+  .app-shell .sidebar.mobile-open {
+    display: flex;
+  }
+  .app-shell .sidebar > .brand,
+  .app-shell .workspace-label {
+    display: none;
+  }
+  .app-shell .sidebar nav {
+    display: flex;
+    flex-direction: column;
+    overflow: visible;
+  }
+  .app-shell .nav-item {
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+  .app-shell .sidebar-bottom {
+    position: static;
+  }
+  .app-shell .workspace-main {
+    width: 100%;
+    margin-left: 0;
+  }
+  .app-shell .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 25;
+    padding: 0 15px;
+    min-height: 56px;
+  }
+  .app-shell .mobile-menu {
+    display: inline-flex;
+    flex-shrink: 0;
+  }
+  .app-shell .breadcrumb {
+    flex: 1;
+    font-size: 11px;
+  }
+  .app-shell .workspace-status {
+    font-size: 10px;
+  }
+  .app-shell .content {
+    padding: 22px 16px 0;
+  }
+  .app-shell .page-heading {
+    gap: 10px;
+    align-items: flex-start;
+    margin-bottom: 20px;
+  }
+  .app-shell .page-heading h1 {
+    font-size: 23px;
+  }
+  .app-shell .page-heading p {
+    font-size: 11px;
+  }
+  .app-shell .refresh-button {
+    padding: 8px;
+    font-size: 0;
+  }
+  .app-shell .refresh-button svg {
+    width: 15px;
+    height: 15px;
+  }
+  .app-shell .metrics-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .app-shell .metric {
+    padding: 16px 12px;
+  }
+  .app-shell .metric-label {
+    font-size: 10px;
+  }
+  .app-shell .metric > strong {
+    font-size: 26px;
+  }
+  .app-shell .metric-detail {
+    font-size: 10px;
+  }
+  .app-shell .panel-heading,
+  .app-shell .panel-body {
+    padding: 16px;
+  }
+  .app-shell .panel-heading {
+    flex-wrap: wrap;
+  }
+  .app-shell .section-tab-list {
+    padding: 0 16px;
+    gap: 22px;
+  }
+  .app-shell .metadata-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .server-control {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .app-shell .search-field {
+    max-width: none;
+    width: 100%;
+  }
+  .app-shell .toolbar .search-field {
+    flex-basis: 100%;
+  }
+  .app-shell .mcp-remote-tool {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .app-shell .workspace-footer {
+    font-size: 9px;
+  }
+}
+.app-shell .mcp-workspace > .toolbar > .button {
+  margin-left: auto;
+}
+.tool-detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+.tool-detail-header > div {
+  min-width: 0;
+}
+.tool-detail-header h2 {
+  font-size: 17px;
+  margin: 6px 0 0;
+  overflow-wrap: anywhere;
+  letter-spacing: -0.25px;
+}
+.tool-detail-header .eyebrow {
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 0.5px;
+}
+.app-shell .breadcrumb-workspace {
+  color: var(--muted);
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Shared sign-in surface follows the same restrained palette. */
+.connect-layout {
+  background: #fff;
+}
+.connect-story {
+  background: #f6f5ec;
+  color: var(--ink);
+  border-right: 1px solid var(--line);
+}
+.connect-story .brand {
+  color: var(--ink);
+}
+.connect-story .brand-mark {
+  color: var(--ink);
+  background: var(--accent);
+  border: 1px solid #34352f;
+  border-radius: 6px;
+}
+.connect-story .brand > div > span,
+.connect-story .eyebrow,
+.connect-story-body > p,
+.connect-story-foot {
+  color: var(--muted);
+}
+.connect-story h1 {
+  color: var(--ink);
+  font-size: clamp(36px, 4vw, 56px);
+  letter-spacing: -2px;
+}
+.connect-story .flow-strip {
+  border-color: #dcded2;
+  color: #727761;
+}
+.connect-layout .button.primary {
+  background: var(--accent);
+  color: var(--ink);
+  border-color: #d9bd59;
+  box-shadow: none;
+}
+.connect-layout .button.primary:hover:not(:disabled) {
+  background: #edca53;
+}
+.connect-layout .connect-note {
+  background: #f7f8f3;
+  border-color: var(--line);
+  color: var(--muted);
+}
+@media (max-width: 640px) {
+  .app-shell .mobile-menu {
+    position: fixed;
+    top: 12px;
+    left: 13px;
+    z-index: 30;
+    background: #fff;
+  }
+  .app-shell .topbar {
+    padding-left: 55px;
+  }
+  .app-shell .breadcrumb-workspace {
+    max-width: 90px;
+  }
+  .tool-detail-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+.tool-gateway-name {
+  margin: 7px 0 0;
+  font-size: 10px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}

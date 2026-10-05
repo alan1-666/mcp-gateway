@@ -1,3 +1,4 @@
+import { SectionTabs } from "./SectionTabs";
 import { MCPDiagnostics } from "./MCPDiagnostics";
 import { CatalogHistory, CatalogRefresh, CatalogSummary } from "./MCPCatalog";
 import { catalogLabels } from "./mcp-catalog";
@@ -38,7 +39,7 @@ export function MCPServers({
   api: APIClient;
   identity: Identity;
   refreshVersion: string;
-  onRegistry: (toolID: string) => void;
+  onRegistry: (toolID: string, section?: "contract" | "versions") => void;
   onImported: () => void;
 }) {
   const [servers, setServers] = useState<MCPServer[]>([]);
@@ -49,6 +50,7 @@ export function MCPServers({
   const [busy, setBusy] = useState("");
   const [reviewName, setReviewName] = useState("");
   const [changesOnly, setChangesOnly] = useState(false);
+  const [tab, setTab] = useState("tools");
   const loadRequest = useRef<AbortController | null>(null);
   const mutationPending = useRef(false);
   const mounted = useRef(true);
@@ -72,6 +74,8 @@ export function MCPServers({
     [discovery.review],
   );
   const change = comparison.get(reviewName);
+  const hasContractChange =
+    change && ["schema_changed", "description_changed"].includes(change.status);
   const visibleTools = changesOnly
     ? discovery.items.filter(
         (tool) => comparison.get(tool.name)?.status !== "unchanged",
@@ -186,8 +190,11 @@ export function MCPServers({
     if (locked) return;
     controller.select(server);
     setReviewName("");
+    setChangesOnly(false);
+    setTab("tools");
   }
   function discover() {
+    setTab("tools");
     setReviewName("");
     void controller.discover();
   }
@@ -197,7 +204,10 @@ export function MCPServers({
     <div className="mcp-workspace">
       <div className="toolbar">
         <p className="muted mcp-toolbar-copy">
-          Connect a server, review its tools, then publish approved drafts.
+          {loaded
+            ? `${servers.length} ${servers.length === 1 ? "connection" : "connections"}`
+            : "Connections"}{" "}
+          · Streamable HTTP
         </p>
         <button
           className="button primary"
@@ -244,7 +254,6 @@ export function MCPServers({
                 {loaded ? servers.length : "—"}
               </span>
             </h2>
-            <span className="muted">Admin access</span>
           </div>
           {!loaded ? (
             <div className="panel-body" role="status">
@@ -275,7 +284,6 @@ export function MCPServers({
                   >
                     <strong>{server.name}</strong>
                     <span className="mono">{server.namespace}</span>
-                    <span className="mcp-server-url">{server.url}</span>
                   </button>
                   <div className="mcp-server-actions">
                     <span
@@ -284,18 +292,6 @@ export function MCPServers({
                       <span />
                       {server.enabled ? "enabled" : "disabled"}
                     </span>
-                    <button
-                      className="text-button"
-                      disabled={locked}
-                      aria-label={`${server.enabled ? "Disable" : "Enable"} ${server.name}`}
-                      onClick={() => void toggle(server)}
-                    >
-                      {busy === server.id
-                        ? "Updating…"
-                        : server.enabled
-                          ? "Disable"
-                          : "Enable"}
-                    </button>
                   </div>
                 </div>
               ))}
@@ -310,201 +306,279 @@ export function MCPServers({
             <>
               <div className="panel-heading">
                 <div>
-                  <span className="eyebrow">SERVER TOOLS</span>
+                  <span className="eyebrow">{selected.namespace}</span>
                   <h2>{selected.name}</h2>
                 </div>
                 <button
-                  className="button secondary"
+                  className="button primary"
                   disabled={!selected.enabled || locked || discovery.loading}
                   onClick={discover}
                 >
                   {discovery.loading ? "Discovering…" : "Discover tools"}
                 </button>
               </div>
-              <div className="panel-body">
-                <dl className="metadata-grid mcp-server-metadata">
-                  <div>
-                    <dt>Namespace</dt>
-                    <dd className="mono">{selected.namespace}</dd>
-                  </div>
-                  <div>
-                    <dt>Timeout</dt>
-                    <dd>{selected.timeout_ms.toLocaleString()} ms</dd>
-                  </div>
-                  <div>
-                    <dt>Server URL</dt>
-                    <dd className="mono break-word">{selected.url}</dd>
-                  </div>
-                  <div>
-                    <dt>Credential reference</dt>
-                    <dd className="mono break-word">
-                      {selected.credential_ref || "None configured"}
-                    </dd>
-                  </div>
-                </dl>
-                {!selected.enabled ? (
-                  <div className="notice notice-warning" role="status">
-                    This server is disabled. Enable it to discover, import, or
-                    execute its tools.
-                  </div>
-                ) : null}
-                <MCPDiagnostics
-                  key={selected.id}
-                  api={api}
-                  serverID={selected.id}
-                />
-                <CatalogHistory
-                  key={`catalog:${selected.id}`}
-                  api={api}
-                  serverID={selected.id}
-                  revision={String(discovery.revision)}
-                />
-                <ErrorNotice error={discovery.error} />
-                {discovery.error ? (
-                  <button
-                    className="button secondary"
-                    disabled={!selected.enabled || locked || discovery.loading}
-                    onClick={discover}
-                  >
-                    Retry discovery
-                  </button>
-                ) : null}
-                {discovery.loading ? (
-                  <p role="status">Reading the server’s tool contracts…</p>
-                ) : discovery.loaded ? (
-                  <>
-                    {discovery.review ? (
+              <SectionTabs
+                key={selected.id}
+                label="Server details"
+                value={tab}
+                onChange={setTab}
+                tabs={[
+                  {
+                    id: "tools",
+                    label: "Tools",
+                    content: (
                       <>
-                        <CatalogSummary review={discovery.review} />
-                        <label className="catalog-filter">
-                          <input
-                            type="checkbox"
-                            checked={changesOnly}
-                            onChange={(event) =>
-                              setChangesOnly(event.target.checked)
-                            }
-                          />
-                          Only tools needing review
-                        </label>
-                      </>
-                    ) : null}
-                    <p className="mcp-discovery-summary" role="status">
-                      {discovery.total} tools discovered · Select one to review
-                      before importing.
-                    </p>
-                    {visibleTools.length ? (
-                      <div
-                        className="mcp-remote-list"
-                        aria-label="Discovered tools"
-                      >
-                        {visibleTools.map((tool) => (
-                          <button
-                            key={tool.name}
-                            className={`mcp-remote-tool ${reviewName === tool.name ? "selected" : ""}`}
-                            disabled={locked}
-                            aria-pressed={reviewName === tool.name}
-                            onClick={() => setReviewName(tool.name)}
-                          >
-                            <span>
-                              <strong>{tool.name}</strong>
-                              <small className="mono">
-                                {tool.gateway_name}
-                              </small>
-                            </span>
-                            <span className="mcp-remote-state">
-                              {comparison.has(tool.name)
-                                ? catalogLabels[
-                                    comparison.get(tool.name)!.status
-                                  ]
-                                : tool.imported_tool_id
-                                  ? "Imported"
-                                  : "Review →"}
-                            </span>
-                          </button>
-                        ))}
-                      </div>
-                    ) : (
-                      <p>
-                        {discovery.items.length
-                          ? "No available tools need review."
-                          : "This server currently exposes no tools."}
-                      </p>
-                    )}
-                    {discovery.review?.counts.missing ? (
-                      <section className="catalog-missing">
-                        <h3>Missing from the upstream catalog</h3>
-                        <p className="field-help">
-                          These registered tools were absent from this complete
-                          discovery. Review their dependencies and retire them
-                          in the registry if appropriate.
-                        </p>
-                        {discovery.review.items
-                          .filter((entry) => entry.status === "missing")
-                          .map((entry) => (
-                            <div className="admin-record" key={entry.name}>
-                              <strong className="break-word">
-                                {entry.name}
-                              </strong>
-                              <span>
-                                v{entry.imported_version} ·{" "}
-                                {entry.imported_status}
-                                {entry.imported_enabled ? "" : " · disabled"}
-                              </span>
-                              <button
-                                type="button"
-                                className="text-button"
-                                onClick={() =>
-                                  onRegistry(entry.imported_tool_id!)
-                                }
-                              >
-                                Review registered tool
-                              </button>
+                        <div className="panel-body">
+                          {!selected.enabled ? (
+                            <div
+                              className="notice notice-warning"
+                              role="status"
+                            >
+                              This server is disabled. Enable it to discover,
+                              import, or execute its tools.
                             </div>
-                          ))}
-                      </section>
-                    ) : null}
-                  </>
-                ) : !discovery.error && !discovery.loading ? (
-                  <p className="muted">
-                    Discover the available tools, then review each contract and
-                    its risk classification.
-                  </p>
-                ) : null}
-              </div>
-              {remote ? (
-                <ToolReview
-                  key={`${selected.id}:${remote.name}:${remote.schema_hash}:${discovery.revision}`}
-                  remote={remote}
-                  disabled={!selected.enabled || locked || discovery.loading}
-                  importing={discovery.importing === remote.name}
-                  mustRediscover={discovery.requiresDiscovery.includes(
-                    remote.name,
-                  )}
-                  error={discovery.importError}
-                  onRegistry={onRegistry}
-                  onImport={async (risk, include, maxBytes) => {
-                    const tool = await controller.importTool(
-                      remote,
-                      risk,
-                      parseResponsePolicy(include, maxBytes),
-                    );
-                    if (tool) onImported();
-                  }}
-                />
-              ) : null}
-              {remote &&
-              change &&
-              ["schema_changed", "description_changed"].includes(
-                change.status,
-              ) ? (
-                <CatalogRefresh
-                  key={`${selected.id}:${remote.name}:${discovery.revision}`}
-                  api={api}
-                  entry={change}
-                  disabled={!selected.enabled || locked || discovery.loading}
-                  onRegistry={onRegistry}
-                />
-              ) : null}
+                          ) : null}
+                          <ErrorNotice error={discovery.error} />
+                          {discovery.error ? (
+                            <button
+                              className="button secondary"
+                              disabled={
+                                !selected.enabled || locked || discovery.loading
+                              }
+                              onClick={discover}
+                            >
+                              Retry discovery
+                            </button>
+                          ) : null}
+                          {discovery.loading ? (
+                            <p role="status">
+                              Reading the server’s tool contracts…
+                            </p>
+                          ) : discovery.loaded ? (
+                            <>
+                              {discovery.review ? (
+                                <>
+                                  <CatalogSummary review={discovery.review} />
+                                  <label className="catalog-filter">
+                                    <input
+                                      type="checkbox"
+                                      checked={changesOnly}
+                                      onChange={(event) =>
+                                        setChangesOnly(event.target.checked)
+                                      }
+                                    />
+                                    Only tools needing review
+                                  </label>
+                                </>
+                              ) : null}
+                              <p
+                                className="mcp-discovery-summary"
+                                role="status"
+                              >
+                                {discovery.total} tools discovered · Select one
+                                to review before importing.
+                              </p>
+                              {visibleTools.length ? (
+                                <div
+                                  className="mcp-remote-list"
+                                  aria-label="Discovered tools"
+                                >
+                                  {visibleTools.map((tool) => (
+                                    <button
+                                      key={tool.name}
+                                      className={`mcp-remote-tool ${reviewName === tool.name ? "selected" : ""}`}
+                                      disabled={locked}
+                                      aria-pressed={reviewName === tool.name}
+                                      onClick={() => setReviewName(tool.name)}
+                                    >
+                                      <span>
+                                        <strong>{tool.name}</strong>
+                                        <small className="mono">
+                                          {tool.gateway_name}
+                                        </small>
+                                      </span>
+                                      <span className="mcp-remote-state">
+                                        {comparison.has(tool.name)
+                                          ? catalogLabels[
+                                              comparison.get(tool.name)!.status
+                                            ]
+                                          : tool.imported_tool_id
+                                            ? "Imported"
+                                            : "Review →"}
+                                      </span>
+                                    </button>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p>
+                                  {discovery.items.length
+                                    ? "No available tools need review."
+                                    : "This server currently exposes no tools."}
+                                </p>
+                              )}
+                              {discovery.review?.counts.missing ? (
+                                <section className="catalog-missing">
+                                  <h3>Missing from the upstream catalog</h3>
+                                  <p className="field-help">
+                                    These registered tools were absent from this
+                                    complete discovery. Review their
+                                    dependencies and retire them in the registry
+                                    if appropriate.
+                                  </p>
+                                  {discovery.review.items
+                                    .filter(
+                                      (entry) => entry.status === "missing",
+                                    )
+                                    .map((entry) => (
+                                      <div
+                                        className="admin-record"
+                                        key={entry.name}
+                                      >
+                                        <strong className="break-word">
+                                          {entry.name}
+                                        </strong>
+                                        <span>
+                                          v{entry.imported_version} ·{" "}
+                                          {entry.imported_status}
+                                          {entry.imported_enabled
+                                            ? ""
+                                            : " · disabled"}
+                                        </span>
+                                        <button
+                                          type="button"
+                                          className="text-button"
+                                          onClick={() =>
+                                            onRegistry(entry.imported_tool_id!)
+                                          }
+                                        >
+                                          Review registered tool
+                                        </button>
+                                      </div>
+                                    ))}
+                                </section>
+                              ) : null}
+                            </>
+                          ) : !discovery.error && !discovery.loading ? (
+                            <p className="muted">
+                              Discover the available tools, then review each
+                              contract and its risk classification.
+                            </p>
+                          ) : null}
+                        </div>
+                        {remote && !hasContractChange ? (
+                          <ToolReview
+                            key={`${selected.id}:${remote.name}:${remote.schema_hash}:${discovery.revision}`}
+                            remote={remote}
+                            disabled={
+                              !selected.enabled || locked || discovery.loading
+                            }
+                            importing={discovery.importing === remote.name}
+                            mustRediscover={discovery.requiresDiscovery.includes(
+                              remote.name,
+                            )}
+                            error={discovery.importError}
+                            onRegistry={onRegistry}
+                            onImport={async (risk, include, maxBytes) => {
+                              const tool = await controller.importTool(
+                                remote,
+                                risk,
+                                parseResponsePolicy(include, maxBytes),
+                              );
+                              if (tool) onImported();
+                            }}
+                          />
+                        ) : null}
+                        {remote &&
+                        change &&
+                        ["schema_changed", "description_changed"].includes(
+                          change.status,
+                        ) ? (
+                          <CatalogRefresh
+                            key={`${selected.id}:${remote.name}:${discovery.revision}`}
+                            api={api}
+                            entry={change}
+                            disabled={
+                              !selected.enabled || locked || discovery.loading
+                            }
+                            onRegistry={(id) => onRegistry(id, "versions")}
+                          />
+                        ) : null}
+                      </>
+                    ),
+                  },
+                  {
+                    id: "activity",
+                    label: "Activity",
+                    content: (
+                      <div className="panel-body">
+                        {" "}
+                        <MCPDiagnostics
+                          expanded
+                          key={selected.id}
+                          api={api}
+                          serverID={selected.id}
+                        />
+                        <CatalogHistory
+                          expanded
+                          key={`catalog:${selected.id}`}
+                          api={api}
+                          serverID={selected.id}
+                          revision={String(discovery.revision)}
+                        />
+                      </div>
+                    ),
+                  },
+                  {
+                    id: "settings",
+                    label: "Settings",
+                    content: (
+                      <div className="panel-body">
+                        {" "}
+                        <dl className="metadata-grid mcp-server-metadata">
+                          <div>
+                            <dt>Namespace</dt>
+                            <dd className="mono">{selected.namespace}</dd>
+                          </div>
+                          <div>
+                            <dt>Timeout</dt>
+                            <dd>{selected.timeout_ms.toLocaleString()} ms</dd>
+                          </div>
+                          <div>
+                            <dt>Server URL</dt>
+                            <dd className="mono break-word">{selected.url}</dd>
+                          </div>
+                          <div>
+                            <dt>Credential reference</dt>
+                            <dd className="mono break-word">
+                              {selected.credential_ref || "None configured"}
+                            </dd>
+                          </div>
+                        </dl>
+                        <div className="server-control">
+                          <div>
+                            <h3>Server access</h3>
+                            <p className="field-help">
+                              Disabling blocks discovery, imports and calls to
+                              this server.
+                            </p>
+                          </div>
+                          <button
+                            className="button secondary"
+                            disabled={locked}
+                            onClick={() => void toggle(selected)}
+                          >
+                            {busy === selected.id
+                              ? "Updating…"
+                              : selected.enabled
+                                ? "Disable server"
+                                : "Enable server"}
+                          </button>
+                        </div>
+                      </div>
+                    ),
+                  },
+                ]}
+              />
             </>
           ) : (
             <div className="empty">
