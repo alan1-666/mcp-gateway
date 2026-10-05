@@ -83,6 +83,11 @@ func TestCatalogReviewsPersistOnlyCompleteObservations(t *testing.T) {
 	if err != nil || len(older.Items) != 1 || older.Items[0].ID != first.Review.ID || older.NextCursor != "" {
 		t.Fatal("history cursor", err)
 	}
+	// PostgreSQL timestamps are microseconds. Return the stored timestamp on
+	// creation as well, otherwise the same report changes across HTTP reads.
+	if !older.Items[0].StartedAt.Equal(first.Review.StartedAt) || !older.Items[0].CheckedAt.Equal(first.Review.CheckedAt) {
+		t.Fatal("stored report timestamps differ from the discovery response")
+	}
 	remote.err, remote.items = nil, nil
 	empty, err := s.Discover(ctx, a, server.ID)
 	if err != nil || empty.Items == nil || empty.Total != 0 || empty.Review.Counts.Missing != 1 || empty.Review.Items[0].ImportedToolID != tool.ID {

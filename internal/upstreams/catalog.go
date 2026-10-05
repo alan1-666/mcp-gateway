@@ -147,7 +147,7 @@ func (s *Store) reviewCatalog(ctx context.Context, a core.Actor, server core.MCP
 		if err != nil || len(raw) > 2<<20 {
 			return DiscoveryPage{}, fmt.Errorf("%w: catalog report exceeds storage bounds", core.ErrInvalid)
 		}
-		err = tx.QueryRow(ctx, `INSERT INTO mcp_catalog_reviews(workspace_id,server_id,started_at,report) VALUES($1,$2,$3,$4) RETURNING id,checked_at`, a.WorkspaceID, server.ID, started, raw).Scan(&page.Review.ID, &page.Review.CheckedAt)
+		err = tx.QueryRow(ctx, `INSERT INTO mcp_catalog_reviews(workspace_id,server_id,started_at,report) VALUES($1,$2,$3,$4) RETURNING id,started_at,checked_at`, a.WorkspaceID, server.ID, started, raw).Scan(&page.Review.ID, &page.Review.StartedAt, &page.Review.CheckedAt)
 		if err != nil {
 			return DiscoveryPage{}, err
 		}
