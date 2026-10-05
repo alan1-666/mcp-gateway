@@ -235,7 +235,7 @@ func TestScheduledCatalogFailuresBackoffAndHistory(t *testing.T) {
 			t.Fatal("failure state", state, err)
 		}
 		delay := state.NextCheckAt.Sub(*state.LastFinishedAt)
-		if delay < time.Duration(300<<(i-1))*time.Second || delay > time.Duration(300<<(i-1))*time.Second+time.Second {
+		if delay != time.Duration(300<<(i-1))*time.Second {
 			t.Fatal("backoff", delay)
 		}
 	}

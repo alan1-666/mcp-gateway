@@ -175,9 +175,11 @@ func (s *Store) finishCatalog(ctx context.Context, c catalogClaim, items []core.
 				return zero, err
 			}
 		}
-		_, err = tx.Exec(ctx, `UPDATE mcp_catalog_schedules SET lease_id='',lease_until=NULL,last_finished_at=clock_timestamp(),
-   last_success_at=CASE WHEN $4='' THEN clock_timestamp() ELSE last_success_at END,last_error_code=$4,consecutive_failures=$5,
-   next_check_at=clock_timestamp()+make_interval(secs=>$6) WHERE workspace_id=$1 AND server_id=$2 AND lease_id=$3`, c.WorkspaceID, c.Server.ID, c.LeaseID, code, failures, retrySeconds(interval, failures))
+		// One statement timestamp binds completion and next due time exactly.
+		// Independent wall-clock reads can be evaluated in either column order.
+		_, err = tx.Exec(ctx, `UPDATE mcp_catalog_schedules SET lease_id='',lease_until=NULL,last_finished_at=statement_timestamp(),
+   last_success_at=CASE WHEN $4='' THEN statement_timestamp() ELSE last_success_at END,last_error_code=$4,consecutive_failures=$5,
+   next_check_at=statement_timestamp()+make_interval(secs=>$6) WHERE workspace_id=$1 AND server_id=$2 AND lease_id=$3`, c.WorkspaceID, c.Server.ID, c.LeaseID, code, failures, retrySeconds(interval, failures))
 		return zero, err
 	})
 	return err
