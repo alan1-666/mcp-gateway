@@ -8,6 +8,16 @@ concurrency:
   group: verify-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 jobs:
+  console-proxy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with: {go-version-file: go.mod, cache: true}
+      - run: CGO_ENABLED=0 go build -o /tmp/console-dns-fixture ./test/console-dns-fixture
+      - run: docker pull nginxinc/nginx-unprivileged:1.29-alpine
+      - run: python3 scripts/tests/verify_console_dns.py --console-image nginxinc/nginx-unprivileged:1.29-alpine --config deploy/nginx.conf --fixture-bin /tmp/console-dns-fixture
   release-tooling:
     runs-on: ubuntu-latest
     timeout-minutes: 5
