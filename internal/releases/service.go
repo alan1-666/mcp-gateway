@@ -4,6 +4,7 @@ package releases
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -57,14 +58,15 @@ type Candidate struct {
 	PublishedVersion *int           `json:"published_version,omitempty"`
 }
 type CandidateInput struct {
-	ExpectedVersion int                  `json:"expected_version"`
-	SourceVersion   int                  `json:"source_version,omitempty"`
-	ServerID        string               `json:"server_id,omitempty"`
-	ToolName        string               `json:"tool_name,omitempty"`
-	Risk            core.Risk            `json:"risk,omitempty"`
-	ResponsePolicy  *core.ResponsePolicy `json:"response_policy,omitempty"`
-	Definition      *core.ToolInput      `json:"definition,omitempty"`
-	Reason          string               `json:"reason"`
+	ExpectedVersion    int                  `json:"expected_version"`
+	ExpectedSchemaHash string               `json:"expected_schema_hash,omitempty"`
+	SourceVersion      int                  `json:"source_version,omitempty"`
+	ServerID           string               `json:"server_id,omitempty"`
+	ToolName           string               `json:"tool_name,omitempty"`
+	Risk               core.Risk            `json:"risk,omitempty"`
+	ResponsePolicy     *core.ResponsePolicy `json:"response_policy,omitempty"`
+	Definition         *core.ToolInput      `json:"definition,omitempty"`
+	Reason             string               `json:"reason"`
 }
 
 func admin(a core.Actor) error {
@@ -167,7 +169,7 @@ func (s *Service) Versions(ctx context.Context, a core.Actor, id string, before,
 }
 func (s *Service) source(ctx context.Context, a core.Actor, base core.Tool, in CandidateInput) (core.ToolInput, error) {
 	if in.SourceVersion != 0 {
-		if in.SourceVersion < 1 || in.ServerID != "" || in.ToolName != "" || in.Risk != "" || in.ResponsePolicy != nil || in.Definition != nil {
+		if in.SourceVersion < 1 || in.ServerID != "" || in.ToolName != "" || in.Risk != "" || in.ResponsePolicy != nil || in.Definition != nil || in.ExpectedSchemaHash != "" {
 			return core.ToolInput{}, core.ErrInvalid
 		}
 		var raw []byte
@@ -180,7 +182,7 @@ func (s *Service) source(ctx context.Context, a core.Actor, base core.Tool, in C
 		return d, err
 	}
 	if in.Definition != nil {
-		if base.MCP != nil || in.Definition.MCP != nil || in.ServerID != "" || in.ToolName != "" || in.Risk != "" || in.ResponsePolicy != nil {
+		if base.MCP != nil || in.Definition.MCP != nil || in.ServerID != "" || in.ToolName != "" || in.Risk != "" || in.ResponsePolicy != nil || in.ExpectedSchemaHash != "" {
 			return core.ToolInput{}, core.ErrInvalid
 		}
 		if in.Definition.Name != base.Name {
@@ -211,20 +213,14 @@ func (s *Service) source(ctx context.Context, a core.Actor, base core.Tool, in C
 	}
 	for _, item := range items {
 		if item.Name == name {
+			if in.ExpectedSchemaHash != "" && item.SchemaHash != in.ExpectedSchemaHash {
+				return core.ToolInput{}, fmt.Errorf("%w: upstream schema changed since discovery; discover and review again", core.ErrConflict)
+			}
 			d := definition(base)
 			d.InputSchema = item.InputSchema
 			d.OutputSchema = item.OutputSchema
 			d.MCP = &core.MCPConfig{ServerID: serverID, ToolName: name, SchemaHash: item.SchemaHash}
-			d.Description = strings.TrimSpace(item.Description)
-			if d.Description == "" {
-				d.Description = "Remote MCP tool " + item.Name
-			}
-			if len(d.Description) > 4000 {
-				d.Description = d.Description[:4000]
-				for !utf8.ValidString(d.Description) {
-					d.Description = d.Description[:len(d.Description)-1]
-				}
-			}
+			d.Description = core.RemoteDescription(item)
 			if in.Risk != "" {
 				d.Risk = in.Risk
 			}
@@ -264,6 +260,14 @@ func (s *Service) validateLive(ctx context.Context, a core.Actor, d core.ToolInp
 func (s *Service) Create(ctx context.Context, a core.Actor, id string, in CandidateInput) (Candidate, error) {
 	if err := admin(a); err != nil {
 		return Candidate{}, err
+	}
+	if in.ExpectedSchemaHash != "" {
+		if len(in.ExpectedSchemaHash) != 64 || strings.ToLower(in.ExpectedSchemaHash) != in.ExpectedSchemaHash {
+			return Candidate{}, fmt.Errorf("%w: expected_schema_hash must be a lowercase SHA-256 hash", core.ErrInvalid)
+		}
+		if _, err := hex.DecodeString(in.ExpectedSchemaHash); err != nil {
+			return Candidate{}, core.ErrInvalid
+		}
 	}
 	in.Reason = strings.TrimSpace(in.Reason)
 	if in.ExpectedVersion < 1 || len(in.Reason) < 1 || len(in.Reason) > 1000 || !utf8.ValidString(in.Reason) || strings.ContainsRune(in.Reason, 0) {

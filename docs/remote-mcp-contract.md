@@ -257,3 +257,25 @@ Register endpoints `http://127.0.0.1:8361/mcp` and `http://127.0.0.1:8362/mcp` u
 - Disable one server and verify its published tools disappear while the other server's tools remain available.
 
 These loopback addresses are for source development. Inside a container, `127.0.0.1` points to that container. Do not widen the fixture listener or the cloud allowlist to make it a public service. The fixture validates Gateway behavior and does not substitute for compatibility acceptance against an actual third-party deployment.
+
+## Catalog change review
+
+`POST /api/v1/mcp/servers/{id}/discover` now returns `review` alongside the existing `items` and `total`. A complete observation is compared with the current registered definitions, including draft, disabled and retired tools:
+
+| State | Meaning and next action |
+| --- | --- |
+| `unimported` | Available upstream but not bound in this registry; review and import as a draft. This does not mean newly added since the preceding observation. |
+| `schema_changed` | Input/output contract hash differs; create a refresh candidate and review its field diff, risk and projection. |
+| `description_changed` | Canonical bounded description differs while the schema matches; review a refresh candidate. |
+| `missing` | A registered tool is absent from the complete upstream catalog; inspect dependencies and explicitly retire if appropriate. |
+| `unchanged` | Registered schema and canonical description match. Publication, enablement and caller grants still independently determine callability. |
+
+The schema comparison includes the upstream name and input/output schemas. Descriptions use the same trim/fallback/UTF-8 truncation as import and refresh. Annotations remain advisory and never automatically change risk. No semantic compatibility or safe-read classification is inferred from a matching schema.
+
+Successful discovery atomically saves a report and `MCP_CATALOG_REVIEWED` audit event. `GET /api/v1/mcp/servers/{id}/catalog-reviews?limit=20&before=ID` returns retained reports, ordered by descending saved ID with exclusive pagination. Default limit is 20, maximum 50. Each server retains its last 50 successful reports; audit records remain separately retained. Reports expose names, state, current/observed hashes and registered version/status, not schemas, descriptions, credentials or business results. Comparison is bounded to a union of 2,000 entries and 2 MiB per report. Exceeding a bound fails instead of saving partial evidence.
+
+Network/discovery happens before the transaction. The server lock fences disable/re-enable during that request; registered tools are read in one database statement. `started_at` records the discovery start and `checked_at` the saved observation time. Concurrent upstream changes remain possible: reports are observations, not durable authorization or a frozen remote snapshot. Failed, unauthorized, incomplete or disabled-server discovery saves no report and never turns the previous success into an empty catalog. Administrators may read retained history while a server is disabled. Non-admins, machine clients and other workspaces cannot read these reports.
+
+The console shows counts, a changes filter, missing-tool registry links and retained history. Selecting a changed tool can create a candidate through the existing releases API, with `expected_version`, a human reason, and optional `expected_schema_hash`. The last field is a precondition against a new live discovery, not a caller-supplied replacement contract; a mismatch returns 409. Risk and response policy initially remain those of the registered tool. A saved candidate still needs explicit diff/risk/projection review and publication in the registry. Publication rechecks the live contract, preserves prepared operation snapshots and creates a new immutable version.
+
+Migration 011 adds only the catalog-review table/index. Earlier binaries can ignore it; application rollback still requires the release tool's explicit migration-compatibility declaration. There is no periodic synchronization, automatic publication/retirement or business invocation in this feature.

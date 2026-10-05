@@ -68,10 +68,13 @@ export function ToolVersions({
     [loadingMore, setLoadingMore] = useState(false),
     [historyError, setHistoryError] = useState("");
   const mounted = useRef(true);
+  const candidateRequest = useRef<AbortController | null>(null);
+  const [loadingCandidate, setLoadingCandidate] = useState(false);
   useEffect(() => {
     mounted.current = true;
     return () => {
       mounted.current = false;
+      candidateRequest.current?.abort();
     };
   }, []);
   useEffect(() => {
@@ -88,6 +91,9 @@ export function ToolVersions({
     [error, setError] = useState(""),
     [retiring, setRetiring] = useState(false);
   async function reload() {
+    candidateRequest.current?.abort();
+    setLoadingCandidate(false);
+    setSelected(null);
     const results = await Promise.all([
       versions.reload(),
       candidates.reload(),
@@ -96,6 +102,34 @@ export function ToolVersions({
     if (results[0] && results[1]) {
       action.controller.reset();
       setSelected(null);
+    }
+  }
+  async function inspectCandidate(id: string) {
+    candidateRequest.current?.abort();
+    const request = new AbortController();
+    candidateRequest.current = request;
+    setLoadingCandidate(true);
+    setSelected(null);
+    setError("");
+    try {
+      const detail = await api.request<Candidate>(
+        `${prefix}/candidates/${encodeURIComponent(id)}`,
+        { signal: request.signal },
+      );
+      if (request.signal.aborted) return;
+      if (
+        detail.id !== id ||
+        detail.tool_id !== tool.id ||
+        !Array.isArray(detail.changes)
+      )
+        throw new Error(
+          "The candidate detail is incomplete. Reload and inspect it again before publishing.",
+        );
+      setSelected(detail);
+    } catch (error) {
+      if (!request.signal.aborted) setError(messageOf(error));
+    } finally {
+      if (!request.signal.aborted) setLoadingCandidate(false);
     }
   }
   async function more() {
@@ -122,6 +156,8 @@ export function ToolVersions({
     }
   }
   async function create(source?: number) {
+    candidateRequest.current?.abort();
+    setLoadingCandidate(false);
     setError("");
     try {
       if (!reason.trim())
@@ -282,8 +318,8 @@ export function ToolVersions({
                   type="button"
                   className="admin-record"
                   key={item.id}
-                  disabled={action.busy}
-                  onClick={() => setSelected(item)}
+                  disabled={action.busy || loadingCandidate}
+                  onClick={() => void inspectCandidate(item.id)}
                 >
                   <strong>{item.reason}</strong>
                   <span>
@@ -299,6 +335,7 @@ export function ToolVersions({
             <AdminEmpty>No candidates yet.</AdminEmpty>
           )}
         </div>
+        {loadingCandidate ? <AdminLoading /> : null}
         {selected ? (
           <section className="candidate-preview">
             <h3>Review candidate changes</h3>

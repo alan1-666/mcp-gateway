@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/alan1-666/mcp-gateway/internal/core"
@@ -35,8 +36,9 @@ type ServerPage struct {
 	Total int              `json:"total"`
 }
 type DiscoveryPage struct {
-	Items []core.RemoteTool `json:"items"`
-	Total int               `json:"total"`
+	Items  []core.RemoteTool `json:"items"`
+	Total  int               `json:"total"`
+	Review CatalogReview     `json:"review"`
 }
 type ImportInput struct {
 	ToolName       string               `json:"tool_name"`
@@ -49,7 +51,7 @@ func admin(actor core.Actor) error {
 	if strings.TrimSpace(actor.ID) == "" || strings.TrimSpace(actor.WorkspaceID) == "" {
 		return core.ErrUnauthorized
 	}
-	if actor.Role != core.RoleAdmin {
+	if actor.Role != core.RoleAdmin || actor.ClientID != "" {
 		return core.ErrForbidden
 	}
 	return nil
@@ -117,22 +119,12 @@ func (s *Service) Discover(ctx context.Context, actor core.Actor, id string) (Di
 	if !server.Enabled {
 		return DiscoveryPage{}, fmt.Errorf("%w: MCP server is disabled", core.ErrConflict)
 	}
+	started := time.Now().UTC()
 	items, err := s.remote.Discover(ctx, actor, server)
 	if err != nil {
 		return DiscoveryPage{}, err
 	}
-	imported, err := s.store.imported(ctx, actor.WorkspaceID, id)
-	if err != nil {
-		return DiscoveryPage{}, err
-	}
-	if items == nil {
-		items = []core.RemoteTool{}
-	}
-	for i := range items {
-		items[i].GatewayName = GatewayName(server.Namespace, items[i].Name)
-		items[i].ImportedToolID = imported[items[i].Name]
-	}
-	return DiscoveryPage{Items: items, Total: len(items)}, nil
+	return s.store.reviewCatalog(ctx, actor, server, started, items)
 }
 func (s *Service) Import(ctx context.Context, actor core.Actor, id string, in ImportInput) (core.Tool, error) {
 	if err := admin(actor); err != nil {
@@ -160,17 +152,7 @@ func (s *Service) Import(ctx context.Context, actor core.Actor, id string, in Im
 			if item.SchemaHash != in.SchemaHash {
 				return core.Tool{}, fmt.Errorf("%w: upstream schema changed; discover and review again", core.ErrConflict)
 			}
-			description := strings.TrimSpace(item.Description)
-			if description == "" {
-				description = "Remote MCP tool " + item.Name
-			}
-			if len(description) > 4000 {
-				description = description[:4000]
-				for !utf8.ValidString(description) {
-					description = description[:len(description)-1]
-				}
-			}
-			input, err := core.NormalizeTool(core.ToolInput{Name: GatewayName(server.Namespace, item.Name), Description: description, Risk: in.Risk, InputSchema: item.InputSchema, OutputSchema: item.OutputSchema, MCP: &core.MCPConfig{ServerID: id, ToolName: item.Name, SchemaHash: item.SchemaHash}, ResponsePolicy: in.ResponsePolicy})
+			input, err := core.NormalizeTool(core.ToolInput{Name: GatewayName(server.Namespace, item.Name), Description: core.RemoteDescription(item), Risk: in.Risk, InputSchema: item.InputSchema, OutputSchema: item.OutputSchema, MCP: &core.MCPConfig{ServerID: id, ToolName: item.Name, SchemaHash: item.SchemaHash}, ResponsePolicy: in.ResponsePolicy})
 			if err != nil {
 				return core.Tool{}, err
 			}

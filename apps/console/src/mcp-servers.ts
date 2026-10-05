@@ -1,5 +1,6 @@
 import { APIError, messageOf } from "./api";
 import type { APIClient } from "./api";
+import type { CatalogReview } from "./mcp-catalog";
 import type { Identity, MCPServer, RemoteTool, ResponsePolicy, Tool } from "./types";
 
 export const canManageMCPServers = (identity: Pick<Identity, "role">) =>
@@ -85,11 +86,12 @@ export interface MCPDiscoveryState {
   importError: string;
   requiresDiscovery: string[];
   revision: number;
+  review: CatalogReview | null;
 }
 
 const emptyDiscovery = (): MCPDiscoveryState => ({
   server: null, items: [], total: 0, loaded: false, loading: false,
-  importing: "", error: "", importError: "", requiresDiscovery: [], revision: 0,
+  importing: "", error: "", importError: "", requiresDiscovery: [], revision: 0, review: null,
 });
 
 // Selection generations fence stale reads even if an HTTP transport ignores
@@ -137,26 +139,34 @@ export class MCPDiscoveryController {
     const generation = this.generation;
     const request = new AbortController();
     this.request = request;
-    this.publish({ ...this.state, items: [], total: 0, loaded: false, loading: true, error: "", importError: "" });
+    this.publish({ ...this.state, items: [], total: 0, loaded: false, loading: true, error: "", importError: "", review: null });
     try {
-      const result = await this.api.request<{ items: RemoteTool[]; total: number }>(`/mcp/servers/${encodeURIComponent(server.id)}/discover`, {
+      const result = await this.api.request<{ items: RemoteTool[]; total: number; review?: CatalogReview }>(`/mcp/servers/${encodeURIComponent(server.id)}/discover`, {
         method: "POST", body: {}, signal: request.signal,
       });
       if (generation !== this.generation || request.signal.aborted) return;
       if (!Array.isArray(result.items) || !Number.isSafeInteger(result.total) || result.total !== result.items.length || result.items.some((item) => !item?.name || !item.schema_hash || !item.gateway_name))
         throw new Error("The gateway returned an invalid discovery result. Discover tools again.");
+      if (result.review && (result.review.server_id !== server.id || !Array.isArray(result.review.items) || !result.review.counts))
+        throw new Error("The gateway returned an invalid catalog comparison. Discover tools again.");
       const names = new Set<string>();
       const items = result.items.map((item) => {
         if (names.has(item.name)) throw new Error("The server returned duplicate tool names. Review its configuration before importing.");
         names.add(item.name);
         const key = `${server.id}\0${item.name}`;
         this.uncertain.delete(key);
+        // A complete comparison is authoritative after a tool is rebound to a
+        // different upstream. The local import cache only serves older servers.
+        if (result.review && !item.imported_tool_id) this.imported.delete(key);
         return { ...item, imported_tool_id: item.imported_tool_id || this.imported.get(key) };
       });
-      this.publish({ ...this.state, items, total: result.total, loaded: true, loading: false, error: "", requiresDiscovery: [], revision: this.state.revision + 1 });
+      this.publish({ ...this.state, items, total: result.total, loaded: true, loading: false, error: "", requiresDiscovery: [], revision: this.state.revision + 1, review: result.review ?? null });
     } catch (error) {
       if (generation !== this.generation || request.signal.aborted) return;
-      this.publish({ ...this.state, items: [], loaded: false, loading: false, error: messageOf(error) });
+      const message = error instanceof APIError && error.code === "unavailable"
+        ? "Discovery did not complete. Previous catalog reviews remain available; run connection diagnostics before checking again."
+        : messageOf(error);
+      this.publish({ ...this.state, items: [], loaded: false, loading: false, error: message });
     }
   };
 
@@ -190,7 +200,7 @@ export class MCPDiscoveryController {
       this.imported.set(key, tool.id);
       this.uncertain.delete(key);
       if (this.state.server?.id === server.id) this.publish({
-        ...this.state, ...(this.state.importing === remote.name ? { importing: "", importError: "" } : {}),
+        ...this.state, review: null, revision: this.state.revision + 1, ...(this.state.importing === remote.name ? { importing: "", importError: "" } : {}),
         items: this.state.items.map((item) => item.name === remote.name ? { ...item, imported_tool_id: tool.id } : item),
       });
       return tool;
