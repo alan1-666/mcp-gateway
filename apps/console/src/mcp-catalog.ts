@@ -16,6 +16,7 @@ export interface CatalogEntry {
   imported_enabled: boolean;
 }
 export interface CatalogReview {
+  source?: "manual" | "scheduled";
   id: string;
   server_id: string;
   started_at: string;

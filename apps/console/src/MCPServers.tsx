@@ -1,3 +1,4 @@
+import { CatalogSchedule } from "./CatalogSchedule";
 import { SectionTabs } from "./SectionTabs";
 import { MCPDiagnostics } from "./MCPDiagnostics";
 import { CatalogHistory, CatalogRefresh, CatalogSummary } from "./MCPCatalog";
@@ -554,6 +555,12 @@ export function MCPServers({
                             </dd>
                           </div>
                         </dl>
+                        <CatalogSchedule
+                          key={selected.id}
+                          api={api}
+                          serverID={selected.id}
+                          serverEnabled={selected.enabled}
+                        />
                         <div className="server-control">
                           <div>
                             <h3>Server access</h3>

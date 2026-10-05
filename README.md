@@ -33,6 +33,7 @@ For the delivery workflow, source development, downstream configuration and veri
 - Route namespaced MCP tools through the operation ledger, recheck upstream contracts and immediately gate new admissions when a server is disabled.
 - Review contract-change candidates, publish immutable tool versions, retire tools and restore a compatible prior definition through a newly reviewed version.
 - Compare discovered tools with registered versions, inspect schema/description changes and missing tools, and retain catalog review history before creating a refresh candidate.
+- Schedule per-server catalog checks with durable leases, failure backoff and retained outcomes; review changes in the console before explicit publication.
 - Select object and array-element result fields, retain valid pagination cursors and enforce response byte limits before returning data to agents.
 - Preview response policies against supplied samples and revise them with version checks while preserving prepared operation snapshots.
 - Search the complete authorized tool catalog with bounded cursor pages; load schemas on demand and invoke tools through an authenticated MCP endpoint.

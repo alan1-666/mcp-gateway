@@ -15,6 +15,7 @@ The [product design](product-design.md) and [system architecture](architecture.m
 | Network and secrets | Deployment origin/CIDR allowlists, checked DNS dialing, blocked redirects/metadata addresses; static-file or AES-GCM-encrypted workspace/origin-bound credentials with dynamic rotation/disablement |
 | Connection diagnostics | Safe policy/authentication/connection/discovery/compatibility stages, per-tool reports and persisted bounded check history; no business tool calls during a check |
 | Catalog change review | Complete discovery compared with registered versions; schema/description drift, unimported/missing tools, last 50 successful reports and audit; hash/version-guarded refresh candidates with explicit review/publication |
+| Scheduled catalog checks | Opt-in per-server cadence, two bounded worker consumers, durable fenced leases, failure backoff, safe outcomes, admin revision checks and source-labeled history; see [scheduling](catalog-scheduling.md) |
 | Discovery | Full authorized lexical catalog, bounded keyset pages, context-bound cursors and separate summaries/schema reads across REST, MCP and Pi; client grants applied before count/limit |
 | MCP transport | Official Go SDK v1.7.0, five governed client-facing tools; remote Streamable HTTP, bounded complete discovery, aliases, explicit-risk imports, schema-drift checks and server disable gates |
 | MCP responses | Original structuredContent schema checks, object/array projection, common-secret filtering, text regeneration, string/null cursor preservation and final byte limits; pure sample preview and versioned edits |
@@ -35,7 +36,7 @@ The core Gateway flow is working in the cloud: connect an upstream → discover 
 | Third-party access | Remote Streamable HTTP, managed credentials, discovery/import and connection diagnostics; public documentation and an authorized private test integration have each supplied three published tools | Upstream OAuth, outbound private Connector, stdio and additional protocols |
 | Tool governance | Explicit client grants, immutable versions, candidate diffs, approval, retirement and reviewed rollback | Staged publication and broader access policies |
 | Response control | Schema validation, object/array projection, cursor preservation, bounded results and sample preview | Large-result storage and measured production workloads |
-| Operational visibility | Recorded operations, audit, scoped admission, catalog comparison and retained review history | Scheduled catalog synchronization, telemetry/SLO dashboards |
+| Operational visibility | Recorded operations, audit, scoped admission, catalog comparison, retained review history and scheduled checks | Telemetry/SLO dashboards and scheduler-specific alerting |
 | Pi tasks | Subscription-backed cloud runner, durable task leases, cancellation and approval pauses | Per-user model accounts, distributed runtime and quality evaluation |
 | Cloud delivery | Known-source releases, encrypted local backups, isolated restore verification and local health collection | Independent off-host backup destination, external alert webhook, actual application rollback and HA |
 | Console redesign | Grouped navigation, compact overview, server and tool detail tabs, lazy retained panels, mobile navigation and a shared light theme implemented and locally accepted | Broader usability feedback and future feature views |
@@ -44,7 +45,7 @@ The core Gateway flow is working in the cloud: connect an upstream → discover 
 
 The original five packages are implemented: connections/credentials, client access, tool publication, diagnostics/audit, and capacity/recovery. Their cloud.8 acceptance is historical evidence, not the current deployment. Subsequent proxy recovery, private integration and catalog-review releases are recorded chronologically in [verification](verification.md).
 
-The console redesign is deployed and cloud-verified. The next Gateway capabilities are upstream OAuth and scheduled catalog synchronization. Off-host recovery and external alert delivery still need real destinations before they can be commissioned. Use the [delivery workflow](development.md#delivery-workflow) for every package; completion of one package does not establish readiness for all production scenarios.
+The console redesign is deployed and cloud-verified. Scheduled catalog checks are implemented and locally accepted; cloud acceptance is recorded separately when deployed. The next access capability is upstream OAuth. Off-host recovery and external alert delivery still need real destinations before they can be commissioned. Use the [delivery workflow](development.md#delivery-workflow) for every package; completion of one package does not establish readiness for all production scenarios.
 
 ## Remaining production architecture
 

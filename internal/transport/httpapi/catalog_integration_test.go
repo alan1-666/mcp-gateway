@@ -199,4 +199,63 @@ func TestCatalogReviewLifecycleWithRealMCP(t *testing.T) {
 	if tool.Status != "published" || tool.Version != 2 {
 		t.Fatal("discovery retired tool without review")
 	}
+	// The same public routes configure the background worker. It only reads
+	// metadata; a successful empty list still records missing registered tools.
+	var schedule upstreams.Schedule
+	schedulePath := base + "/catalog-schedule"
+	call("GET", schedulePath, at, nil, 200, &schedule)
+	if schedule.Enabled || schedule.Revision != 0 {
+		t.Fatal("schedule was not opt-in")
+	}
+	for _, token := range []string{"", ot, ft} {
+		status := 403
+		if token == "" {
+			status = 401
+		}
+		if token == ft {
+			status = 404
+		}
+		call("GET", schedulePath, token, nil, status, nil)
+		call("PUT", schedulePath, token, map[string]any{"enabled": true, "interval_seconds": 300, "expected_revision": 0}, status, nil)
+	}
+	for _, body := range []any{map[string]any{}, map[string]any{"enabled": true, "interval_seconds": 299, "expected_revision": 0}, map[string]any{"enabled": true, "interval_seconds": 300, "expected_revision": 0, "ignored": "no"}} {
+		call("PUT", schedulePath, at, body, 400, nil)
+	}
+	call("PUT", schedulePath, at, map[string]any{"enabled": true, "interval_seconds": 300, "expected_revision": 0}, 200, &schedule)
+	if schedule.Revision != 1 || schedule.NextCheckAt == nil {
+		t.Fatal("schedule not persisted")
+	}
+	call("PUT", schedulePath, at, map[string]any{"enabled": false, "interval_seconds": 300, "expected_revision": 0}, 409, nil)
+	if worked, err := up.CheckNextCatalog(ctx); err != nil || !worked {
+		t.Fatal("scheduled SDK discovery", err)
+	}
+	call("GET", schedulePath, at, nil, 200, &schedule)
+	call("GET", base+"/catalog-reviews?limit=1", at, nil, 200, &history)
+	if schedule.LastSuccessAt == nil || schedule.Running || history.Items[0].Source != "scheduled" || history.Items[0].Counts.Missing != 1 || calls.Load() != 1 {
+		t.Fatal("scheduled check altered business state")
+	}
+	// Transport failure must produce a safe failure outcome, without replacing
+	// the successful observation or exposing upstream response bodies.
+	lastID := history.Items[0].ID
+	if _, err := pool.Exec(ctx, `UPDATE mcp_catalog_schedules SET next_check_at=clock_timestamp() WHERE workspace_id=$1 AND server_id=$2`, a.WorkspaceID, server.ID); err != nil {
+		t.Fatal(err)
+	}
+	failed.Store(true)
+	if worked, err := up.CheckNextCatalog(ctx); err != nil || !worked {
+		t.Fatal("scheduled failure", err)
+	}
+	call("GET", schedulePath, at, nil, 200, &schedule)
+	call("GET", base+"/catalog-reviews?limit=1", at, nil, 200, &history)
+	if schedule.LastErrorCode != "discovery_failed" || history.Items[0].ID != lastID {
+		t.Fatal("failure outcome lost history")
+	}
+	call("PUT", schedulePath, at, map[string]any{"enabled": false, "interval_seconds": 300, "expected_revision": 1}, 200, &schedule)
+	if schedule.Enabled || schedule.NextCheckAt != nil || schedule.Revision != 2 {
+		t.Fatal("pause failed")
+	}
+	call("GET", toolPath, at, nil, 200, &tool)
+	if tool.Version != 2 || tool.Status != "published" || calls.Load() != 1 {
+		t.Fatal("scheduler changed tool or dispatched a business call")
+	}
+
 }

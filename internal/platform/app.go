@@ -73,67 +73,7 @@ func Run(mode string) error {
 	}
 	service := core.NewService(postgres.New(pool))
 	budgets := capacity.New(pool)
-	if mode == "worker" {
-		ticker := time.NewTicker(15 * time.Second)
-		defer ticker.Stop()
-		slog.Info("operation and agent run recovery worker started")
-		runRepository := runs.NewRepository(pool)
-		lastRetention := time.Time{}
-		for {
-			recoverCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
-			n, err := service.Recover(recoverCtx, 150*time.Second)
-			cancel()
-			if err != nil && ctx.Err() == nil {
-				slog.Error("operation recovery failed")
-			} else if n > 0 {
-				slog.Warn("interrupted operations require reconciliation", "count", n)
-			}
-			if env("AUTH_MODE", "token") == "cloud" {
-				recoveryCtx, recoveryCancel := context.WithTimeout(ctx, 10*time.Second)
-				recovered, recoveryErr := runRepository.RecoverExpired(recoveryCtx, env("RUNNER_WORKSPACE_ID", "team"))
-				recoveryCancel()
-				if recoveryErr != nil && ctx.Err() == nil {
-					slog.Error("agent run recovery failed")
-				} else if recovered > 0 {
-					slog.Warn("interrupted agent runs require review", "count", recovered)
-				}
-			}
-			if time.Since(lastRetention) >= time.Minute {
-				retentionCtx, retentionCancel := context.WithTimeout(ctx, 10*time.Second)
-				_, retentionErr := budgets.Retain(retentionCtx, capacity.DefaultRetentionConfig())
-				retentionCancel()
-				if retentionErr != nil && ctx.Err() == nil {
-					slog.Error("retention batch failed")
-				}
-				lastRetention = time.Now()
-			}
-			select {
-			case <-ctx.Done():
-				return nil
-			case <-ticker.C:
-			}
-		}
-	}
-	var auth *identity.Auth
-	switch env("AUTH_MODE", "token") {
-	case "cloud":
-		bootstrap := ""
-		if path := os.Getenv("GATEWAY_BOOTSTRAP_FILE"); path != "" {
-			b, e := os.ReadFile(path)
-			if e != nil {
-				return fmt.Errorf("cannot read bootstrap invitation")
-			}
-			bootstrap = strings.TrimSpace(string(b))
-		}
-		auth, err = identity.NewCloud(ctx, pool, os.Getenv("PUBLIC_ORIGIN"), bootstrap)
-	case "token":
-		auth, err = identity.FromFile(env("GATEWAY_IDENTITIES_FILE", ".local/identities.json"), strings.Split(env("GATEWAY_ALLOWED_ORIGINS", "http://127.0.0.1:4782,http://localhost:4782"), ","))
-	default:
-		return fmt.Errorf("AUTH_MODE must be cloud or token")
-	}
-	if err != nil {
-		return err
-	}
+
 	staticCredentials := []httpadapter.Credential{}
 	if path := os.Getenv("GATEWAY_CREDENTIALS_FILE"); path != "" {
 		b, e := os.ReadFile(path)
@@ -166,6 +106,70 @@ func Run(mode string) error {
 	upstreamStore := upstreams.NewStore(pool)
 	remote := mcpadapter.New(adapter, upstreamStore)
 	upstreamService := upstreams.New(upstreamStore, remote)
+	if mode == "worker" {
+		schedulerDone := make(chan struct{})
+		go func() { upstreamService.RunCatalogScheduler(ctx); close(schedulerDone) }()
+		ticker := time.NewTicker(15 * time.Second)
+		defer ticker.Stop()
+		slog.Info("operation recovery and catalog scheduler started")
+		runRepository := runs.NewRepository(pool)
+		lastRetention := time.Time{}
+		for {
+			recoverCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+			n, err := service.Recover(recoverCtx, 150*time.Second)
+			cancel()
+			if err != nil && ctx.Err() == nil {
+				slog.Error("operation recovery failed")
+			} else if n > 0 {
+				slog.Warn("interrupted operations require reconciliation", "count", n)
+			}
+			if env("AUTH_MODE", "token") == "cloud" {
+				recoveryCtx, recoveryCancel := context.WithTimeout(ctx, 10*time.Second)
+				recovered, recoveryErr := runRepository.RecoverExpired(recoveryCtx, env("RUNNER_WORKSPACE_ID", "team"))
+				recoveryCancel()
+				if recoveryErr != nil && ctx.Err() == nil {
+					slog.Error("agent run recovery failed")
+				} else if recovered > 0 {
+					slog.Warn("interrupted agent runs require review", "count", recovered)
+				}
+			}
+			if time.Since(lastRetention) >= time.Minute {
+				retentionCtx, retentionCancel := context.WithTimeout(ctx, 10*time.Second)
+				_, retentionErr := budgets.Retain(retentionCtx, capacity.DefaultRetentionConfig())
+				retentionCancel()
+				if retentionErr != nil && ctx.Err() == nil {
+					slog.Error("retention batch failed")
+				}
+				lastRetention = time.Now()
+			}
+			select {
+			case <-ctx.Done():
+				<-schedulerDone
+				return nil
+			case <-ticker.C:
+			}
+		}
+	}
+	var auth *identity.Auth
+	switch env("AUTH_MODE", "token") {
+	case "cloud":
+		bootstrap := ""
+		if path := os.Getenv("GATEWAY_BOOTSTRAP_FILE"); path != "" {
+			b, e := os.ReadFile(path)
+			if e != nil {
+				return fmt.Errorf("cannot read bootstrap invitation")
+			}
+			bootstrap = strings.TrimSpace(string(b))
+		}
+		auth, err = identity.NewCloud(ctx, pool, os.Getenv("PUBLIC_ORIGIN"), bootstrap)
+	case "token":
+		auth, err = identity.FromFile(env("GATEWAY_IDENTITIES_FILE", ".local/identities.json"), strings.Split(env("GATEWAY_ALLOWED_ORIGINS", "http://127.0.0.1:4782,http://localhost:4782"), ","))
+	default:
+		return fmt.Errorf("AUTH_MODE must be cloud or token")
+	}
+	if err != nil {
+		return err
+	}
 	executor := &execution.Executor{Service: service, Adapter: &execution.Router{HTTP: adapter, MCP: remote}, Capacity: budgets}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {

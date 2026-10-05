@@ -81,10 +81,19 @@ function History({
   );
   return (
     <>
+      <button
+        type="button"
+        className="text-button"
+        disabled={pages.state.phase !== "idle"}
+        onClick={() => void pages.controller.reload()}
+      >
+        Reload catalog history
+      </button>
       <p className="field-help">
         Last 50 successful discoveries. These are historical observations, not
         live health. Failed or incomplete discovery creates no comparison.
-        Discover tools to check again.
+        Reload history for new scheduled results, or discover tools to check
+        now.
       </p>
       {pages.state.phase === "loading" ? (
         <AdminLoading />
@@ -94,6 +103,7 @@ function History({
       {pages.state.items.map((review) => (
         <details key={review.id} className="admin-record">
           <summary>
+            {review.source === "scheduled" ? "Scheduled" : "Manual"} ·{" "}
             {dateLabel(review.checked_at)} ·{" "}
             {review.counts.schema_changed + review.counts.description_changed}{" "}
             changed · {review.counts.missing} missing ·{" "}
