@@ -557,7 +557,7 @@ func (c *Cloud) invite(w http.ResponseWriter, r *http.Request) {
 	if err == nil {
 		err = audit(r.Context(), tx, actor, "INVITE_CREATED", id)
 	}
-	finish(w, r, tx, err, map[string]string{"id": id, "url": c.origin + "/#invite=" + token})
+	finish(w, r, tx, err, map[string]string{"id": id, "url": c.origin + "/console/#invite=" + token})
 }
 func (c *Cloud) revokeInvite(w http.ResponseWriter, r *http.Request) {
 	if !admin(w, r) {
