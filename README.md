@@ -2,9 +2,46 @@
 
 **Governed access to enterprise tools for AI agents.**
 
-MCP Gateway is being built to connect AI agents to existing HTTP APIs, gRPC services, and MCP servers through a unified tool discovery and execution layer. It combines a Go backend with a Pi-powered agent runtime and a web console for managing tools, tasks, approvals, and audit trails.
+MCP Gateway connects AI agents to existing HTTP APIs and remote MCP servers through a governed tool discovery and execution layer. Its Go backend manages upstream connections, reviewed tool contracts, permissions, approvals and bounded responses. A web console provides administration and execution history; Pi is a client for model-assisted tasks. OpenAPI import, gRPC integration and private-network Connectors remain planned.
 
-> **Project status:** Product and architecture design. This repository currently contains the project overview. The capabilities and components below describe the target system; a runnable application has not been released.
+> **Project status:** Active development. The Go API and MCP gateway, PostgreSQL execution ledger, invitation-only cloud console, and Pi cloud task worker are runnable. The complete production architecture is still being implemented. See [implementation status](docs/implementation-status.md) for delivered capabilities and remaining acceptance gates.
+
+## Cloud Delivery
+
+The product is an invitation-only cloud workspace. Team members sign in with individual accounts, administrators issue invitations, and external clients use revocable API keys. See the [cloud deployment guide](docs/cloud-deployment.md) for HTTPS, identity policy, deployment, backups and operational limits.
+
+## Developer Setup
+
+With Node.js and Docker Compose installed:
+
+```sh
+node scripts/bootstrap.mjs
+docker compose --env-file .local/compose.env -f deploy/compose/compose.yaml up --build
+```
+
+Open the console at `http://127.0.0.1:4782`. Use the private identities created in `.local/identities.json`; keep administrator, operator and approver identities separate. Downstream origins must be explicitly allowed before tools can be registered.
+
+For the delivery workflow, source development, downstream configuration and verification, see the [development guide](docs/development.md). The [ordered work packages](docs/implementation-status.md#development-order) describe the next implementation and acceptance priorities. The [Pi runner guide](apps/agent-runner/README.md) explains how to use an existing local subscription login without sending model credentials to the gateway.
+
+### Working Capabilities
+
+- Sign in, invite teammates, manage member access, revoke API keys and inspect account activity.
+
+- Register and publish HTTP tools with validated JSON Schemas.
+- Connect remote Streamable HTTP MCP servers, discover paginated upstream catalogs and import selected tools as disabled drafts with explicit risk.
+- Route namespaced MCP tools through the operation ledger, recheck upstream contracts and immediately gate new admissions when a server is disabled.
+- Select object and array-element result fields, retain valid pagination cursors and enforce response byte limits before returning data to agents.
+- Preview response policies against supplied samples and revise them with version checks while preserving prepared operation snapshots.
+- Search the complete authorized tool catalog with bounded cursor pages; load schemas on demand and invoke tools through an authenticated MCP endpoint.
+- Prepare fixed actions, approve writes independently and reject duplicate dispatches.
+- Inspect durable PostgreSQL operation records and event history in the console.
+- Preserve ambiguous writes as `UNKNOWN` instead of automatically sending them again.
+- Submit cloud Agent tasks, inspect event/output history, cancel work and resume after approval.
+- Run a restricted Pi agent with durable task leases, server-side sessions and intent persistence.
+
+Remote MCP currently supports operator-managed static credentials, text/structured results and bounded POST responses (JSON or SSE), with no upstream OAuth, legacy SSE transport, stdio processes or automatic replay. See the [remote MCP contract](docs/remote-mcp-contract.md) for onboarding, projection rules and compatibility limits.
+
+The sections below describe the target production system. Follow [implementation status](docs/implementation-status.md) for current limitations and [the OpenAPI contract](api/openapi.yaml) for implemented management endpoints.
 
 ## Why MCP Gateway
 
@@ -21,17 +58,17 @@ The platform serves two types of users:
 
 | Area | Scope |
 | --- | --- |
-| Tool integration | Import OpenAPI definitions and Protobuf descriptors; connect remote MCP servers and isolated local stdio servers. |
-| Tool discovery | Search an authorized catalog and load detailed schemas only when needed. |
+| Tool integration | Import OpenAPI definitions and Protobuf descriptors; extend existing remote MCP support with upstream OAuth and isolated stdio servers through a Connector. |
+| Tool discovery | Add semantic ranking and service/environment filters to the existing paginated lexical catalog. |
 | Access governance | Enforce organization, workspace, environment, tool, resource, and field permissions. |
 | Configuration lifecycle | Review changes, publish immutable versions, track rollout, and roll back configurations. |
-| Reliable execution | Persist operation intent, apply idempotency where supported, and reconcile uncertain outcomes. |
+| Reliable execution | Extend the existing operation ledger with downstream outcome reconciliation and adapter-specific idempotency support. |
 | Human approval | Bind approval to the exact action, parameters, target environment, and expiration time. |
 | Agent workbench | Create tasks, follow execution, inspect evidence, provide input, cancel work, and resume interrupted tasks. |
 | Private connectivity | Reach internal services through an outbound-connected Connector with scoped credentials. |
 | Evaluation and observability | Compare agent configurations, replay isolated test cases, and trace tasks through tool execution. |
 
-## Architecture
+## Target Architecture
 
 ```mermaid
 flowchart TD
@@ -62,7 +99,7 @@ flowchart TD
 
 The Go services share domain modules and a transactional PostgreSQL database, with separate deployment and access boundaries. Runners and Connectors communicate through authenticated interfaces and do not access the database directly.
 
-## Execution Model
+## Target Execution Model
 
 A tool request follows a common execution path:
 
@@ -81,7 +118,7 @@ Agent tasks, model sessions, and external operations have separate state. Restor
 
 [Pi](https://pi.dev/docs/latest/sdk) provides the agent session and model interaction layer. The host application controls task state, authorization, approvals, execution budgets, and persistence.
 
-The planned runtime supports user-managed Runners that use their locally configured model accounts. Model credentials stay in the Runner's environment. Centrally managed deployments bind tasks to model connections appropriate for that deployment and its provider authorization.
+The cloud worker consumes PostgreSQL-backed task leases through a private authenticated control API. Browser users can follow task events, cancel work and explicitly resume after approval or credential configuration. An operator configures the server subscription in its dedicated Pi volume; credentials are not uploaded as part of Gateway deployment. The local Pi CLI remains available for development and integration. See [cloud deployment](docs/cloud-deployment.md#cloud-agent-worker) and the [task contract](docs/cloud-run-contract.md).
 
 Tool permissions are enforced by the platform on every invocation. Repository content, tool responses, and model output cannot grant additional access.
 
@@ -97,7 +134,7 @@ A data operations team asks why a scheduled job failed:
 
 The same tool governance and execution model can support service investigations, business reporting, and cross-system status checks.
 
-## Technology and Deployment
+## Target Technology and Deployment
 
 - **Backend:** Go, the official MCP Go SDK, gRPC, and pgx.
 - **Agent runtime:** TypeScript, Node.js, and the Pi SDK.

@@ -1,0 +1,128 @@
+# Verification record
+
+Verified locally on 2026-10-04 using macOS arm64, Go 1.26.8, Node.js 24.4.1 and PostgreSQL 16.9. Tests used a dedicated local database and temporary HTTP endpoints, not company systems.
+
+| Check | Outcome |
+| --- | --- |
+| Go unit and real PostgreSQL integration tests with the race detector | Passed |
+| Concurrent preparation and dispatch | Repeated preparation shares one operation; 12 simultaneous execute requests produce one downstream write |
+| Approval and access checks | Independent approval, expiry, disabled tools, actor/workspace isolation and schema validation passed |
+| Interrupted write | Lost downstream response becomes `UNKNOWN`; subsequent execution does not send the write again |
+| Persistence and recovery | A reconstructed service reads committed results; stale dispatch recovers to `UNKNOWN`; late completion is rejected |
+| MCP interoperability | Official SDK client connects to the actual HTTP handler, discovers five tools, prepares an operation and executes it |
+| Go static analysis | `go vet ./...` passed |
+| TypeScript and console production build | Passed |
+| Pi worker/client tests | 22 checks passed: authentication, durable intents/events, missing credentials, heartbeat loss/cancellation, approval resume, missing checkpoint refusal, stale-attempt archival, limits and transport failures; no model calls |
+| Console state tests | 14 checks passed, including string cursors, deduplication, attempt isolation, controls and persistent creation idempotency |
+| Cloud task persistence | Real PostgreSQL race tests passed for concurrent admission, atomic operation binding rollback, lease fencing, creator revocation, budgets, cancellation and expiry |
+| Cross-language worker integration | Production Node worker/client → Go HTTP/cloud auth → isolated PostgreSQL passed: read execution, independent write approval/resume with one downstream write, credential gating and cancel fencing |
+| Real Pi configuration check | Local subscription OAuth and selected model configuration found; no model request sent |
+| Browser checks | Login, invalid form input, role controls, empty states, logout/reload credential clearing and 390px layout passed; no console errors or warnings |
+| Dependency audit | No known npm vulnerabilities after upgrading Pi to 1.0.2 and Vite to 7.3.6 |
+| Docker Compose | Cloud backend, console and Pi worker images built and deployed on Ubuntu 24.04; API, Gateway, PostgreSQL and console health checks passed; Pi worker runtime heartbeat verified |
+| Deployed cloud worker | Actual Pi daemon with an empty dedicated login volume reports model configuration missing; public HTTPS task creation/idempotency, WAITING_CREDENTIALS, explicit resume, cancellation and CSRF rejection passed; internal runner path returns 404 publicly |
+| Cloud browser | Login, session restoration across service replacement, team/account views and Agent task creation → waiting credentials → cancellation passed. Real event history, cleared draft, logout/401 and 390px layout verified; zero browser errors/warnings. No model or business tool call |
+| Certificate renewal | Staging dry-run renewal succeeded with the final nginx webroot; scheduled renewal service and timer verified |
+| Cloud identity | One-time/expired-state handling, CSRF rejection, role checks, member/credential revocation, logout and password rotation covered by PostgreSQL tests |
+| Public HTTPS and MCP | Trusted IP certificate; real public login, invitation acceptance, MCP initialize/tool discovery and immediate revocation passed |
+| Go vulnerability scan | govulncheck v1.8.0 reports zero affected symbols and zero imported-package findings after Go, pgx and x/text updates; advisory matches remain in unused module packages |
+| Backup and recovery | Scheduled dump generated and restored into a separate temporary database; migrations and unclaimed owner invitation verified |
+
+## Cloud subscription verification — 2026-10-05
+
+- Completed a fresh Pi `openai` OAuth authorization on the cloud host. The dedicated Pi configuration volume retains the login across worker replacement.
+- Applied explicit `PI_PROVIDER=openai` and `PI_MODEL=gpt-5.5` overrides. After replacement, the worker heartbeat reported online and model ready with no configuration error.
+- Made one live request from the deployed Pi container using the project's `loadConfiguredModel` and Pi `completeSimple`. It returned exactly `CLOUD_PI_OK`, with `stopReason=stop`, 16 input tokens and 19 output tokens. No tools or project data were supplied, no API key was used, and automatic retries were disabled.
+- Closed the temporary loopback SSH callback tunnel after authorization. Credentials were not printed, exported from the laptop, or added to the repository.
+- This checks subscription authentication and live inference. It does not establish production task quality, tool-selection accuracy, remaining quota, or load capacity.
+
+## Paginated tool discovery — 2026-10-05
+
+Implemented and deployed as `20261005-cloud.5`, following the on-demand discovery direction in [Uber Engineering's MCP Gateway article](https://www.uber.com/jp/en/blog/designing-mcp-gateway/). See the [transport contract](tool-discovery-contract.md).
+
+| Check | Outcome |
+| --- | --- |
+| Full Go suite with race detector and real Node cloud worker | Passed against the dedicated PostgreSQL test database; affected packages rerun after the final response-size fix |
+| Go static analysis | `go vet ./...` passed |
+| PostgreSQL discovery | 524-record regression: old matches beyond 500, tied timestamps, literal wildcard/Chinese matching, cursor validation and live visibility passed |
+| REST and official MCP client | 520 published tools plus hidden/foreign records: equivalent pages, complete traversal without repeats/omissions, role/workspace isolation, revocation and invalid-input handling passed |
+| Response limits | Maximum 50-item discovery pages with 4,000-byte descriptions containing JSON/HTML escape characters fit under 256 KiB; summaries retain at most 512 UTF-8 bytes and complete schemas remain separate |
+| Production Pi clients and leased Node worker | Public and lease-scoped discovery agreed for older tools and a 50-item escaped-description page; approval/resume/cancellation integration remained passing |
+| TypeScript | 31 Pi runner tests and 27 console tests passed; type checking and console production build passed |
+| Browser, isolated local test database | 520 published + 1 draft + 1 disabled: overview totals, registry 50→100 and invocation 25→50 pagination, old-tool search/details/selection, rapid query replacement, hidden-tool empty state, and disabling the selected tool passed |
+| Browser layout and logs | Registry and invocation had no document overflow at 390px. No application errors/warnings; unrelated wallet-extension warnings/errors were present in Chrome |
+| OpenAPI | YAML parsed with duplicate-key checks; all 125 local references resolved |
+| Cloud rollout | Pre-release database backup completed; migration 004 applied; API, Gateway, database and console healthy. Existing Pi OAuth volume preserved and worker reported online/ready with `openai / gpt-5.5` |
+
+The populated browser checks used a disposable local schema, which was removed afterwards. No new cloud administrator was created and no synthetic inventory was inserted into the cloud workspace. Public HTTPS served the new console. Cloud authentication and tool discovery share the integration-tested handlers, but a populated cloud browser workflow was not repeated for this release. No live model or downstream business requests were made for this feature.
+
+## Remote MCP aggregation and response projection — 2026-10-05
+
+See the [remote MCP contract](remote-mcp-contract.md) for supported transports, credentials, limits and remaining compatibility boundaries.
+
+| Check | Outcome |
+| --- | --- |
+| Complete Go suite | `RUN_CLOUD_WORKER_INTEGRATION=1 go test -race ./...` passed with real PostgreSQL and the Node worker; `go vet ./...` passed |
+| Upstream protocol | Real official SDK servers covered paginated discovery, independent sessions, two-server routing, static credential isolation, JSON/SSE responses, oversized/malformed results and uncertain writes without replay |
+| Nested MCP handshake | A real public MCP request through Gateway to an upstream server exposed inherited protocol context; fixed by isolating outbound context values while retaining cancellation/deadlines, with a regression test |
+| Registry and admission | Workspace/admin isolation, draft imports, advisory read-only hints, duplicate imports, schema changes, server limits and server disablement gates passed |
+| Projection | Nested object selection, escaping, common-secret redaction, raw-text replacement, preserved string/null cursors, numeric precision, missing fields and final byte limits passed; rejected write results remain `UNKNOWN` |
+| End-to-end MCP and Pi | Official MCP client → Gateway → remote MCP → recorded projected result passed. Production Node Pi bridge → leased Go API → remote MCP passed alongside approval/resume/cancellation checks |
+| TypeScript | 31 Pi runner tests and 39 console tests passed; both type checks and console production build passed |
+| Browser with isolated local data | Two loopback SDK fixtures discovered both pages, imported drafts, published and routed same-named inventory tools to different sources. Selected result fields and cursor remained; internal note and original text were absent |
+| Browser approval and disablement | Operator could not manage servers; write remained waiting until another identity approved. Fixture write count was zero before approval and one after execution. Server disablement removed its tools from the operator catalog; re-enable and rediscovery worked |
+| Browser layout and logs | MCP server list and registration form had no document overflow at 390px. No application errors/warnings; unrelated wallet-extension messages were present |
+| OpenAPI | Strict duplicate-key YAML parsing, all 179 local references and 19 unique operation IDs passed |
+| Cloud rollout | `20261005-cloud.6` built and deployed after a database backup. Migration 005 applied; API, Gateway, database and console healthy; public trusted HTTPS served the new asset bundle. Pi remained online/model-ready with `openai / gpt-5.5` and preserved login/state volumes |
+
+Browser acceptance for that release used a disposable local PostgreSQL schema and loopback-only synthetic MCP services; the schema, temporary identities and processes were removed afterwards. That acceptance created no cloud identities, contacted no company service and made no model calls. At the initial `20261005-cloud.6` rollout, the deployed MCP registry was empty and the existing egress policy was unchanged. The subsequent Microsoft Learn onboarding below records the first independently operated third-party integration.
+
+## Microsoft Learn cloud integration — 2026-10-05
+
+Verified against the deployed workspace at [the public HTTPS entry point](https://76.13.220.236/) and Microsoft's public Streamable HTTP endpoint `https://learn.microsoft.com/api/mcp`. Initial administrator setup used the normal invitation-acceptance flow; subsequent calls used normal HTTPS authentication and application APIs. No direct tool/operation database insertion was used for this acceptance.
+
+| Check | Outcome |
+| --- | --- |
+| Upstream registration | Registered namespace `mslearn`, timeout 30000 ms, no credential reference. The exact `https://learn.microsoft.com` outbound origin was configured and loaded |
+| Discovery and publication | Three tools imported from the currently discovered contracts with explicit risk `read`, then published using the normal management endpoints |
+| Response policies | Both search tools select the whole `/results` field with `max_bytes:131072`; fetch uses the same byte limit without `include`, matching its text-only response |
+| Documentation search | `microsoft_docs_search` with query `Azure Container Apps health probes` reached `SUCCEEDED` and returned 10 official documentation results |
+| Code sample search | `microsoft_code_sample_search` with query `Azure Container Apps create container app` and `language:azurecli` reached `SUCCEEDED` and returned 10 results |
+| Document fetch | `microsoft_docs_fetch` fetched the first search result, `https://learn.microsoft.com/azure/container-apps/health-probes`, and reached `SUCCEEDED` with document text |
+| Governed execution | Each call went through the normal authenticated HTTPS prepare → execute flow and the Gateway's remote MCP adapter; all three completed successfully |
+| Preparation idempotency | Repeating preparation with the same tool, arguments and idempotency key returned the same operation ID for each tool |
+| Execution replay | Repeating execution of each operation returned the same recorded result; its event history contained exactly one `OPERATION_DISPATCHING` event |
+| Cloud browser | Administrator sign-in succeeded; the live MCP Servers page showed the server enabled. Running Discover returned all three tools, each marked Imported. This confirms the populated cloud discovery view; execution was verified through the HTTPS API |
+
+This is a real public-document integration, using no company data and making no model request. Selecting `/results` retains the complete result array; it is not evidence of per-item field reduction or a measured token saving. The operation ledger and replay checks establish one recorded Gateway dispatch per operation, not exactly-once effects inside the upstream service. Final wire-result byte sizes were not separately recorded.
+
+## Versioned response policies and array projection — 2026-10-05
+
+| Check | Outcome |
+| --- | --- |
+| Backend regression | Full `RUN_CLOUD_WORKER_INTEGRATION=1 go test -race ./...` passed against PostgreSQL; `go vet ./...` passed |
+| Array projection | Multiple fields merge into each original element; nested/empty arrays, escaped names, large JSON integers and null leaves passed. Missing fields, inconsistent element types, overlapping paths and array/object conflicts fail the whole projection |
+| Policy transactions | Concurrent updates have one winner; stale expected versions return 409 even for identical policies. Current identical policies do not increment versions. Publication and tool/server disablement remain intact |
+| Operation snapshots | Real HTTP and official MCP SDK tests prepare and approve before an edit, then execute old/new policies at their recorded versions. Original output schema is checked before projection and successful/uncertain operations are not replayed |
+| Pure preview | Validates a supplied MCP envelope and original output schema; no upstream request, operation write or audit write. Supported-envelope byte accounting, text metadata removal, bounded input and large integer precision passed |
+| Console regression | 51 console tests and 31 Pi runner tests passed; both type checks and the production console build passed |
+| Browser acceptance | Isolated local MCP fixture: preview, array field removal, cursor preservation, save/catalog version refresh, stale-save rejection, explicit reload retaining draft/sample, missing-field rejection and decimal precision rejection passed; no browser warnings or errors |
+| Browser numeric safety | Rejects unsafe integers, decimal rounding such as 9007199254740991.1 and underflow such as 1e-400; ordinary decimal values and equivalent exponent notation remain accepted |
+| API documentation | Strict duplicate-key YAML parsing, 200 local references and 21 unique operation IDs passed |
+| Cloud rollout | Deployed `20261005-cloud.7` after a database backup; no schema changes. API, Gateway, PostgreSQL and console healthy. Existing account session and Pi configuration/state volumes retained |
+| Cloud sample preview | Used the prior successful Microsoft Learn search result as the sample. Selecting `/results/*/title` and `/results/*/contentUrl` preserved all 10 entries; normalized supported-envelope size changed from 49,932 to 3,633 bytes (92.7% smaller) |
+| Cloud policy editing | The signed-in administrator previewed and saved the policy in the deployed console, creating version 2; the catalog and detail view refreshed to the new version. Repeated preview showed the same byte sizes and no browser errors/warnings |
+| Live projected execution | A fresh public documentation search through normal HTTPS prepare/execute reached `SUCCEEDED`, returned 10 title/link entries and matching regenerated text, and recorded version 2. Repeated preparation/execution returned the same operation/result with one recorded dispatch |
+
+The disposable local browser schema, identities and service processes were removed after acceptance. The cloud check used the existing administrator account and public documentation only, with no model call. Code-sample search and document fetch policies were not changed.
+
+Preview counts are normalized supported-envelope bytes, not raw network size or model tokens. The backend preserves JSON numbers; the browser rejects sample numbers it cannot submit without changing their decimal value.
+
+## Explicitly unverified
+
+- The complete Microsoft Learn cloud browser import/publication/execution interaction sequence. Cloud sign-in, enabled-server visibility and live discovery of all three Imported tools passed; all three tools also passed authenticated HTTPS API execution. Local browser approval/execution passed separately.
+- Upstream OAuth, stdio and compatibility with other independently operated MCP servers have not been validated; the implemented transport/authentication limits remain in effect.
+- Live model behavior evaluation and a complete cloud task using the real model and downstream business tools; the live inference check above sent only a fixed connectivity prompt.
+- Other MCP client/protocol combinations, Kubernetes, load/SLO targets, high availability, off-host disaster recovery and live team/business-data rollout.
+
+The GitHub CI workflow includes the database-backed Node/Go boundary test. The first remote Verify run for commit `59b8f53` completed on 2026-10-05 and failed at `go test -race ./...`; dependency installation, Go vet and govulncheck passed, while the later TypeScript/test/build/npm-audit steps were skipped. See [GitHub run 37271631614](https://github.com/alan1-666/mcp-gateway/actions/runs/37271631614). The failing test and root cause still require log inspection; local passing results above do not close this remote gate. See [development](development.md) for repeatable commands and [implementation status](implementation-status.md) for pending architecture work.

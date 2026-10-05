@@ -1,0 +1,1515 @@
+openapi: 3.1.0
+info:
+  title: MCP Gateway Management and Execution API
+  version: 0.1.0
+  description: |
+    HTTP contract for the implemented tool registry, remote MCP server management,
+    approval and durable execution APIs.
+    The MCP transport is exposed separately and is not described by this document.
+
+    These endpoints require a bearer identity or a cloud browser session. Its workspace,
+    actor ID and role come from the server; clients cannot select a workspace or role in
+    a request. All resource lookups are scoped to that workspace. A supplied browser
+    Origin must appear in the server's allowed-origin configuration. Cloud session
+    mutations also require X-CSRF-Token. Account endpoints are documented separately
+    in docs/cloud-deployment.md and require browser sessions for administration.
+
+    POST requests require Content-Type application/json and one JSON object, with a
+    maximum request body of 262144 bytes. Unknown request fields are rejected. Actions
+    without arguments still require the body {}. Successful creation and action
+    responses currently use HTTP 200. An HTTP 200 response containing an Operation
+    does not imply that the downstream action succeeded: inspect its state.
+
+    Tool registry and discovery use bounded keyset pages with next_cursor and total.
+    Search filters the complete authorized catalog before applying the page size.
+    Operations remain a bounded list; event polling provides an exclusive event-ID
+    cursor. These endpoints return JSON, not SSE. Management records expose credential
+    references rather than credential values. Raw downstream headers are not returned;
+    MCP result filtering and its limits are described by ResponsePolicy.
+servers:
+  - url: /
+    description: The origin serving the Gateway HTTP API
+security:
+  - bearerAuth: []
+  - sessionCookie: []
+tags:
+  - name: Identity
+  - name: Tools
+  - name: Operations
+  - name: MCP Servers
+x-max-request-body-bytes: 262144
+paths:
+  /api/v1/me:
+    get:
+      operationId: getIdentity
+      tags: [Identity]
+      summary: Read the authenticated identity
+      description: Available to all configured roles. Returns the trusted actor and workspace associated with the credential.
+      x-required-roles: [admin, operator, approver, viewer]
+      responses:
+        '200':
+          description: Authenticated identity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Actor'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/mcp/servers:
+    get:
+      operationId: listMCPServers
+      tags: [MCP Servers]
+      summary: List registered remote MCP servers
+      description: |
+        Requires admin. Returns every server in the authenticated workspace,
+        including disabled servers. At most 100 servers are supported per workspace;
+        an over-capacity catalog is rejected rather than silently truncated.
+        Credentials are represented by references, never their values.
+      x-required-roles: [admin]
+      responses:
+        '200':
+          description: Complete workspace MCP server registry
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MCPServerList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    post:
+      operationId: createMCPServer
+      tags: [MCP Servers]
+      summary: Register an enabled remote MCP server
+      description: |
+        Requires admin. Registers a Streamable HTTP MCP endpoint with a namespace
+        unique within the workspace. The origin must be explicitly allowed and
+        any credential reference must be bound to that workspace and exact origin.
+        Registration validates configuration but does not import or publish tools.
+        The target, namespace and credential reference are immutable; there is no
+        edit or delete endpoint. Discovery is a separate network operation.
+      x-required-roles: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MCPServerInput'
+      responses:
+        '200':
+          $ref: '#/components/responses/MCPServer'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/mcp/servers/{id}/enabled:
+    parameters:
+      - $ref: '#/components/parameters/ResourceID'
+    post:
+      operationId: setMCPServerEnabled
+      tags: [MCP Servers]
+      summary: Enable or disable a registered MCP server
+      description: |
+        Requires admin. Repeating the current value is idempotent. Disabling removes
+        imported tools from discovery and non-admin registry results, and blocks new
+        preparations, approvals, dispatch admission, publication and tool enabling.
+        It also blocks discovery and import from that server. Admins retain tool
+        diagnostics with effective enabled false. Re-enabling preserves each tool's
+        independent published/enabled state. An already admitted downstream request
+        is not guaranteed to be cancelled; recorded results are retained.
+      x-required-roles: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [enabled]
+              properties:
+                enabled:
+                  type: boolean
+      responses:
+        '200':
+          $ref: '#/components/responses/MCPServer'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/mcp/servers/{id}/discover:
+    parameters:
+      - $ref: '#/components/parameters/ResourceID'
+    post:
+      operationId: discoverMCPServerTools
+      tags: [MCP Servers]
+      summary: Discover and inspect the current upstream tool catalog
+      description: |
+        Requires admin and an enabled server. Initializes an isolated MCP session
+        and reads every tools/list page within the configured server timeout. The
+        complete catalog is returned only when discovery succeeds; partial results
+        are never treated as a complete inventory. Limits are 1000 tools, 100 pages,
+        4194304 cumulative upstream result bytes and 65536 bytes per schema.
+        Malformed, duplicate or unsupported definitions, repeated cursors, excess
+        limits and upstream failure reject discovery. Gateway metadata and JSON
+        encoding may make the returned management document larger than the upstream
+        byte budget, but the document remains bounded by these limits.
+
+        Remote annotations are advisory. Discovery does not publish tools or update
+        existing imports. gateway_name is a stable namespace alias with a hash
+        suffix; imported_tool_id links a previously imported definition, even when
+        the upstream schema has subsequently changed.
+      x-required-roles: [admin]
+      requestBody:
+        $ref: '#/components/requestBodies/EmptyAction'
+      responses:
+        '200':
+          description: Complete bounded upstream catalog for administrative review
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RemoteToolList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/mcp/servers/{id}/import:
+    parameters:
+      - $ref: '#/components/parameters/ResourceID'
+    post:
+      operationId: importMCPServerTool
+      tags: [MCP Servers]
+      summary: Import a reviewed remote tool as a disabled draft
+      description: |
+        Requires admin and an enabled server. Repeats live discovery and verifies
+        the supplied tool name and schema hash before persisting its contract,
+        explicit risk and response policy. New imports have status draft, enabled
+        false and version 1; publish using the existing tool publication endpoint.
+        The upstream read_only_hint never grants execution or bypasses approval.
+
+        Repeating the same server/tool import with the same schema hash, risk and
+        normalized response policy returns its existing tool without changing its
+        publication state. A changed or missing upstream contract, different import
+        configuration, or alias collision returns 409. Existing tools, prepared
+        operations and approvals are never overwritten by discovery or import.
+        Tool execution independently rechecks the live upstream contract.
+      x-required-roles: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ImportInput'
+      responses:
+        '200':
+          $ref: '#/components/responses/Tool'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/tools:
+    get:
+      operationId: listTools
+      tags: [Tools]
+      summary: List visible tools
+      description: |
+        Admins can see draft, published and disabled tools in their workspace. All
+        other roles can see only published, effectively enabled tools. Imported MCP
+        tools additionally require an enabled upstream server. PostgreSQL applies the
+        name/description search before paging by created_at descending then ID
+        descending. The default page size is 50. Current visibility is checked on
+        every page; this is not an immutable cross-request snapshot.
+      x-required-roles: [admin, operator, approver, viewer]
+      parameters:
+        - $ref: '#/components/parameters/ToolQuery'
+        - $ref: '#/components/parameters/ToolLimit'
+        - $ref: '#/components/parameters/ToolCursor'
+      responses:
+        '200':
+          description: A registry page of at most 50 visible matching tools
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ToolList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    post:
+      operationId: createTool
+      tags: [Tools]
+      summary: Register a disabled draft tool
+      description: |
+        Requires admin. The name is unique within the authenticated workspace. The
+        HTTP origin must be explicitly allowed by server egress configuration, and
+        any credential reference must be bound to that workspace and exact origin.
+        The tool is created with status draft, enabled false and version 1. Publishing
+        is a separate action. This endpoint accepts HTTP tools only; import remote MCP
+        tools using /api/v1/mcp/servers/{id}/import. Only the response policy of imported MCP tools can currently be revised;
+        general definition updates and deletion remain unavailable.
+      x-required-roles: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ToolInput'
+      responses:
+        '200':
+          $ref: '#/components/responses/Tool'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/catalog/tools:
+    get:
+      operationId: discoverTools
+      tags: [Tools]
+      summary: Search published tool summaries on demand
+      description: |
+        Every role, including administrators, sees only enabled, published tools
+        in its authenticated workspace whose MCP server, if any, is also enabled. The default page size is 25. Results
+        deliberately exclude schemas, downstream URLs and credential references.
+        Fetch a selected tool by ID to read its contract. Follow next_cursor with
+        the same query and identity to request another page; do not prefetch the
+        complete catalog into a model context. Unknown or repeated query parameters
+        are rejected. SQL wildcard characters are treated literally.
+      x-required-roles: [admin, operator, approver, viewer]
+      parameters:
+        - $ref: '#/components/parameters/ToolQuery'
+        - $ref: '#/components/parameters/ToolLimit'
+        - $ref: '#/components/parameters/ToolCursor'
+      responses:
+        '200':
+          description: A bounded page of authorized summaries
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ToolDiscoveryPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/tools/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ResourceID'
+    get:
+      operationId: getTool
+      tags: [Tools]
+      summary: Read a visible tool definition
+      description: |
+        Admins can read every tool in their workspace. Other roles can read only
+        published, enabled tools. Missing, invisible and cross-workspace tools return
+        404. The response includes the configured HTTP target and credential reference,
+        but not credential values. MCP tools instead include the pinned server ID,
+        remote tool name, contract hash and response policy; the serialized http
+        field is an empty placeholder for these tools.
+      x-required-roles: [admin, operator, approver, viewer]
+      responses:
+        '200':
+          $ref: '#/components/responses/Tool'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/tools/{id}/publish:
+    parameters:
+      - $ref: '#/components/parameters/ResourceID'
+    post:
+      operationId: publishTool
+      tags: [Tools]
+      summary: Publish and enable a draft tool
+      description: |
+        Requires admin in the tool's workspace. Atomically changes a draft to
+        published and enabled and records an audit event. Publishing an already
+        published tool returns its existing state and does not re-enable it if it
+        has been disabled. Tool content and version remain unchanged. Imported MCP
+        tools require their upstream server to be enabled, including repeat requests.
+      x-required-roles: [admin]
+      requestBody:
+        $ref: '#/components/requestBodies/EmptyAction'
+      responses:
+        '200':
+          $ref: '#/components/responses/Tool'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/tools/{id}/enabled:
+    parameters:
+      - $ref: '#/components/parameters/ResourceID'
+    post:
+      operationId: setToolEnabled
+      tags: [Tools]
+      summary: Enable or disable a published tool
+      description: |
+        Requires admin in the tool's workspace. Draft tools return 409. Repeating
+        the current enabled value is idempotent. Disabling blocks new preparations
+        and dispatch admission. It does not cancel a request already admitted or
+        alter a recorded downstream result.
+      x-required-roles: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [enabled]
+              properties:
+                enabled:
+                  type: boolean
+      responses:
+        '200':
+          $ref: '#/components/responses/Tool'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/tools/{id}/response-policy:
+    parameters:
+      - $ref: '#/components/parameters/ResourceID'
+    post:
+      operationId: updateToolResponsePolicy
+      tags: [Tools]
+      summary: Revise the response policy of an imported MCP tool
+      description: |
+        Requires admin in the tool workspace. Only MCP tools are supported. Locks
+        the tool and compares expected_version before applying a normalized policy.
+        A stale version returns 409, including for otherwise identical policies.
+        A real change increments the version and records old/new policies and
+        versions in the audit log; an identical current policy is a no-op. Existing
+        operation snapshots retain their policy. Publication, risk, schemas, MCP
+        binding and enabled flags do not change. Disabled tools and upstreams
+        may have their policy repaired without becoming enabled.
+      x-required-roles: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResponsePolicyUpdateInput'
+      responses:
+        '200':
+          $ref: '#/components/responses/Tool'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/tools/{id}/response-policy/preview:
+    parameters:
+      - $ref: '#/components/parameters/ResourceID'
+    post:
+      operationId: previewToolResponsePolicy
+      tags: [Tools]
+      summary: Preview a response policy against supplied sample data
+      description: |
+        Requires admin in the tool workspace. Reads the current MCP contract and
+        validates the supplied successful MCP envelope, including the original
+        structuredContent against output_schema. Performs no upstream calls or
+        database writes, and does not persist the sample. expected_version must
+        match the current tool version or the request returns 409. The complete
+        request body is limited to 262144 bytes.
+      x-required-roles: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResponsePolicyPreviewInput'
+      responses:
+        '200':
+          description: Projected sample and normalized envelope byte sizes; no state was changed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponsePolicyPreview'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/operations:
+    get:
+      operationId: listOperations
+      tags: [Operations]
+      summary: List visible operations
+      description: |
+        Admins and approvers see operations in their workspace. Operators and viewers
+        see only operations whose actor_id equals their identity ID. Returns the
+        newest 200 visible operations by created_at descending then ID descending.
+        There are currently no filtering or pagination parameters.
+      x-required-roles: [admin, operator, approver, viewer]
+      responses:
+        '200':
+          description: At most 200 visible operations
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    post:
+      operationId: prepareOperation
+      tags: [Operations]
+      summary: Persist an operation before dispatch
+      description: |
+        Requires admin or operator. The tool must be published and enabled in the
+        authenticated workspace. Arguments must match its input schema. The operation
+        records fixed arguments, their hash and the tool version/configuration snapshot.
+        Read tools enter READY; write tools enter WAITING_APPROVAL.
+
+        Idempotency keys are unique within a workspace. Repeating a key for the same
+        actor, tool and canonical argument hash returns the existing operation,
+        including after the tool is disabled. Reusing a key with a different actor,
+        tool or arguments returns 409. Object key ordering and insignificant JSON
+        whitespace do not change the hash; numeric lexical forms are not normalized.
+        Retry an uncertain preparation with the same key. Preparing never executes
+        the downstream request, and clients must not create a new key to replay an
+        UNKNOWN write.
+      x-required-roles: [admin, operator]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PrepareInput'
+      responses:
+        '200':
+          $ref: '#/components/responses/Operation'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/operations/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ResourceID'
+    get:
+      operationId: getOperation
+      tags: [Operations]
+      summary: Read a durable operation
+      description: |
+        Admins and approvers may read any operation in their workspace. Operators
+        and viewers may read only their own operations. Missing, invisible and
+        cross-workspace operations return 404. This endpoint is the source of truth
+        after request timeout, client disconnection or an uncertain execute response.
+      x-required-roles: [admin, operator, approver, viewer]
+      responses:
+        '200':
+          $ref: '#/components/responses/Operation'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/operations/{id}/approve:
+    parameters:
+      - $ref: '#/components/parameters/ResourceID'
+    post:
+      operationId: approveOperation
+      tags: [Operations]
+      summary: Approve fixed operation parameters
+      description: |
+        Requires admin or approver in the operation's workspace, with an identity ID
+        different from actor_id. Admins cannot approve their own operations. The
+        operation must be WAITING_APPROVAL and its tool must remain published and
+        enabled. Approval binds the stored parameters and tool version, expires in
+        30 minutes and changes the operation to READY. Repeating approval while it
+        is already READY with an approval returns the existing record, without
+        replacing its approver or extending expiry. Approval alone does not dispatch.
+      x-required-roles: [admin, approver]
+      requestBody:
+        $ref: '#/components/requestBodies/EmptyAction'
+      responses:
+        '200':
+          $ref: '#/components/responses/Operation'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/operations/{id}/reject:
+    parameters:
+      - $ref: '#/components/parameters/ResourceID'
+    post:
+      operationId: rejectOperation
+      tags: [Operations]
+      summary: Reject a pending approval
+      description: |
+        Requires admin or approver in the operation's workspace and an identity ID
+        different from actor_id. A WAITING_APPROVAL operation becomes REJECTED and
+        cannot dispatch. Repeating rejection of a REJECTED operation returns its
+        existing state. Other states return 409. This endpoint does not accept a
+        reason field and cannot cancel an approved or in-flight operation.
+      x-required-roles: [admin, approver]
+      requestBody:
+        $ref: '#/components/requestBodies/EmptyAction'
+      responses:
+        '200':
+          $ref: '#/components/responses/Operation'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/operations/{id}/execute:
+    parameters:
+      - $ref: '#/components/parameters/ResourceID'
+    post:
+      operationId: executeOperation
+      tags: [Operations]
+      summary: Claim and execute a READY operation once
+      description: |
+        Requires admin in the operation's workspace, or an operator whose ID equals
+        actor_id. Approvers and viewers cannot execute. An operator cannot execute
+        another person's operation even when it has been approved; that lookup returns
+        404. The server atomically claims READY, checks the current tool enabled state
+        and any approval expiry, commits DISPATCHING, then sends the stored request.
+
+        The successful claimant waits for bounded downstream execution and result
+        persistence. Concurrent or repeated callers receive the current recorded
+        DISPATCHING or terminal state without another dispatch. WAITING_APPROVAL and
+        disabled tools produce 409. Expired approval is durably changed to REJECTED
+        with a 409 approval_expired error.
+
+        A returned FAILED, UNKNOWN or REJECTED operation still uses HTTP 200. An
+        interrupted/ambiguous write becomes UNKNOWN and is not automatically replayed.
+        Client disconnection does not cancel an already admitted request. A 503 can
+        mean the response or result could not be durably confirmed; query the same
+        operation before taking another action. Manual reconciliation is not exposed
+        by the current HTTP API.
+      x-required-roles: [admin, operator]
+      requestBody:
+        $ref: '#/components/requestBodies/EmptyAction'
+      responses:
+        '200':
+          $ref: '#/components/responses/Operation'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/operations/{id}/events:
+    parameters:
+      - $ref: '#/components/parameters/ResourceID'
+    get:
+      operationId: listOperationEvents
+      tags: [Operations]
+      summary: Poll committed operation events
+      description: |
+        Uses the same visibility rules as getOperation. Returns at most 500 events
+        for the selected operation, ordered by ascending ID and strictly greater
+        than after. Continue polling with the last received ID to read another batch.
+        Event IDs are global database sequence values, may contain gaps, and are not
+        per-operation consecutive counters. The response is a finite JSON array wrapper.
+      x-required-roles: [admin, operator, approver, viewer]
+      parameters:
+        - name: after
+          in: query
+          required: false
+          description: Exclusive cursor from a previously received event ID.
+          schema:
+            type: integer
+            format: int64
+            minimum: 0
+            maximum: 9223372036854775807
+            default: 0
+      responses:
+        '200':
+          description: At most 500 committed visible events
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: __Host-gateway-session
+      description: Secure cloud session; mutations additionally require the session CSRF token and configured Origin.
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: Expiring cloud personal API key, or a configured development token; never a client-supplied role or workspace assertion.
+  parameters:
+    ToolQuery:
+      name: query
+      in: query
+      required: false
+      description: Case-insensitive literal substring of name plus description. Trimmed, at most 200 UTF-8 bytes; percent, underscore and backslash are literal.
+      schema:
+        type: string
+        maxLength: 200
+        x-max-utf8-bytes: 200
+    ToolLimit:
+      name: limit
+      in: query
+      required: false
+      description: Page size; defaults to 50 for registry or 25 for discovery. Explicit zero is invalid.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 50
+    ToolCursor:
+      name: cursor
+      in: query
+      required: false
+      description: |
+        Opaque position returned by the preceding page. Bound to the actor, workspace,
+        current role, query and registry/discovery scope; limit may change. Uses the
+        first request's creation-time upper bound and does not grant access. Start a
+        new search to include later-created tools. Live revocation still applies.
+      schema:
+        type: string
+        maxLength: 2048
+    ResourceID:
+      name: id
+      in: path
+      required: true
+      description: Server-generated tool, operation or MCP server ID. Lookups always use the authenticated workspace.
+      schema:
+        type: string
+        format: uuid
+  requestBodies:
+    EmptyAction:
+      description: Send an empty JSON object with Content-Type application/json; an omitted body is rejected.
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: false
+            maxProperties: 0
+          example: {}
+  responses:
+    MCPServer:
+      description: Current registered MCP server with credential references only
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/MCPServer'
+    Tool:
+      description: Current persisted tool definition
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Tool'
+    Operation:
+      description: Current persisted operation; inspect state to determine business outcome
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Operation'
+    BadRequest:
+      description: Invalid JSON, unsupported fields, wrong Content-Type, schema mismatch or input outside configured limits
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    Unauthorized:
+      description: Credential is missing, invalid, revoked or expired
+      headers:
+        WWW-Authenticate:
+          schema:
+            type: string
+          example: 'Bearer realm="mcp-gateway"'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    Forbidden:
+      description: Role does not permit this action, independent-approver rule failed, or browser Origin is not allowed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    NotFound:
+      description: Resource is missing or not visible to this identity and workspace
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    Conflict:
+      description: Duplicate tool name or namespace, conflicting idempotency key or MCP import contract, capacity exceeded, incompatible operation state, disabled tool/server or expired approval
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    Unavailable:
+      description: Durable request completion could not be confirmed; query an existing operation before attempting another action
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+  schemas:
+    Role:
+      type: string
+      enum: [admin, operator, approver, viewer]
+    Actor:
+      type: object
+      additionalProperties: false
+      required: [id, workspace_id, role]
+      properties:
+        id:
+          type: string
+        workspace_id:
+          type: string
+        role:
+          $ref: '#/components/schemas/Role'
+    Risk:
+      type: string
+      enum: [read, write]
+      description: Administrator-declared risk. HTTP read tools must use GET. MCP read tools require an explicit administrator decision; remote annotations are only hints. Write operations require independent approval.
+    MCPServerInput:
+      type: object
+      additionalProperties: false
+      required: [name, namespace, url]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+          x-max-utf8-bytes: 120
+          description: Display name, trimmed; 1-120 UTF-8 bytes without NUL, CR or LF.
+        namespace:
+          type: string
+          minLength: 1
+          maxLength: 24
+          pattern: '^[a-z][a-z0-9_-]{0,23}$'
+          description: Trimmed stable namespace unique within the authenticated workspace.
+        url:
+          type: string
+          format: uri
+          maxLength: 2048
+          x-max-utf8-bytes: 2048
+          description: Streamable HTTP MCP endpoint on an explicitly permitted HTTP(S) origin. Userinfo, query strings and fragments are rejected; redirects and resolved addresses remain subject to egress policy.
+        credential_ref:
+          type: string
+          maxLength: 128
+          pattern: '^$|^[A-Z][A-Z0-9_]{0,127}$'
+          description: Optional reference to a server-managed credential bound to the workspace and exact endpoint origin.
+        timeout_ms:
+          type: integer
+          default: 10000
+          anyOf:
+            - const: 0
+            - minimum: 100
+              maximum: 120000
+          description: Deadline for the complete discovery or execution attempt, including handshake and contract verification. Omitted or zero becomes 10000.
+    MCPServer:
+      type: object
+      additionalProperties: false
+      required: [id, workspace_id, name, namespace, url, timeout_ms, enabled, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspace_id:
+          type: string
+        name:
+          $ref: '#/components/schemas/MCPServerInput/properties/name'
+        namespace:
+          $ref: '#/components/schemas/MCPServerInput/properties/namespace'
+        url:
+          $ref: '#/components/schemas/MCPServerInput/properties/url'
+        credential_ref:
+          $ref: '#/components/schemas/MCPServerInput/properties/credential_ref'
+        timeout_ms:
+          type: integer
+          minimum: 100
+          maximum: 120000
+        enabled:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    MCPServerList:
+      type: object
+      additionalProperties: false
+      required: [items, total]
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/MCPServer'
+        total:
+          type: integer
+          minimum: 0
+          maximum: 100
+    MCPConfig:
+      type: object
+      additionalProperties: false
+      required: [server_id, tool_name, schema_hash]
+      properties:
+        server_id:
+          type: string
+          format: uuid
+        tool_name:
+          type: string
+          minLength: 1
+          maxLength: 128
+          x-max-utf8-bytes: 128
+          description: Exact remote tool name; the gateway alias is stored in Tool.name.
+        schema_hash:
+          type: string
+          pattern: '^[a-f0-9]{64}$'
+          description: SHA-256 of the canonical remote name and input/output schemas. Rechecked before upstream invocation.
+    RemoteTool:
+      type: object
+      additionalProperties: false
+      required: [name, description, input_schema, read_only_hint, schema_hash, gateway_name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 128
+          x-max-utf8-bytes: 128
+          description: Exact upstream name; duplicates, control characters and invalid UTF-8 are rejected.
+        description:
+          type: string
+          maxLength: 4000
+          x-max-utf8-bytes: 4000
+          description: Upstream business description, with a generated fallback when blank.
+        input_schema:
+          $ref: '#/components/schemas/InputSchema'
+        output_schema:
+          $ref: '#/components/schemas/OutputSchema'
+        read_only_hint:
+          type: boolean
+          description: Untrusted upstream annotation. Administrators must explicitly choose risk during import; this value never grants execution.
+        schema_hash:
+          type: string
+          pattern: '^[a-f0-9]{64}$'
+        gateway_name:
+          type: string
+          maxLength: 64
+          pattern: '^[a-zA-Z][a-zA-Z0-9_.-]{0,63}$'
+          description: Stable alias composed of namespace, sanitized/truncated remote name and an eight-hex-character name hash.
+        imported_tool_id:
+          type: string
+          format: uuid
+          description: Existing import ID, when present; not a guarantee that its pinned schema matches current discovery.
+    RemoteToolList:
+      type: object
+      additionalProperties: false
+      required: [items, total]
+      x-max-upstream-result-bytes: 4194304
+      x-max-upstream-pages: 100
+      properties:
+        items:
+          type: array
+          maxItems: 1000
+          items:
+            $ref: '#/components/schemas/RemoteTool'
+        total:
+          type: integer
+          minimum: 0
+          maximum: 1000
+    ImportInput:
+      type: object
+      additionalProperties: false
+      required: [tool_name, schema_hash, risk]
+      properties:
+        tool_name:
+          type: string
+          minLength: 1
+          maxLength: 256
+          x-max-utf8-bytes: 256
+          description: Exact name selected from current discovery. The accepted discovery catalog itself limits remote names to 128 UTF-8 bytes.
+        schema_hash:
+          type: string
+          pattern: '^[a-fA-F0-9]{64}$'
+          description: Use the exact lowercase hash returned by discovery; a nonmatching contract returns 409.
+        risk:
+          $ref: '#/components/schemas/Risk'
+        response_policy:
+          $ref: '#/components/schemas/ResponsePolicy'
+    ResponsePolicy:
+      type: object
+      additionalProperties: false
+      description: |
+        Versioned MCP response policy captured immutably by each prepared operation. A missing
+        policy uses max_bytes 65536 and includes all structured fields. The adapter
+        first validates the original structuredContent against output_schema; this
+        policy then redacts common secret field names and applies optional selection.
+        It is not a general-purpose sensitive-data detector.
+
+        Selection starts at a structuredContent object. A full nonfinal * segment
+        traverses every array element, as in /results/*/title; fields selected for
+        the same element are merged and array order and length are preserved.
+        This is a Gateway extension to JSON Pointer escaping, not RFC 6901 wildcard
+        semantics. Numeric array indexes and object wildcards are unsupported.
+        Missing fields or type mismatches in any element fail the whole projection.
+        Empty arrays and null leaf values are valid. Root nextCursor and next_cursor are
+        preserved as pagination control data when strings or null; other cursor types
+        are rejected during selection. A successful structured result's text
+        content is rebuilt from the projected object, so the original text cannot
+        bypass selection. Text-only results support byte limits, but cannot use
+        include paths. Oversized results are rejected, never sliced into invalid
+        JSON. A post-call projection/limit failure is FAILED for read operations
+        and UNKNOWN for writes, which require outcome verification before retry.
+      properties:
+        include:
+          type: array
+          maxItems: 32
+          uniqueItems: true
+          default: []
+          items:
+            type: string
+            minLength: 2
+            maxLength: 256
+            x-max-utf8-bytes: 256
+            description: JSON Pointer-style selector using ~0 and ~1 escapes. A full nonfinal '*' segment selects each array element. Empty segments, NUL, partial/final stars, duplicates, ancestor/descendant overlap and mixed object/array traversal at one node are rejected. Numeric object keys are supported; numeric array indexes are not.
+          description: Optional allowlist sorted during normalization. Empty or absent selects all structured fields after common-secret redaction.
+        max_bytes:
+          type: integer
+          default: 65536
+          anyOf:
+            - const: 0
+            - minimum: 1024
+              maximum: 131072
+          description: Maximum serialized UTF-8 bytes of the final MCP result envelope, including regenerated text and projection metadata. Omitted or zero becomes 65536; stored values are 1024-131072.
+    ResponsePolicyUpdateInput:
+      type: object
+      additionalProperties: false
+      required: [expected_version, response_policy]
+      properties:
+        expected_version:
+          type: integer
+          minimum: 1
+        response_policy:
+          $ref: '#/components/schemas/ResponsePolicy'
+    ResponsePolicyPreviewInput:
+      type: object
+      additionalProperties: false
+      required: [expected_version, response_policy, sample]
+      properties:
+        expected_version:
+          type: integer
+          minimum: 1
+        response_policy:
+          $ref: '#/components/schemas/ResponsePolicy'
+        sample:
+          $ref: '#/components/schemas/MCPResponseSample'
+    MCPResponseSample:
+      type: object
+      required: [isError, content]
+      description: Successful MCP envelope supplied by the administrator. Unsupported top-level fields and text block metadata are ignored. structuredContent is required when the tool declares output_schema and must satisfy it before projection. Browser editing rejects unsafe JavaScript numbers; direct API clients can preserve large JSON integers.
+      properties:
+        isError:
+          const: false
+        content:
+          type: array
+          items:
+            type: object
+            required: [type, text]
+            properties:
+              type:
+                const: text
+              text:
+                type: string
+        structuredContent:
+          type: object
+          additionalProperties: true
+    ResponsePolicyPreview:
+      type: object
+      additionalProperties: false
+      required: [tool_version, original_bytes, projected_bytes, result]
+      properties:
+        tool_version:
+          type: integer
+          minimum: 1
+        original_bytes:
+          type: integer
+          minimum: 0
+          description: UTF-8 bytes after normalizing the supported sample envelope to the same shape used by the adapter; excludes ignored metadata. Not raw network size or a token estimate.
+        projected_bytes:
+          type: integer
+          minimum: 0
+          maximum: 131072
+          description: UTF-8 bytes of the final serialized result envelope, including regenerated text and projection metadata.
+        result:
+          type: object
+          additionalProperties: true
+          description: Projected MCP result, using the same policy implementation as live execution.
+    EmptyHTTPConfig:
+      type: object
+      additionalProperties: false
+      required: [url, method, timeout_ms]
+      description: Serialization placeholder on imported MCP tools; unused for routing.
+      properties:
+        url:
+          const: ''
+        method:
+          const: ''
+        timeout_ms:
+          const: 0
+    HTTPConfigInput:
+      type: object
+      additionalProperties: false
+      required: [url, method]
+      properties:
+        url:
+          type: string
+          format: uri
+          description: HTTP(S) URL on an explicitly allowed origin. Userinfo, query strings and fragments are rejected. Network policy is checked again at execution.
+        method:
+          type: string
+          enum: [GET, POST, PUT, PATCH, DELETE]
+          description: Canonical HTTP method; the server trims and uppercases input. Risk read requires GET.
+        credential_ref:
+          type: string
+          maxLength: 128
+          pattern: '^$|^[A-Z][A-Z0-9_]{0,127}$'
+          description: Optional credential reference bound to the authenticated workspace and exact HTTP origin. This is not a credential value.
+        timeout_ms:
+          type: integer
+          default: 10000
+          anyOf:
+            - const: 0
+            - minimum: 100
+              maximum: 120000
+          description: Downstream deadline in milliseconds. Omitted or zero is normalized to 10000.
+    HTTPConfig:
+      allOf:
+        - $ref: '#/components/schemas/HTTPConfigInput'
+        - type: object
+          required: [timeout_ms]
+          properties:
+            timeout_ms:
+              type: integer
+              minimum: 100
+              maximum: 120000
+    InputSchema:
+      type: object
+      required: [type]
+      properties:
+        type:
+          const: object
+      additionalProperties: true
+      x-max-encoded-bytes: 65536
+      description: |
+        JSON Schema document whose root type is exactly object. Must compile with
+        the bundled validator. Local definitions and references are allowed;
+        external reference loading is disabled. Encoded size is limited to 65536
+        bytes. Maximum JSON nesting is 64 levels; numeric text is limited to 1024
+        bytes with exponent between -1000 and 1000, and NUL strings/keys are rejected.
+    OutputSchema:
+      type: object
+      additionalProperties: true
+      x-max-encoded-bytes: 65536
+      description: Optional JSON Schema document for downstream results. For MCP tools, validates the original structuredContent before response redaction/projection, not the stored envelope or projected object. Must be an object and compile without external references. Uses the same size and structural limits as input_schema; its declared result type need not be object.
+    ToolInput:
+      type: object
+      additionalProperties: false
+      required: [name, description, risk, input_schema, http]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 64
+          pattern: '^[a-zA-Z][a-zA-Z0-9_.-]{0,63}$'
+          description: Unique within a workspace after trimming surrounding whitespace.
+        description:
+          type: string
+          minLength: 1
+          maxLength: 4000
+          x-max-encoded-bytes: 4000
+          description: Business purpose; trimmed, nonempty and at most 4000 UTF-8 bytes.
+        risk:
+          $ref: '#/components/schemas/Risk'
+        input_schema:
+          $ref: '#/components/schemas/InputSchema'
+        output_schema:
+          $ref: '#/components/schemas/OutputSchema'
+        http:
+          $ref: '#/components/schemas/HTTPConfigInput'
+    Tool:
+      type: object
+      additionalProperties: false
+      required: [id, workspace_id, name, description, risk, input_schema, http, enabled, status, version, created_at]
+      description: HTTP tools contain an active http definition. Imported MCP tools contain mcp and response_policy, with an empty http placeholder. This management representation does not contain the MCP platform get_tool_schema result_format hint.
+      allOf:
+        - if:
+            required: [mcp]
+          then:
+            required: [response_policy]
+            properties:
+              http:
+                $ref: '#/components/schemas/EmptyHTTPConfig'
+          else:
+            properties:
+              http:
+                $ref: '#/components/schemas/HTTPConfig'
+              response_policy: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspace_id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        risk:
+          $ref: '#/components/schemas/Risk'
+        input_schema:
+          $ref: '#/components/schemas/InputSchema'
+        output_schema:
+          $ref: '#/components/schemas/OutputSchema'
+        http:
+          oneOf:
+            - $ref: '#/components/schemas/HTTPConfig'
+            - $ref: '#/components/schemas/EmptyHTTPConfig'
+        mcp:
+          $ref: '#/components/schemas/MCPConfig'
+        response_policy:
+          $ref: '#/components/schemas/ResponsePolicy'
+        enabled:
+          type: boolean
+          description: Effective visibility flag; false when the imported tool's upstream server is disabled, while its independent stored flag is preserved.
+        status:
+          type: string
+          enum: [draft, published]
+        version:
+          type: integer
+          minimum: 1
+          description: Content version captured by prepared operations. New tools start at 1; an actual MCP response policy change increments it. Existing operation snapshots remain unchanged.
+        created_at:
+          type: string
+          format: date-time
+    ToolList:
+      type: object
+      additionalProperties: false
+      required: [items, total]
+      properties:
+        items:
+          type: array
+          maxItems: 50
+          items:
+            $ref: '#/components/schemas/Tool'
+        next_cursor:
+          type: string
+          maxLength: 2048
+          description: Omitted or empty on the last page.
+        total:
+          type: integer
+          minimum: 0
+          description: Visible matches inside the creation-time boundary, before the cursor position. Publication or disablement can change this live count.
+    ToolSummary:
+      type: object
+      additionalProperties: false
+      required: [id, name, description, risk, version]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+          maxLength: 512
+          x-max-utf8-bytes: 512
+          description: Discovery excerpt limited to 512 UTF-8 bytes including an ellipsis when truncated. Fetch the tool by ID for the complete description; search still matches its full stored text.
+        risk:
+          $ref: '#/components/schemas/Risk'
+        version:
+          type: integer
+          minimum: 1
+    ToolDiscoveryPage:
+      type: object
+      additionalProperties: false
+      required: [items, total]
+      properties:
+        items:
+          type: array
+          maxItems: 50
+          items:
+            $ref: '#/components/schemas/ToolSummary'
+        next_cursor:
+          type: string
+          maxLength: 2048
+        total:
+          type: integer
+          minimum: 0
+    PrepareInput:
+      type: object
+      additionalProperties: false
+      required: [tool_id, arguments, idempotency_key]
+      properties:
+        tool_id:
+          type: string
+          format: uuid
+        arguments:
+          type: object
+          additionalProperties: true
+          x-max-encoded-bytes: 262144
+          description: |
+            Must satisfy the selected tool's input_schema. The entire HTTP request,
+            including this object and metadata, must fit within 262144 bytes.
+            Nesting depth is at most 64; NUL strings/keys are rejected. Number text
+            is bounded to 1024 bytes and exponents to -1000 through 1000.
+        idempotency_key:
+          type: string
+          minLength: 8
+          maxLength: 128
+          x-max-encoded-bytes: 128
+          description: Stable client-generated key, 8-128 UTF-8 bytes, with no leading or trailing whitespace. Unique within the workspace and bound to actor, tool and argument hash.
+    OperationState:
+      type: string
+      enum: [WAITING_APPROVAL, READY, DISPATCHING, SUCCEEDED, FAILED, UNKNOWN, REJECTED]
+      description: |
+        WAITING_APPROVAL needs independent review. READY may be claimed once.
+        DISPATCHING means execution was admitted and may already have reached the
+        downstream service. SUCCEEDED is a confirmed adapter result; FAILED is a
+        reported failure. UNKNOWN requires downstream verification and cannot be
+        replayed automatically. REJECTED includes rejected or expired approval.
+    Operation:
+      type: object
+      additionalProperties: false
+      required: [id, workspace_id, tool_id, tool_name, tool_version, risk, actor_id, arguments, arguments_hash, idempotency_key, state, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspace_id:
+          type: string
+        tool_id:
+          type: string
+          format: uuid
+        tool_name:
+          type: string
+        tool_version:
+          type: integer
+          minimum: 1
+        risk:
+          $ref: '#/components/schemas/Risk'
+        actor_id:
+          type: string
+          description: Identity that prepared the operation.
+        arguments:
+          type: object
+          additionalProperties: true
+          description: Fixed stored arguments. They cannot be changed by approval or execution calls.
+        arguments_hash:
+          type: string
+          pattern: '^[a-f0-9]{64}$'
+          description: SHA-256 of canonical argument bytes.
+        idempotency_key:
+          type: string
+        state:
+          $ref: '#/components/schemas/OperationState'
+        result:
+          description: Optional stored JSON value after adapter validation and redaction. HTTP results can be any JSON type, including null. Successful MCP results contain a bounded envelope with isError false, content and optional structuredContent/gateway_projection; output_schema applies to original structuredContent before projection.
+        error:
+          type: string
+          description: Optional bounded error summary; inspect state rather than this text for control flow.
+        approved_by:
+          type: string
+          description: Present after approval; always different from actor_id.
+        approval_expires_at:
+          type: string
+          format: date-time
+          description: Present after approval. Approval expiry is rechecked before dispatch.
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    OperationList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          maxItems: 200
+          items:
+            $ref: '#/components/schemas/Operation'
+    Event:
+      type: object
+      additionalProperties: false
+      required: [id, operation_id, type, actor_id, created_at, data]
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9223372036854775807
+          description: Global sequence value, suitable as the exclusive after cursor; IDs can contain gaps.
+        operation_id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [OPERATION_PREPARED, OPERATION_APPROVED, OPERATION_REJECTED, OPERATION_DISPATCHING, OPERATION_SUCCEEDED, OPERATION_FAILED, OPERATION_UNKNOWN, APPROVAL_EXPIRED]
+        actor_id:
+          type: string
+          description: Acting identity or system for automated recovery/expiry events.
+        created_at:
+          type: string
+          format: date-time
+        data:
+          type: object
+          additionalProperties: true
+          description: Event-specific metadata, such as state, arguments_hash, tool_version, expires_at or recovery reason. Full arguments and results remain on the operation.
+    EventList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          maxItems: 500
+          items:
+            $ref: '#/components/schemas/Event'
+    ErrorEnvelope:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum: [unauthorized, forbidden, not_found, conflict, approval_expired, invalid_input, unavailable]
+            message:
+              type: string

@@ -1,0 +1,71 @@
+name: mcp-gateway
+x-backend: &backend
+  build:
+    context: ../..
+    dockerfile: deploy/Dockerfile
+    target: backend
+  user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
+  read_only: true
+  security_opt: [no-new-privileges:true]
+  cap_drop: [ALL]
+  environment: &environment
+    DATABASE_URL: "postgres://gateway:${POSTGRES_PASSWORD:?Run node scripts/bootstrap.mjs}@postgres:5432/gateway?sslmode=disable"
+    GATEWAY_IDENTITIES_FILE: /run/gateway/identities.json
+    API_ADDR: 0.0.0.0:8090
+    GATEWAY_ADDR: 0.0.0.0:8091
+    GATEWAY_ALLOWED_ORIGINS: "${GATEWAY_ALLOWED_ORIGINS:-http://127.0.0.1:4782,http://localhost:4782}"
+    HTTP_ALLOWED_ORIGINS: "${HTTP_ALLOWED_ORIGINS:-}"
+    HTTP_ALLOWED_CIDRS: "${HTTP_ALLOWED_CIDRS:-}"
+  volumes:
+    - ../../.local/identities.json:/run/gateway/identities.json:ro
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: gateway
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?Run node scripts/bootstrap.mjs}"
+      POSTGRES_DB: gateway
+    volumes: [postgres-data:/var/lib/postgresql/data]
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U gateway -d gateway"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+  migrate:
+    <<: *backend
+    entrypoint: [migrate]
+    depends_on:
+      postgres: {condition: service_healthy}
+  api:
+    <<: *backend
+    entrypoint: [api-server]
+    ports: ["127.0.0.1:8090:8090"]
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+    restart: unless-stopped
+  gateway:
+    <<: *backend
+    entrypoint: [gateway]
+    ports: ["127.0.0.1:8091:8091"]
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+    restart: unless-stopped
+  worker:
+    <<: *backend
+    entrypoint: [worker]
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+    restart: unless-stopped
+  console:
+    build:
+      context: ../..
+      dockerfile: deploy/Dockerfile
+      target: console
+    ports: ["127.0.0.1:4782:8080"]
+    depends_on: [api, gateway]
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
