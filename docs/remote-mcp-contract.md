@@ -103,14 +103,45 @@ A response policy has two independent limits:
 
 | Field | Contract |
 | --- | --- |
-| `include` | Up to 32 RFC 6901 object pointers; absent/empty includes all structured fields after common-secret redaction |
+| `include` | Up to 32 JSON Pointer-style selectors with an array traversal extension; absent/empty includes all structured fields after common-secret redaction |
 | `max_bytes` | Final serialized UTF-8 envelope size; default 65536, accepted range 1024–131072; omitted or zero normalizes to the default |
 
-Pointers are at most 256 UTF-8 bytes each. They use `~0` and `~1` escapes. Empty segments, NUL, wildcards, duplicate paths and ancestor/descendant overlaps are rejected. Traversal operates only on objects: `/order/id` selects a nested field, `/items` can select an entire array, and `/items/0/id` cannot traverse an array. Numeric object keys are allowed. A missing selected field or a scalar/array traversal fails closed.
+Selectors are at most 256 UTF-8 bytes each and use JSON Pointer `~0` and `~1` escapes. A full `*` segment traverses every element of an array: `/results/*/title` and `/results/*/url` retain those two fields in each result. This wildcard is a Gateway extension, not part of RFC 6901. `/order/id` selects a nested field and `/items` selects an entire array. Numeric object keys are allowed; `/items/0/id` cannot index an array.
+
+Array projection merges selected fields within each element, preserving order and cardinality. Nested and empty arrays are supported, and a selected leaf may be null. A missing field, object wildcard, numeric array index, or null/scalar intermediate node fails the complete result, even if other elements are valid. Empty path segments, NUL, partial or final `*`, duplicate paths, ancestor/descendant overlaps and conflicting array/object traversal at a shared node are rejected. Use `/items` to retain an entire array instead of `/items/*`.
 
 Common secret-named structured fields are redacted recursively before selection. Root `nextCursor` and `next_cursor` are preserved during selection only when their values are strings or null; other types fail rather than allowing an unselected object through the cursor exception. When structured content exists, text is regenerated from the resulting object. Original text cannot bypass field selection or structured-field redaction. Text-only results support the size limit, but reject nonempty `include`.
 
 The final byte limit includes the envelope, regenerated text and projection metadata. Oversized data is rejected, never truncated into invalid JSON. Projection reduces what is stored and sent to the model; it does not reduce the upstream response or network transfer. There is no large-result artifact store or deferred result-fetch API yet. Secret-name filtering is a baseline safeguard, not comprehensive sensitive-data detection; arbitrary text is not guaranteed to be secret-free.
+
+## Policy editing and sample preview
+
+Administrators can revise an imported tool's response policy from its console detail view, including after publication. The two endpoints are scoped to the authenticated workspace and accept MCP tools only:
+
+| Method and path | Behavior |
+| --- | --- |
+| `POST /api/v1/tools/{id}/response-policy/preview` | Validate and project a supplied sample without calling the upstream or persisting the sample |
+| `POST /api/v1/tools/{id}/response-policy` | Save a normalized policy with optimistic version checking |
+
+Save request:
+
+```json
+{
+  "expected_version": 1,
+  "response_policy": {
+    "include": ["/results/*/title", "/results/*/contentUrl"],
+    "max_bytes": 65536
+  }
+}
+```
+
+An actual change returns the Tool at version 2 and records the previous/new versions and policies in `TOOL_RESPONSE_POLICY_UPDATED`. An identical policy at the current version is a no-op. A stale `expected_version` always returns `409`; the console preserves the draft and requires reloading the current tool before saving again. Risk, schema, upstream binding, publication and independent enablement remain unchanged. Policy repair is allowed while a server is disabled; it does not enable that server or tool.
+
+Newly prepared operations capture the new version. Previously prepared or approved operations retain their exact prior policy and version. Live disablement and upstream schema-drift gates still apply at dispatch. This is response policy revision, not a general schema upgrade or release rollout mechanism.
+
+Preview takes the same fields plus `sample`, a successful MCP envelope with explicit `isError:false`, a text-only `content` array and optional object `structuredContent`. If an output schema exists, the original structured sample must satisfy it before projection. The total request, including sample and policy, must fit within the management API's 256 KiB body limit. Unsafe JavaScript numbers are rejected by the browser editor; direct API clients preserve large JSON integers.
+
+Preview returns `{tool_version,original_bytes,projected_bytes,result}`. Byte counts use Go's serialized UTF-8 envelope, after unsupported sample metadata is removed to match the live adapter. Final size includes regenerated text and projection metadata and can exceed the input size for small samples. These are sample byte counts, not token savings or upstream network measurements. No preview sample is stored in operations or audit records. A successful preview validates that sample only; future responses can still fail schema, field or size checks.
 
 ## Bounds and failure semantics
 

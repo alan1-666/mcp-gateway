@@ -282,8 +282,8 @@ paths:
         any credential reference must be bound to that workspace and exact origin.
         The tool is created with status draft, enabled false and version 1. Publishing
         is a separate action. This endpoint accepts HTTP tools only; import remote MCP
-        tools using /api/v1/mcp/servers/{id}/import. There is currently no tool update
-        or delete endpoint.
+        tools using /api/v1/mcp/servers/{id}/import. Only the response policy of imported MCP tools can currently be revised;
+        general definition updates and deletion remain unavailable.
       x-required-roles: [admin]
       requestBody:
         required: true
@@ -421,6 +421,84 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/Tool'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/tools/{id}/response-policy:
+    parameters:
+      - $ref: '#/components/parameters/ResourceID'
+    post:
+      operationId: updateToolResponsePolicy
+      tags: [Tools]
+      summary: Revise the response policy of an imported MCP tool
+      description: |
+        Requires admin in the tool workspace. Only MCP tools are supported. Locks
+        the tool and compares expected_version before applying a normalized policy.
+        A stale version returns 409, including for otherwise identical policies.
+        A real change increments the version and records old/new policies and
+        versions in the audit log; an identical current policy is a no-op. Existing
+        operation snapshots retain their policy. Publication, risk, schemas, MCP
+        binding and enabled flags do not change. Disabled tools and upstreams
+        may have their policy repaired without becoming enabled.
+      x-required-roles: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResponsePolicyUpdateInput'
+      responses:
+        '200':
+          $ref: '#/components/responses/Tool'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/tools/{id}/response-policy/preview:
+    parameters:
+      - $ref: '#/components/parameters/ResourceID'
+    post:
+      operationId: previewToolResponsePolicy
+      tags: [Tools]
+      summary: Preview a response policy against supplied sample data
+      description: |
+        Requires admin in the tool workspace. Reads the current MCP contract and
+        validates the supplied successful MCP envelope, including the original
+        structuredContent against output_schema. Performs no upstream calls or
+        database writes, and does not persist the sample. expected_version must
+        match the current tool version or the request returns 409. The complete
+        request body is limited to 262144 bytes.
+      x-required-roles: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResponsePolicyPreviewInput'
+      responses:
+        '200':
+          description: Projected sample and normalized envelope byte sizes; no state was changed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponsePolicyPreview'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -983,15 +1061,19 @@ components:
       type: object
       additionalProperties: false
       description: |
-        Immutable MCP response policy captured with prepared operations. A missing
+        Versioned MCP response policy captured immutably by each prepared operation. A missing
         policy uses max_bytes 65536 and includes all structured fields. The adapter
         first validates the original structuredContent against output_schema; this
         policy then redacts common secret field names and applies optional selection.
         It is not a general-purpose sensitive-data detector.
 
-        Selection operates only on structuredContent objects. Traversing an array
-        is unsupported; select its whole field instead. Missing fields and attempts
-        to traverse arrays/scalars fail closed. Root nextCursor and next_cursor are
+        Selection starts at a structuredContent object. A full nonfinal * segment
+        traverses every array element, as in /results/*/title; fields selected for
+        the same element are merged and array order and length are preserved.
+        This is a Gateway extension to JSON Pointer escaping, not RFC 6901 wildcard
+        semantics. Numeric array indexes and object wildcards are unsupported.
+        Missing fields or type mismatches in any element fail the whole projection.
+        Empty arrays and null leaf values are valid. Root nextCursor and next_cursor are
         preserved as pagination control data when strings or null; other cursor types
         are rejected during selection. A successful structured result's text
         content is rebuilt from the projected object, so the original text cannot
@@ -1010,7 +1092,7 @@ components:
             minLength: 2
             maxLength: 256
             x-max-utf8-bytes: 256
-            description: Nonempty RFC 6901 object pointer, using ~0 and ~1 escapes. No wildcard, empty path segment, NUL, duplicate or ancestor/descendant overlap is allowed. Numeric object keys are supported; numeric array indexes are not.
+            description: JSON Pointer-style selector using ~0 and ~1 escapes. A full nonfinal '*' segment selects each array element. Empty segments, NUL, partial/final stars, duplicates, ancestor/descendant overlap and mixed object/array traversal at one node are rejected. Numeric object keys are supported; numeric array indexes are not.
           description: Optional allowlist sorted during normalization. Empty or absent selects all structured fields after common-secret redaction.
         max_bytes:
           type: integer
@@ -1020,6 +1102,69 @@ components:
             - minimum: 1024
               maximum: 131072
           description: Maximum serialized UTF-8 bytes of the final MCP result envelope, including regenerated text and projection metadata. Omitted or zero becomes 65536; stored values are 1024-131072.
+    ResponsePolicyUpdateInput:
+      type: object
+      additionalProperties: false
+      required: [expected_version, response_policy]
+      properties:
+        expected_version:
+          type: integer
+          minimum: 1
+        response_policy:
+          $ref: '#/components/schemas/ResponsePolicy'
+    ResponsePolicyPreviewInput:
+      type: object
+      additionalProperties: false
+      required: [expected_version, response_policy, sample]
+      properties:
+        expected_version:
+          type: integer
+          minimum: 1
+        response_policy:
+          $ref: '#/components/schemas/ResponsePolicy'
+        sample:
+          $ref: '#/components/schemas/MCPResponseSample'
+    MCPResponseSample:
+      type: object
+      required: [isError, content]
+      description: Successful MCP envelope supplied by the administrator. Unsupported top-level fields and text block metadata are ignored. structuredContent is required when the tool declares output_schema and must satisfy it before projection. Browser editing rejects unsafe JavaScript numbers; direct API clients can preserve large JSON integers.
+      properties:
+        isError:
+          const: false
+        content:
+          type: array
+          items:
+            type: object
+            required: [type, text]
+            properties:
+              type:
+                const: text
+              text:
+                type: string
+        structuredContent:
+          type: object
+          additionalProperties: true
+    ResponsePolicyPreview:
+      type: object
+      additionalProperties: false
+      required: [tool_version, original_bytes, projected_bytes, result]
+      properties:
+        tool_version:
+          type: integer
+          minimum: 1
+        original_bytes:
+          type: integer
+          minimum: 0
+          description: UTF-8 bytes after normalizing the supported sample envelope to the same shape used by the adapter; excludes ignored metadata. Not raw network size or a token estimate.
+        projected_bytes:
+          type: integer
+          minimum: 0
+          maximum: 131072
+          description: UTF-8 bytes of the final serialized result envelope, including regenerated text and projection metadata.
+        result:
+          type: object
+          additionalProperties: true
+          description: Projected MCP result, using the same policy implementation as live execution.
     EmptyHTTPConfig:
       type: object
       additionalProperties: false
@@ -1163,7 +1308,7 @@ components:
         version:
           type: integer
           minimum: 1
-          description: Content version captured by prepared operations. Newly registered tools currently have version 1.
+          description: Content version captured by prepared operations. New tools start at 1; an actual MCP response policy change increments it. Existing operation snapshots remain unchanged.
         created_at:
           type: string
           format: date-time

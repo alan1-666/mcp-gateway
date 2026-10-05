@@ -96,6 +96,28 @@ Verified against the deployed workspace at [the public HTTPS entry point](https:
 
 This is a real public-document integration, using no company data and making no model request. Selecting `/results` retains the complete result array; it is not evidence of per-item field reduction or a measured token saving. The operation ledger and replay checks establish one recorded Gateway dispatch per operation, not exactly-once effects inside the upstream service. Final wire-result byte sizes were not separately recorded.
 
+## Versioned response policies and array projection — 2026-10-05
+
+| Check | Outcome |
+| --- | --- |
+| Backend regression | Full `RUN_CLOUD_WORKER_INTEGRATION=1 go test -race ./...` passed against PostgreSQL; `go vet ./...` passed |
+| Array projection | Multiple fields merge into each original element; nested/empty arrays, escaped names, large JSON integers and null leaves passed. Missing fields, inconsistent element types, overlapping paths and array/object conflicts fail the whole projection |
+| Policy transactions | Concurrent updates have one winner; stale expected versions return 409 even for identical policies. Current identical policies do not increment versions. Publication and tool/server disablement remain intact |
+| Operation snapshots | Real HTTP and official MCP SDK tests prepare and approve before an edit, then execute old/new policies at their recorded versions. Original output schema is checked before projection and successful/uncertain operations are not replayed |
+| Pure preview | Validates a supplied MCP envelope and original output schema; no upstream request, operation write or audit write. Supported-envelope byte accounting, text metadata removal, bounded input and large integer precision passed |
+| Console regression | 51 console tests and 31 Pi runner tests passed; both type checks and the production console build passed |
+| Browser acceptance | Isolated local MCP fixture: preview, array field removal, cursor preservation, save/catalog version refresh, stale-save rejection, explicit reload retaining draft/sample, missing-field rejection and decimal precision rejection passed; no browser warnings or errors |
+| Browser numeric safety | Rejects unsafe integers, decimal rounding such as 9007199254740991.1 and underflow such as 1e-400; ordinary decimal values and equivalent exponent notation remain accepted |
+| API documentation | Strict duplicate-key YAML parsing, 200 local references and 21 unique operation IDs passed |
+| Cloud rollout | Deployed `20261005-cloud.7` after a database backup; no schema changes. API, Gateway, PostgreSQL and console healthy. Existing account session and Pi configuration/state volumes retained |
+| Cloud sample preview | Used the prior successful Microsoft Learn search result as the sample. Selecting `/results/*/title` and `/results/*/contentUrl` preserved all 10 entries; normalized supported-envelope size changed from 49,932 to 3,633 bytes (92.7% smaller) |
+| Cloud policy editing | The signed-in administrator previewed and saved the policy in the deployed console, creating version 2; the catalog and detail view refreshed to the new version. Repeated preview showed the same byte sizes and no browser errors/warnings |
+| Live projected execution | A fresh public documentation search through normal HTTPS prepare/execute reached `SUCCEEDED`, returned 10 title/link entries and matching regenerated text, and recorded version 2. Repeated preparation/execution returned the same operation/result with one recorded dispatch |
+
+The disposable local browser schema, identities and service processes were removed after acceptance. The cloud check used the existing administrator account and public documentation only, with no model call. Code-sample search and document fetch policies were not changed.
+
+Preview counts are normalized supported-envelope bytes, not raw network size or model tokens. The backend preserves JSON numbers; the browser rejects sample numbers it cannot submit without changing their decimal value.
+
 ## Explicitly unverified
 
 - The complete Microsoft Learn cloud browser import/publication/execution interaction sequence. Cloud sign-in, enabled-server visibility and live discovery of all three Imported tools passed; all three tools also passed authenticated HTTPS API execution. Local browser approval/execution passed separately.

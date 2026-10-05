@@ -9,13 +9,20 @@ import (
 )
 
 // ResponsePolicy is fixed with the tool and copied into each operation snapshot.
-// Include contains object-only RFC 6901 paths into MCP structuredContent.
+// Include uses JSON Pointer escaping with an array traversal extension: a full
+// '*' segment selects every array element. Numeric segments remain object keys;
+// array indices and object wildcards are not supported.
 type ResponsePolicy struct {
 	Include  []string `json:"include,omitempty"`
 	MaxBytes int      `json:"max_bytes"`
 }
 
 func NormalizeResponsePolicy(in *ResponsePolicy) (*ResponsePolicy, error) {
+	p, _, err := normalizeResponsePolicy(in)
+	return p, err
+}
+
+func normalizeResponsePolicy(in *ResponsePolicy) (*ResponsePolicy, *responseSelection, error) {
 	p := ResponsePolicy{MaxBytes: 64 << 10}
 	if in != nil {
 		p = *in
@@ -25,45 +32,32 @@ func NormalizeResponsePolicy(in *ResponsePolicy) (*ResponsePolicy, error) {
 		}
 	}
 	if p.MaxBytes < 1024 || p.MaxBytes > 128<<10 || len(p.Include) > 32 {
-		return nil, fmt.Errorf("%w: response policy allows 1024–131072 bytes and at most 32 paths", ErrInvalid)
+		return nil, nil, fmt.Errorf("%w: response policy allows 1024–131072 bytes and at most 32 paths", ErrInvalid)
 	}
 	sort.Strings(p.Include)
-	paths := make([][]string, 0, len(p.Include))
+	selection := &responseSelection{}
 	for _, raw := range p.Include {
 		parts, err := responsePath(raw)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
-		for _, old := range paths {
-			n := len(parts)
-			if len(old) < n {
-				n = len(old)
-			}
-			same := true
-			for i := 0; i < n; i++ {
-				if parts[i] != old[i] {
-					same = false
-					break
-				}
-			}
-			if same {
-				return nil, fmt.Errorf("%w: response paths must not repeat or overlap", ErrInvalid)
-			}
+		if err := selection.add(parts); err != nil {
+			return nil, nil, err
 		}
-		paths = append(paths, parts)
 	}
-	return &p, nil
+	return &p, selection, nil
 }
+
 func responsePath(raw string) ([]string, error) {
 	invalid := func() ([]string, error) {
-		return nil, fmt.Errorf("%w: include must contain valid nonempty object JSON pointers of at most 256 UTF-8 bytes", ErrInvalid)
+		return nil, fmt.Errorf("%w: include requires nonempty JSON Pointer selectors of at most 256 UTF-8 bytes; '*' must be a complete nonfinal array segment", ErrInvalid)
 	}
 	if !utf8.ValidString(raw) || len(raw) > 256 || !strings.HasPrefix(raw, "/") || strings.ContainsRune(raw, 0) {
 		return invalid()
 	}
 	parts := strings.Split(raw[1:], "/")
 	for i, p := range parts {
-		if p == "" || strings.Contains(p, "*") {
+		if p == "" || strings.Contains(p, "*") && (p != "*" || i == len(parts)-1) {
 			return invalid()
 		}
 		var out strings.Builder
@@ -90,11 +84,93 @@ func responsePath(raw string) ([]string, error) {
 	return parts, nil
 }
 
+// A node selects an entire leaf, named object fields, or all array elements.
+// Building this tree rejects contradictory selectors before any result arrives.
+type responseSelection struct {
+	leaf   bool
+	fields map[string]*responseSelection
+	all    *responseSelection
+}
+
+func (s *responseSelection) add(parts []string) error {
+	node := s
+	for _, part := range parts {
+		if node.leaf {
+			return fmt.Errorf("%w: response paths must not repeat or overlap", ErrInvalid)
+		}
+		if part == "*" {
+			if len(node.fields) > 0 {
+				return fmt.Errorf("%w: response selectors cannot require both array and object traversal at the same node", ErrInvalid)
+			}
+			if node.all == nil {
+				node.all = &responseSelection{}
+			}
+			node = node.all
+		} else {
+			if node.all != nil {
+				return fmt.Errorf("%w: response selectors cannot require both array and object traversal at the same node", ErrInvalid)
+			}
+			if node.fields == nil {
+				node.fields = make(map[string]*responseSelection)
+			}
+			if node.fields[part] == nil {
+				node.fields[part] = &responseSelection{}
+			}
+			node = node.fields[part]
+		}
+	}
+	if node.leaf || node.all != nil || len(node.fields) > 0 {
+		return fmt.Errorf("%w: response paths must not repeat or overlap", ErrInvalid)
+	}
+	node.leaf = true
+	return nil
+}
+
+func (s *responseSelection) project(source any) (any, error) {
+	if s.leaf {
+		return source, nil
+	}
+	if s.all != nil {
+		array, ok := source.([]any)
+		if !ok {
+			return nil, fmt.Errorf("response projection requires an array at each '*' selector")
+		}
+		// Allocate the exact length: no filtering, reordering or partially
+		// returned arrays can conceal missing fields in a later element.
+		projected := make([]any, len(array))
+		for i, value := range array {
+			item, err := s.all.project(value)
+			if err != nil {
+				return nil, err
+			}
+			projected[i] = item
+		}
+		return projected, nil
+	}
+	object, ok := source.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("response projection requires an object at each named selector; arrays must use '*'")
+	}
+	projected := make(map[string]any, len(s.fields))
+	for name, child := range s.fields {
+		value, exists := object[name]
+		if !exists {
+			return nil, fmt.Errorf("response projection references a missing field")
+		}
+		selected, err := child.project(value)
+		if err != nil {
+			return nil, err
+		}
+		projected[name] = selected
+	}
+	return projected, nil
+}
+
 // ApplyMCPResponsePolicy accepts only a validated, successful MCP envelope.
 // Structured results get a single regenerated text block, so a textual copy of
 // the original cannot bypass projection or basic secret-field filtering.
 func ApplyMCPResponsePolicy(raw json.RawMessage, policy *ResponsePolicy) (json.RawMessage, error) {
-	p, err := NormalizeResponsePolicy(policy)
+	p, selection, err := normalizeResponsePolicy(policy)
 	if err != nil {
 		return nil, err
 	}
@@ -119,29 +195,14 @@ func ApplyMCPResponsePolicy(raw json.RawMessage, policy *ResponsePolicy) (json.R
 		redactResponseFields(source)
 		projected := source
 		if len(p.Include) > 0 {
-			projected = map[string]any{}
-			for _, path := range p.Include {
-				parts, _ := responsePath(path)
-				var current any = source
-				for _, part := range parts {
-					object, ok := current.(map[string]any)
-					if !ok {
-						return nil, fmt.Errorf("response projection cannot traverse arrays or scalar values")
-					}
-					value, exists := object[part]
-					if !exists {
-						return nil, fmt.Errorf("response projection references a missing field")
-					}
-					current = value
-				}
-				target := projected
-				for _, part := range parts[:len(parts)-1] {
-					if target[part] == nil {
-						target[part] = map[string]any{}
-					}
-					target = target[part].(map[string]any)
-				}
-				target[parts[len(parts)-1]] = current
+			selected, err := selection.project(source)
+			if err != nil {
+				return nil, err
+			}
+			var ok bool
+			projected, ok = selected.(map[string]any)
+			if !ok {
+				return nil, fmt.Errorf("response projection must preserve the structuredContent object")
 			}
 			// Common root pagination cursors are control data, not expendable text.
 			for _, key := range []string{"nextCursor", "next_cursor"} {

@@ -59,12 +59,28 @@ test("response policies preserve exact JSON Pointer escapes, defaults and pagina
   for (const value of ["1023", "131073", "1.5", "NaN", ""]) assert.throws(() => parseResponsePolicy("", value), /Response limit/);
 });
 
-test("response policies reject invalid escapes, wildcards, empty segments, duplicates and parent-child overlap", () => {
+test("response policies reject invalid escapes, invalid wildcards, empty segments, duplicates and parent-child overlap", () => {
   for (const include of ["order/id", "/a~2b", "/a~", "/", "/a\0b", "/a//b", "/orders/*", "/orders/a*b", "/a\n/a", "/a\n/a/b", "/a/b\n/a", "/a~1b\n/a~1b/c", "/" + "中".repeat(86)]) {
     assert.throws(() => parseResponsePolicy(include, "65536"), undefined, include);
   }
   assert.throws(() => parseResponsePolicy(Array.from({ length: 33 }, (_, index) => `/key${index}`).join("\n"), "65536"), /32/);
   assert.deepEqual(parseResponsePolicy("/order/id\n/order/items\n/orders", "65536").include, ["/order/id", "/order/items", "/orders"]);
+});
+
+test("response policies support array element fields and reject mixed object/array nodes", () => {
+  const paths = ["/results/*/title", "/results/*/url", "/results/*/authors/*/name", "/next_cursor"];
+  assert.deepEqual(parseResponsePolicy(paths.join("\n"), "65536").include, paths);
+  for (const include of [
+    "/results/*/title\n/results/id",
+    "/results/0/title\n/results/*/url",
+    "/results/*/author/*/name\n/results/*/author/id",
+    "/results/*/author\n/results/*/author/name",
+    "/results\n/results/*/title",
+    "/results/*/title\n/results/*/title",
+    "/results/*/title*",
+    "/results/*",
+  ]) assert.throws(() => parseResponsePolicy(include, "65536"), undefined, include);
+  assert.deepEqual(parseResponsePolicy("/results/*/title\n/other/0/title", "65536").include, ["/results/*/title", "/other/0/title"]);
 });
 
 test("only administrators can access server actions; disabled servers never dispatch discovery or import", async () => {

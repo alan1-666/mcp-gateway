@@ -52,8 +52,10 @@ export function parseResponsePolicy(include: string, maxBytes: string): Response
     if (!path.startsWith("/") || path.includes("\0") || new TextEncoder().encode(path).length > 256 || /~(?![01])/.test(path))
       throw new Error("Each response field must be a JSON Pointer beginning with /, with valid ~0 or ~1 escapes, and at most 256 UTF-8 bytes.");
     const parts = path.slice(1).split("/").map((part) => part.replaceAll("~1", "/").replaceAll("~0", "~"));
-    if (parts.some((part) => !part || part.includes("*")))
-      throw new Error("Response field paths must not contain empty segments or wildcards. Select an entire array field instead of its elements.");
+    if (parts.some((part) => !part || (part.includes("*") && part !== "*")))
+      throw new Error("Response field paths must not contain empty segments or embedded wildcards. Use a complete * segment to select a field from each array element.");
+    if (parts.at(-1) === "*")
+      throw new Error("An array selector * must be followed by a field path. Select the array field itself to keep each complete element.");
     return parts;
   });
   for (let i = 0; i < parsed.length; i += 1) {
@@ -61,8 +63,12 @@ export function parseResponsePolicy(include: string, maxBytes: string): Response
       const left = parsed[i];
       const right = parsed[j];
       const length = Math.min(left.length, right.length);
-      if (left.slice(0, length).every((part, index) => part === right[index]))
+      let shared = 0;
+      while (shared < length && left[shared] === right[shared]) shared += 1;
+      if (shared === length)
         throw new Error("Response field paths must not repeat or overlap a parent and child field.");
+      if (left[shared] === "*" || right[shared] === "*")
+        throw new Error("A response node cannot mix an array selector * with specific object keys.");
     }
   }
   return { ...(paths.length ? { include: paths } : {}), max_bytes: maximum };

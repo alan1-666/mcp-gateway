@@ -26,6 +26,7 @@ type API struct {
 func (a *API) Handler(auth *identity.Auth) http.Handler {
 	mux := http.NewServeMux()
 	a.registerUpstreams(mux)
+	a.registerResponsePolicies(mux)
 	mux.HandleFunc("GET /api/v1/me", func(w http.ResponseWriter, r *http.Request) { respond(w, identity.Actor(r.Context()), nil) })
 	mux.HandleFunc("GET /api/v1/tools", a.listTools)
 	mux.HandleFunc("GET /api/v1/catalog/tools", a.discoverTools)

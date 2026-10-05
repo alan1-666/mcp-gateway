@@ -7,6 +7,7 @@ import { AgentTasks } from "./AgentTasks";
 import { MCPServers } from "./MCPServers";
 import { canManageMCPServers } from "./mcp-servers";
 import { ToolConnection, ToolResponsePolicy } from "./ToolConnection";
+import { ResponsePolicyEditor } from "./ResponsePolicyEditor";
 import { clearTaskDraft } from "./run-draft";
 import { useToolDetails, useToolSearch } from "./useToolSearch";
 import { validateToolPage } from "./tool-search";
@@ -1278,6 +1279,10 @@ function Registry({
                 <dt>Tool ID</dt>
                 <dd className="mono">{selected.id}</dd>
               </div>
+              <div>
+                <dt>Version</dt>
+                <dd>v{selected.version}</dd>
+              </div>
               <ToolConnection tool={selected} />
             </dl>
             <ToolResponsePolicy tool={selected} />
@@ -1322,6 +1327,20 @@ function Registry({
             </div>
           </div>
         </section>
+      ) : null}
+      {selectedId && canManage ? (
+        <ResponsePolicyEditor
+          key={selectedId}
+          api={api}
+          toolID={selectedId}
+          tool={selected}
+          canManage={canManage}
+          loading={details.loading || !!busy}
+          onChanged={async () => {
+            details.reload();
+            await Promise.all([search.controller.reload(), onRefresh()]);
+          }}
+        />
       ) : null}
     </>
   );

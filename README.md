@@ -30,7 +30,8 @@ For source development, downstream configuration and verification, see the [deve
 - Register and publish HTTP tools with validated JSON Schemas.
 - Connect remote Streamable HTTP MCP servers, discover paginated upstream catalogs and import selected tools as disabled drafts with explicit risk.
 - Route namespaced MCP tools through the operation ledger, recheck upstream contracts and immediately gate new admissions when a server is disabled.
-- Select structured result fields, retain valid pagination cursors and enforce response byte limits before returning data to agents.
+- Select object and array-element result fields, retain valid pagination cursors and enforce response byte limits before returning data to agents.
+- Preview response policies against supplied samples and revise them with version checks while preserving prepared operation snapshots.
 - Search the complete authorized tool catalog with bounded cursor pages; load schemas on demand and invoke tools through an authenticated MCP endpoint.
 - Prepare fixed actions, approve writes independently and reject duplicate dispatches.
 - Inspect durable PostgreSQL operation records and event history in the console.

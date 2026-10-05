@@ -128,6 +128,7 @@ type Repository interface {
 	GetTool(context.Context, Actor, string) (Tool, error)
 	PublishTool(context.Context, Actor, string) (Tool, error)
 	SetToolEnabled(context.Context, Actor, string, bool) (Tool, error)
+	UpdateToolResponsePolicy(context.Context, Actor, string, ResponsePolicyUpdateInput) (Tool, error)
 	Prepare(context.Context, Actor, PrepareInput) (Operation, error)
 	Approve(context.Context, Actor, string) (Operation, error)
 	Reject(context.Context, Actor, string) (Operation, error)
