@@ -2,7 +2,9 @@ package core
 
 import (
 	"encoding/json"
+	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 // MCPConfig pins an imported upstream contract. A schema change requires a new
@@ -39,4 +41,20 @@ type RemoteTool struct {
 	SchemaHash     string          `json:"schema_hash"`
 	GatewayName    string          `json:"gateway_name,omitempty"`
 	ImportedToolID string          `json:"imported_tool_id,omitempty"`
+}
+
+// RemoteDescription uses the same bounded representation for import, refresh
+// and comparison so whitespace/truncation cannot create permanent false drift.
+func RemoteDescription(tool RemoteTool) string {
+	description := strings.TrimSpace(tool.Description)
+	if description == "" {
+		description = "Remote MCP tool " + tool.Name
+	}
+	if len(description) > 4000 {
+		description = description[:4000]
+		for !utf8.ValidString(description) {
+			description = description[:len(description)-1]
+		}
+	}
+	return description
 }

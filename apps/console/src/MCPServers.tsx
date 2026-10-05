@@ -1,4 +1,6 @@
 import { MCPDiagnostics } from "./MCPDiagnostics";
+import { CatalogHistory, CatalogRefresh, CatalogSummary } from "./MCPCatalog";
+import { catalogLabels } from "./mcp-catalog";
 import {
   useCallback,
   useEffect,
@@ -46,6 +48,7 @@ export function MCPServers({
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
   const [reviewName, setReviewName] = useState("");
+  const [changesOnly, setChangesOnly] = useState(false);
   const loadRequest = useRef<AbortController | null>(null);
   const mutationPending = useRef(false);
   const mounted = useRef(true);
@@ -61,6 +64,19 @@ export function MCPServers({
   const selected =
     servers.find((server) => server.id === discovery.server?.id) ?? null;
   const remote = discovery.items.find((tool) => tool.name === reviewName);
+  const comparison = useMemo(
+    () =>
+      new Map(
+        discovery.review?.items.map((entry) => [entry.name, entry]) ?? [],
+      ),
+    [discovery.review],
+  );
+  const change = comparison.get(reviewName);
+  const visibleTools = changesOnly
+    ? discovery.items.filter(
+        (tool) => comparison.get(tool.name)?.status !== "unchanged",
+      )
+    : discovery.items;
   const locked = !!busy || !!discovery.importing;
 
   const load = useCallback(async () => {
@@ -337,6 +353,12 @@ export function MCPServers({
                   api={api}
                   serverID={selected.id}
                 />
+                <CatalogHistory
+                  key={`catalog:${selected.id}`}
+                  api={api}
+                  serverID={selected.id}
+                  revision={String(discovery.revision)}
+                />
                 <ErrorNotice error={discovery.error} />
                 {discovery.error ? (
                   <button
@@ -351,16 +373,31 @@ export function MCPServers({
                   <p role="status">Reading the server’s tool contracts…</p>
                 ) : discovery.loaded ? (
                   <>
+                    {discovery.review ? (
+                      <>
+                        <CatalogSummary review={discovery.review} />
+                        <label className="catalog-filter">
+                          <input
+                            type="checkbox"
+                            checked={changesOnly}
+                            onChange={(event) =>
+                              setChangesOnly(event.target.checked)
+                            }
+                          />
+                          Only tools needing review
+                        </label>
+                      </>
+                    ) : null}
                     <p className="mcp-discovery-summary" role="status">
                       {discovery.total} tools discovered · Select one to review
                       before importing.
                     </p>
-                    {discovery.items.length ? (
+                    {visibleTools.length ? (
                       <div
                         className="mcp-remote-list"
                         aria-label="Discovered tools"
                       >
-                        {discovery.items.map((tool) => (
+                        {visibleTools.map((tool) => (
                           <button
                             key={tool.name}
                             className={`mcp-remote-tool ${reviewName === tool.name ? "selected" : ""}`}
@@ -375,14 +412,57 @@ export function MCPServers({
                               </small>
                             </span>
                             <span className="mcp-remote-state">
-                              {tool.imported_tool_id ? "Imported" : "Review →"}
+                              {comparison.has(tool.name)
+                                ? catalogLabels[
+                                    comparison.get(tool.name)!.status
+                                  ]
+                                : tool.imported_tool_id
+                                  ? "Imported"
+                                  : "Review →"}
                             </span>
                           </button>
                         ))}
                       </div>
                     ) : (
-                      <p>This server currently exposes no tools.</p>
+                      <p>
+                        {discovery.items.length
+                          ? "No available tools need review."
+                          : "This server currently exposes no tools."}
+                      </p>
                     )}
+                    {discovery.review?.counts.missing ? (
+                      <section className="catalog-missing">
+                        <h3>Missing from the upstream catalog</h3>
+                        <p className="field-help">
+                          These registered tools were absent from this complete
+                          discovery. Review their dependencies and retire them
+                          in the registry if appropriate.
+                        </p>
+                        {discovery.review.items
+                          .filter((entry) => entry.status === "missing")
+                          .map((entry) => (
+                            <div className="admin-record" key={entry.name}>
+                              <strong className="break-word">
+                                {entry.name}
+                              </strong>
+                              <span>
+                                v{entry.imported_version} ·{" "}
+                                {entry.imported_status}
+                                {entry.imported_enabled ? "" : " · disabled"}
+                              </span>
+                              <button
+                                type="button"
+                                className="text-button"
+                                onClick={() =>
+                                  onRegistry(entry.imported_tool_id!)
+                                }
+                              >
+                                Review registered tool
+                              </button>
+                            </div>
+                          ))}
+                      </section>
+                    ) : null}
                   </>
                 ) : !discovery.error && !discovery.loading ? (
                   <p className="muted">
@@ -410,6 +490,19 @@ export function MCPServers({
                     );
                     if (tool) onImported();
                   }}
+                />
+              ) : null}
+              {remote &&
+              change &&
+              ["schema_changed", "description_changed"].includes(
+                change.status,
+              ) ? (
+                <CatalogRefresh
+                  key={`${selected.id}:${remote.name}:${discovery.revision}`}
+                  api={api}
+                  entry={change}
+                  disabled={!selected.enabled || locked || discovery.loading}
+                  onRegistry={onRegistry}
                 />
               ) : null}
             </>
@@ -647,7 +740,7 @@ function ToolReview({
             : remote.read_only_hint === false
               ? "may change external state"
               : "not provided"}
-          . Confirm the classification below after reviewing the tool.
+          . Review the tool’s behavior before choosing its risk classification.
         </p>
         {remote.imported_tool_id ? (
           <div className="notice notice-info" role="status">

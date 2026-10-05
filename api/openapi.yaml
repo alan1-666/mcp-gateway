@@ -190,7 +190,12 @@ paths:
         Remote annotations are advisory. Discovery does not publish tools or update
         existing imports. gateway_name is a stable namespace alias with a hash
         suffix; imported_tool_id links a previously imported definition, even when
-        the upstream schema has subsequently changed.
+        the upstream schema has subsequently changed. The review object compares the complete remote
+        catalog with registered definitions and records counts and per-tool state. Successful
+        discoveries persist an observation and audit event atomically, retaining 50 reports per server.
+        At most 2000 entries in the union and 2 MiB per report; excess fails without saving a partial
+        report. A server changed/disabled during discovery returns 409. No tool is automatically
+        imported, published, retired, reclassified or invoked.
       x-required-roles: [admin]
       requestBody:
         $ref: '#/components/requestBodies/EmptyAction'
@@ -215,6 +220,51 @@ paths:
           $ref: '#/components/responses/Unavailable'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /api/v1/mcp/servers/{id}/catalog-reviews:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+    get:
+      operationId: listMCPCatalogReviews
+      summary: Read successful upstream catalog comparisons
+      description: |
+        Admin only. Last 50 successful complete discoveries, newest saved first. Does not contact
+        the upstream. Failed/incomplete discovery creates no report. Observations compare with
+        current registered definitions (including drafts and retired tools), not a prior remote
+        catalog. Reports are historical evidence, not health or execution authorization.
+      x-required-roles: [admin]
+      parameters:
+        - name: limit
+          in: query
+          schema: {type: integer, minimum: 1, maximum: 50, default: 20}
+        - name: before
+          in: query
+          schema: {type: string, pattern: '^[0-9]+$'}
+          description: Exclusive report ID, within signed int64. Zero starts the first page. Unknown, repeated or empty parameters are invalid.
+      responses:
+        '200':
+          description: Bounded retained report page
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    maxItems: 50
+                    items: {$ref: '#/components/schemas/MCPCatalogReview'}
+                  next_cursor: {type: string}
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/v1/mcp/servers/{id}/import:
     parameters:
       - $ref: '#/components/parameters/ResourceID'
@@ -2072,10 +2122,12 @@ components:
     RemoteToolList:
       type: object
       additionalProperties: false
-      required: [items, total]
+      required: [items, total, review]
       x-max-upstream-result-bytes: 4194304
       x-max-upstream-pages: 100
       properties:
+        review:
+          $ref: '#/components/schemas/MCPCatalogReview'
         items:
           type: array
           maxItems: 1000
@@ -2085,6 +2137,41 @@ components:
           type: integer
           minimum: 0
           maximum: 1000
+    MCPCatalogReview:
+      type: object
+      required: [id, server_id, started_at, checked_at, counts, items]
+      properties:
+        id: {type: string, pattern: '^[0-9]+$'}
+        server_id: {type: string, format: uuid}
+        started_at: {type: string, format: date-time}
+        checked_at: {type: string, format: date-time}
+        counts:
+          type: object
+          required: [unimported, unchanged, schema_changed, description_changed, missing]
+          properties:
+            unimported: {type: integer, minimum: 0}
+            unchanged: {type: integer, minimum: 0}
+            schema_changed: {type: integer, minimum: 0}
+            description_changed: {type: integer, minimum: 0}
+            missing: {type: integer, minimum: 0}
+        items:
+          type: array
+          maxItems: 2000
+          items:
+            type: object
+            required: [name, gateway_name, status, imported_enabled]
+            properties:
+              name: {type: string}
+              gateway_name: {type: string}
+              status:
+                type: string
+                enum: [unimported, unchanged, schema_changed, description_changed, missing]
+              schema_hash: {type: string, pattern: '^[a-f0-9]{64}$'}
+              imported_tool_id: {type: string, format: uuid}
+              imported_version: {type: integer, minimum: 1}
+              imported_schema_hash: {type: string, pattern: '^[a-f0-9]{64}$'}
+              imported_status: {type: string, enum: [draft, published, retired]}
+              imported_enabled: {type: boolean}
     ImportInput:
       type: object
       additionalProperties: false
@@ -3114,6 +3201,10 @@ components:
       - expected_version
       - reason
       properties:
+        expected_schema_hash:
+          type: string
+          pattern: '^[a-f0-9]{64}$'
+          description: Optional precondition for MCP refresh. Live schema must match the discovery reviewed by the caller or return 409. Not a replacement schema. Invalid with rollback/HTTP definition mode.
         expected_version:
           type: integer
           minimum: 1
@@ -3142,8 +3233,8 @@ components:
       description: 'Choose one mode: source_version copies a historical definition and cannot accompany any override;
         definition replaces an HTTP definition and cannot accompany MCP fields; otherwise an MCP candidate discovers
         server_id/tool_name (defaulting to the current binding), with optional explicit risk/policy overrides. Gateway
-        name is immutable. Candidate creation and publication both validate the live target; schema hashes cannot be
-        supplied by callers.'
+        name is immutable. Candidate creation and publication both validate the live target; the effective schema hash is always derived from the live upstream. An optional expected_schema_hash
+        only constrains that observation.'
     ExpectedVersionInput:
       type: object
       additionalProperties: false

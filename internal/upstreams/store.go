@@ -118,22 +118,6 @@ func (s *Store) setEnabled(ctx context.Context, actor core.Actor, id string, ena
 		return v, audit(ctx, tx, actor, "MCP_SERVER_ENABLED_CHANGED", id, map[string]any{"enabled": enabled})
 	})
 }
-func (s *Store) imported(ctx context.Context, workspaceID, serverID string) (map[string]string, error) {
-	rows, err := s.db.Query(ctx, `SELECT definition->'mcp'->>'tool_name',id FROM tools WHERE workspace_id=$1 AND definition->'mcp'->>'server_id'=$2`, workspaceID, serverID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	result := map[string]string{}
-	for rows.Next() {
-		var name, id string
-		if err := rows.Scan(&name, &id); err != nil {
-			return nil, err
-		}
-		result[name] = id
-	}
-	return result, rows.Err()
-}
 func (s *Store) importTool(ctx context.Context, actor core.Actor, in core.ToolInput) (core.Tool, error) {
 	return withTx(ctx, s.db, func(tx pgx.Tx) (core.Tool, error) {
 		// A share lock fences concurrent disable; the advisory lock makes retries

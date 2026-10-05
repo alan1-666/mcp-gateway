@@ -17,6 +17,7 @@ const reloadConflictMessages = new Set([
   "resource conflict: reconciliation changed; reload before adding evidence",
   "resource conflict: capacity limits changed; reload before saving",
   "resource conflict: tool changed while this candidate was under review",
+  "resource conflict: upstream schema changed since discovery; discover and review again",
 ]);
 
 export function requiresConflictReload(error: unknown): boolean {
