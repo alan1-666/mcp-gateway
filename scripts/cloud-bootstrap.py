@@ -45,5 +45,5 @@ if not env.exists():
 setup = base / "owner-setup.txt"
 if not setup.exists():
     with os.fdopen(os.open(setup, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "w") as stream:
-        stream.write("One-time administrator setup (expires seven days after first startup):\n" + args.origin + "/#invite=" + (private / "bootstrap").read_text().strip() + "\n")
+        stream.write("One-time administrator setup (expires seven days after first startup):\n" + args.origin + "/console/#invite=" + (private / "bootstrap").read_text().strip() + "\n")
 print("Private configuration is ready. Existing values were preserved.")

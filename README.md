@@ -4,7 +4,7 @@
 
 MCP Gateway connects AI agents to existing HTTP APIs and remote MCP servers through a governed tool discovery and execution layer. Its Go backend manages upstream connections, reviewed tool contracts, permissions, approvals and bounded responses. A web console provides administration and execution history; Pi is a client for model-assisted tasks. OpenAPI import, gRPC integration and private-network Connectors remain planned.
 
-> **Project status:** Active development. The Go API and MCP gateway, PostgreSQL execution ledger, invitation-only cloud console, and Pi cloud task worker are runnable. The five core team-governance work packages have passed local regression and feature/merge CI, and are deployed in cloud.8 with bounded API/browser and encrypted-restore checks. Automatic off-host backup and external alert delivery still need authorized destination configuration. The complete production architecture is still being implemented. See [implementation status](docs/implementation-status.md) for delivered capabilities and remaining acceptance gates.
+> **Project status:** Active development. The core cloud gateway, invitation-only workspace, Pi task worker and scheduled catalog checks are implemented and cloud-verified within the acceptance journeys recorded in [verification](docs/verification.md). The public product website is at `/`; the team workspace is at `/console/`. Upstream OAuth, private Connectors, high availability and independently commissioned recovery remain open. See [implementation status](docs/implementation-status.md) for current delivery and remaining production work.
 
 ## Cloud Delivery
 
@@ -19,7 +19,7 @@ node scripts/bootstrap.mjs
 docker compose --env-file .local/compose.env -f deploy/compose/compose.yaml up --build
 ```
 
-Open the console at `http://127.0.0.1:4782`. Use the private identities created in `.local/identities.json`; keep administrator, operator and approver identities separate. Downstream origins must be explicitly allowed before tools can be registered.
+Open the website at `http://127.0.0.1:4782/` and the console at `http://127.0.0.1:4782/console/`. Use the private identities created in `.local/identities.json`; keep administrator, operator and approver identities separate. Downstream origins must be explicitly allowed before tools can be registered.
 
 For the delivery workflow, source development, downstream configuration and verification, see the [development guide](docs/development.md). The [work package status](docs/implementation-status.md#development-order) separates implemented behavior from remaining release and acceptance gates. The [Pi runner guide](apps/agent-runner/README.md) explains how to use an existing local subscription login without sending model credentials to the gateway.
 

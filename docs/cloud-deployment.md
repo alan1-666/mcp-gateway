@@ -23,6 +23,8 @@ flowchart LR
 
 No database or backend port is published publicly. The cloud configuration runs the application as an unprivileged user with a read-only filesystem, CPU/memory/process limits and bounded Docker logs. A health failure is visible through Compose; restart policies restart exited processes, not merely unhealthy processes.
 
+The public website is served at `/`; the team workspace is served at `/console/`. Both share the existing HTTPS origin. New invitations point to `/console/#invite=...`; previously issued `/#invite=...` links are forwarded in the browser, keeping the token in the fragment. The website is a separate static entry and makes no account or gateway requests. The workspace continues to require authentication.
+
 ## Identity and access
 
 - One account belongs to one workspace. Usernames are globally unique, normalized to lowercase, and are not verified email addresses.

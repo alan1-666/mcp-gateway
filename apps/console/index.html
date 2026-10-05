@@ -3,16 +3,424 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#15252b" />
+    <meta name="theme-color" content="#f8f8f2" />
+    <meta name="referrer" content="no-referrer" />
     <meta
       name="description"
-      content="Govern access to enterprise tools. Register integrations, review approvals, and inspect every invocation with MCP Gateway."
+      content="Connect agents to MCP servers and HTTP APIs through one governed gateway. Control tool access, approve writes and return only the fields your agents need."
     />
-    <title>MCP Gateway — Control workspace</title>
+    <meta
+      property="og:title"
+      content="MCP Gateway — Give agents access. Keep control."
+    />
+    <meta
+      property="og:description"
+      content="One gateway for your agents and tools. Reviewed connections, scoped access, human approvals and focused responses."
+    />
+    <meta property="og:type" content="website" />
+    <title>MCP Gateway — Give agents access. Keep control.</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   </head>
   <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <header class="site-header">
+      <div class="wrap header-inner">
+        <a class="wordmark" href="/" aria-label="MCP Gateway home"
+          ><span class="brand-symbol" aria-hidden="true"
+            ><svg viewBox="0 0 32 32" fill="none">
+              <path
+                d="M7 25V7h7v18M18 25V7h7v18"
+                stroke="currentColor"
+                stroke-width="2.5"
+              /></svg></span
+          >MCP Gateway</a
+        >
+        <nav aria-label="Main navigation">
+          <a href="#how-it-works">How it works</a
+          ><a href="#response-control">Response control</a
+          ><a href="https://github.com/alan1-666/mcp-gateway/tree/main/docs"
+            >Docs <span aria-hidden="true">↗</span></a
+          >
+        </nav>
+        <a class="header-cta" href="/console/"
+          >Open workspace <span aria-hidden="true">↗</span></a
+        >
+      </div>
+    </header>
+    <main id="main-content">
+      <section class="hero">
+        <div class="wrap hero-layout">
+          <div class="hero-copy">
+            <p class="eyebrow">
+              <span class="tiny-cross" aria-hidden="true">+</span> THE ACCESS
+              LAYER FOR YOUR AGENTS
+            </p>
+            <h1>
+              Give agents<br />access.<br /><span class="heading-last"
+                >Keep control<svg
+                  aria-hidden="true"
+                  viewBox="0 0 325 12"
+                  preserveAspectRatio="none"
+                >
+                  <path d="M2 8C90 0 190 2 323 7" /></svg></span
+              >.
+            </h1>
+            <p class="hero-description">
+              Your agents. Your tools. One governed gateway.<br
+                class="desktop-break"
+              />
+              Connect MCP servers and HTTP APIs with clear permissions and
+              focused responses.
+            </p>
+            <div class="actions">
+              <a class="button button-dark" href="/console/"
+                >Open workspace <span aria-hidden="true">↗</span></a
+              ><a
+                class="text-link"
+                href="https://github.com/alan1-666/mcp-gateway"
+                >Explore on GitHub <span aria-hidden="true">↗</span></a
+              >
+            </div>
+            <p class="hero-note">
+              Built for teams. Cloud workspace · Invitation-only access.
+            </p>
+          </div>
+          <figure
+            class="routing-map"
+            aria-label="Agent clients connect to MCP Gateway, which checks access, approvals and response policies before connecting to remote MCP servers or HTTP APIs. The operation ledger records the outcome."
+          >
+            <div class="map-heading">
+              <span>ONE CONNECTION. CLEAR BOUNDARIES.</span
+              ><span aria-hidden="true">01 / 03</span>
+            </div>
+            <div class="map-body" aria-hidden="true">
+              <svg
+                class="map-wires"
+                viewBox="0 0 540 360"
+                preserveAspectRatio="none"
+              >
+                <path
+                  d="M78 94H137V180H219M78 266H137V180M321 180H398V94H463M398 180V266H463"
+                />
+                <path
+                  class="wire-pulse"
+                  d="M78 94H137V180H219M321 180H398V94H463"
+                />
+              </svg>
+              <div class="map-side">
+                <div class="map-node">
+                  <span class="node-icon terminal-icon">&gt;_</span
+                  ><strong>Pi agent</strong><span>Task runtime</span>
+                </div>
+                <div class="map-node">
+                  <span class="node-icon"
+                    ><svg viewBox="0 0 24 24" fill="none">
+                      <path
+                        d="m9 6-6 6 6 6m6-12 6 6-6 6"
+                        stroke="currentColor"
+                        stroke-width="1.5"
+                      /></svg></span
+                  ><strong>MCP client</strong><span>Your agent stack</span>
+                </div>
+              </div>
+              <div class="map-gateway">
+                <span class="gateway-caption">THE CONTROL POINT</span
+                ><svg class="gateway-mark" viewBox="0 0 52 52" fill="none">
+                  <path
+                    d="M11 42V10h12v32M30 42V10h12v32"
+                    stroke="currentColor"
+                    stroke-width="3"
+                  /></svg
+                ><strong>MCP Gateway</strong>
+                <div class="gate-policies">
+                  <span>✓ Scoped access</span><span>✓ Write approvals</span
+                  ><span>✓ Response policy</span>
+                </div>
+                <span class="gateway-port">/mcp</span>
+              </div>
+              <div class="map-side">
+                <div class="map-node">
+                  <span class="node-icon"
+                    ><svg viewBox="0 0 24 24" fill="none">
+                      <rect
+                        x="4"
+                        y="4"
+                        width="16"
+                        height="6"
+                        rx="1"
+                        stroke="currentColor"
+                        stroke-width="1.5"
+                      />
+                      <rect
+                        x="4"
+                        y="14"
+                        width="16"
+                        height="6"
+                        rx="1"
+                        stroke="currentColor"
+                        stroke-width="1.5"
+                      />
+                      <path
+                        d="M7 7h2m-2 10h2"
+                        stroke="currentColor"
+                        stroke-width="1.5"
+                      /></svg></span
+                  ><strong>MCP servers</strong><span>Streamable HTTP</span>
+                </div>
+                <div class="map-node">
+                  <span class="node-icon">{ }</span><strong>HTTP APIs</strong
+                  ><span>Existing services</span>
+                </div>
+              </div>
+            </div>
+            <figcaption>
+              <span class="ledger-icon" aria-hidden="true">≡</span
+              ><span>Every governed operation leaves a record.</span
+              ><span aria-hidden="true">↳</span>
+            </figcaption>
+          </figure>
+        </div>
+        <div class="wrap principle-strip">
+          <span>DESIGNED AROUND THE CALL</span>
+          <p>Connect deliberately.</p>
+          <p>Act with permission.</p>
+          <p>Return what matters.</p>
+        </div>
+      </section>
+      <section
+        class="section wrap"
+        id="how-it-works"
+        aria-labelledby="flow-title"
+      >
+        <div class="section-heading">
+          <p class="eyebrow">01 / A CLEAR PATH TO EVERY TOOL</p>
+          <h2 id="flow-title">From connection<br />to confidence.</h2>
+          <p>
+            Bring your services into a shared catalog.<br />Keep the decisions
+            that matter in your team’s hands.
+          </p>
+        </div>
+        <div class="workflow">
+          <article>
+            <div class="step-number">01 <span aria-hidden="true">↗</span></div>
+            <h3>Connect &amp; review</h3>
+            <p>
+              Discover remote MCP tools or register an HTTP API. Review
+              contracts and publish the versions you trust.
+            </p>
+            <a
+              href="https://github.com/alan1-666/mcp-gateway/blob/main/docs/remote-mcp-contract.md"
+              >Explore connections <span aria-hidden="true">↗</span></a
+            >
+          </article>
+          <article>
+            <div class="step-number">02 <span aria-hidden="true">↗</span></div>
+            <h3>Grant &amp; govern</h3>
+            <p>
+              Scope each client’s access. Require an independent reviewer to
+              approve writes before the gateway dispatches them.
+            </p>
+            <a
+              href="https://github.com/alan1-666/mcp-gateway/blob/main/docs/cloud-deployment.md#identity-and-access"
+              >Explore client access <span aria-hidden="true">↗</span></a
+            >
+          </article>
+          <article>
+            <div class="step-number">03 <span aria-hidden="true">↗</span></div>
+            <h3>Execute &amp; inspect</h3>
+            <p>
+              Apply response policies and follow the operation to its recorded
+              outcome. Keep uncertain writes visible for review.
+            </p>
+            <a
+              href="https://github.com/alan1-666/mcp-gateway/blob/main/docs/implementation-status.md"
+              >See what’s implemented <span aria-hidden="true">↗</span></a
+            >
+          </article>
+        </div>
+      </section>
+      <section
+        class="response-section"
+        id="response-control"
+        aria-labelledby="response-title"
+      >
+        <div class="wrap response-layout">
+          <div class="response-copy">
+            <p class="eyebrow">02 / LESS NOISE. MORE SIGNAL.</p>
+            <h2 id="response-title">
+              The right fields.<br />A clearer context.
+            </h2>
+            <p>
+              A tool can return more than an agent needs. Choose which
+              structured fields pass through, preserve pagination, and set a
+              final response size limit.
+            </p>
+            <a
+              class="text-link"
+              href="https://github.com/alan1-666/mcp-gateway/blob/main/docs/remote-mcp-contract.md"
+              >Read the response contract <span aria-hidden="true">↗</span></a
+            >
+            <div class="policy-note">
+              <span aria-hidden="true">↳</span>
+              <p>
+                Policies shape the stored and returned result.<br />Upstream
+                data transfer stays unchanged.
+              </p>
+            </div>
+          </div>
+          <div class="response-example">
+            <div class="example-toolbar">
+              <span
+                ><span class="sample-dot" aria-hidden="true"></span>
+                docs.search</span
+              ><span>ILLUSTRATIVE SAMPLE</span>
+            </div>
+            <div
+              class="response-tabs"
+              role="group"
+              aria-label="Sample response view"
+            >
+              <button type="button" data-view="upstream" aria-pressed="false">
+                Upstream response</button
+              ><button type="button" data-view="projected" aria-pressed="true">
+                After field selection <span aria-hidden="true">↗</span>
+              </button>
+            </div>
+            <pre
+              class="response-code"
+              tabindex="0"
+              aria-label="Sample response JSON"
+            ><code id="response-code">{
+  "results": [
+    {
+      "title": "Connect your first server",
+      "url": "https://docs.example/connect"
+    }
+  ],
+  "nextCursor": "page_2"
+}</code></pre>
+            <div class="example-footer">
+              <span id="response-note" role="status"
+                >2 selected fields · Pagination retained</span
+              ><span aria-hidden="true">{ }</span>
+            </div>
+          </div>
+        </div>
+      </section>
+      <section
+        class="section wrap operate-section"
+        aria-labelledby="operate-title"
+      >
+        <div class="section-heading">
+          <p class="eyebrow">03 / BUILT FOR THE DAY AFTER SETUP</p>
+          <h2 id="operate-title">Your tools evolve.<br />Stay in the loop.</h2>
+          <p>
+            A shared workspace for the people<br />responsible for agent access.
+          </p>
+        </div>
+        <div class="operations-layout">
+          <div
+            class="catalog-illustration"
+            aria-label="Illustration of a catalog change awaiting human review"
+          >
+            <div class="catalog-top">
+              <span class="mono">CATALOG REVIEW</span
+              ><span class="review-badge">Review required</span>
+            </div>
+            <div class="catalog-title">
+              <span class="catalog-glyph" aria-hidden="true">⌘</span>
+              <div>
+                <strong>docs.search</strong
+                ><span>Illustrative schema change</span>
+              </div>
+            </div>
+            <div class="schema-diff">
+              <div>
+                <span>−</span><code>limit: integer</code><span>optional</span>
+              </div>
+              <div>
+                <span>+</span><code>limit: integer</code><span>required</span>
+              </div>
+            </div>
+            <div class="catalog-bottom">
+              <span class="tiny-cross" aria-hidden="true">+</span
+              ><span>Changes stay unpublished until reviewed.</span>
+            </div>
+          </div>
+          <div class="operations-features">
+            <article>
+              <span class="feature-index">01</span>
+              <div>
+                <h3>Catch changes before you publish</h3>
+                <p>
+                  Schedule catalog checks. Compare schema drift, new tools and
+                  missing tools against your registered versions.
+                </p>
+              </div>
+            </article>
+            <article>
+              <span class="feature-index">02</span>
+              <div>
+                <h3>Know who did what</h3>
+                <p>
+                  Inspect client permissions, approval decisions and operation
+                  history from one workspace.
+                </p>
+              </div>
+            </article>
+            <article>
+              <span class="feature-index">03</span>
+              <div>
+                <h3>Keep uncertainty explicit</h3>
+                <p>
+                  Ambiguous writes remain UNKNOWN. Add review evidence without
+                  silently retrying a business action.
+                </p>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+      <section class="build-section" aria-labelledby="build-title">
+        <div class="wrap build-inner">
+          <div>
+            <p class="eyebrow">YOUR INFRASTRUCTURE. YOUR BOUNDARIES.</p>
+            <h2 id="build-title">A gateway you<br />can look inside.</h2>
+            <p>
+              Explore the Go backend, React workspace and Pi runner.
+              <br />Follow the implementation, deployment guides and roadmap on
+              GitHub.
+            </p>
+          </div>
+          <div class="build-actions">
+            <a
+              class="button button-dark"
+              href="https://github.com/alan1-666/mcp-gateway"
+              >Explore the repository <span aria-hidden="true">↗</span></a
+            ><a
+              class="text-link"
+              href="https://github.com/alan1-666/mcp-gateway/blob/main/docs/cloud-deployment.md"
+              >Read the deployment guide <span aria-hidden="true">↗</span></a
+            ><span class="build-status"
+              >Actively developed · Current scope documented</span
+            >
+          </div>
+        </div>
+      </section>
+    </main>
+    <footer class="wrap site-footer">
+      <a class="wordmark" href="/"
+        >MCP Gateway<span class="footer-dot" aria-hidden="true">.</span></a
+      >
+      <p>Give agents access. Keep control.</p>
+      <nav aria-label="Footer navigation">
+        <a href="https://github.com/alan1-666/mcp-gateway">GitHub ↗</a
+        ><a
+          href="https://github.com/alan1-666/mcp-gateway/blob/main/docs/implementation-status.md"
+          >Project status ↗</a
+        ><a href="/console/">Workspace ↗</a>
+      </nav>
+    </footer>
+    <script type="module" src="/src/website.ts"></script>
   </body>
 </html>

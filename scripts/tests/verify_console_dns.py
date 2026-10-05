@@ -22,6 +22,7 @@ import json
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
 import time
 import urllib.error
 import urllib.request
@@ -56,7 +57,33 @@ def docker(*args):
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
-        raise Failure("unexpected proxy redirect")
+        return None
+
+
+def verify_static_routes(opener, origin):
+    for path, marker in (("/", "public-website"), ("/console/", "private-workspace"),
+                         ("/console/reload", "private-workspace"), ("/assets/probe.js", "static-asset")):
+        with opener.open(origin + path, timeout=3) as response:
+            require(response.status == 200 and response.read(4096).decode() == marker,
+                    "incorrect static route: " + path)
+            require(response.headers.get("Referrer-Policy") == "no-referrer", "missing referrer protection")
+            require("frame-ancestors 'none'" in response.headers.get("Content-Security-Policy", ""),
+                    "missing static content security policy")
+    for path in ("/missing-page", "/assets/missing.js", "/internal/private"):
+        try:
+            opener.open(origin + path, timeout=3)
+        except urllib.error.HTTPError as response:
+            require(response.code == 404, "incorrect missing-route status: " + path)
+        else:
+            raise Failure("missing route returned a page: " + path)
+    try:
+        opener.open(origin + "/console?view=test", timeout=3)
+    except urllib.error.HTTPError as response:
+        require(response.code == 308 and response.headers.get("Location") == "/console/?view=test",
+                "workspace canonical redirect lost its path or query")
+    else:
+        raise Failure("workspace canonical redirect missing")
+    print(json.dumps({"case": "public_website_workspace_and_missing_assets", "status": "pass"}), flush=True)
 
 
 def probe(opener, origin, role, generation):
@@ -105,7 +132,16 @@ def verify(args):
     containers = []
     created_network = False
     cleanup_failed = False
+    site = tempfile.TemporaryDirectory(prefix="gateway-website-fixture-")
     try:
+        site_root = Path(site.name)
+        # nginx's non-root user must traverse the synthetic fixture directory.
+        site_root.chmod(0o755)
+        (site_root / "console").mkdir()
+        (site_root / "assets").mkdir()
+        (site_root / "index.html").write_text("public-website")
+        (site_root / "console/index.html").write_text("private-workspace")
+        (site_root / "assets/probe.js").write_text("static-asset")
         docker("network", "create", "--internal", network)
         created_network = True
         ipam = json.loads(docker("network", "inspect", "--format", "{{json .IPAM.Config}}", network))
@@ -138,12 +174,14 @@ def verify(args):
                "--ip", console_ip, "--read-only", "--tmpfs", "/tmp",
                "--cap-drop=ALL", "--security-opt=no-new-privileges",
                "--mount", "type=bind,src=" + str(config) + ",dst=/etc/nginx/conf.d/default.conf,readonly",
+               "--mount", "type=bind,src=" + str(site_root) + ",dst=/usr/share/nginx/html,readonly",
                args.console_image)
         docker("exec", console, "nginx", "-t")
         origin = "http://" + console_ip + ":8080"
         opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
         before = docker("inspect", "--format", "{{.Id}} {{.State.StartedAt}}", console)
         await_generation(opener, origin, "v1")
+        verify_static_routes(opener, origin)
         workers_before = docker("top", console, "-eo", "pid,comm")
         print(json.dumps({"case": "initial_routes_and_payload", "status": "pass"}), flush=True)
 
@@ -169,6 +207,7 @@ def verify(args):
         if created_network:
             result = subprocess.run(["docker", "network", "rm", network], capture_output=True, timeout=30)
             cleanup_failed = cleanup_failed or result.returncode != 0
+        site.cleanup()
         if cleanup_failed:
             print(json.dumps({"case": "cleanup", "status": "fail", "resource_prefix": prefix}), file=sys.stderr)
             raise Failure("fixture cleanup failed; inspect only the reported resource prefix")

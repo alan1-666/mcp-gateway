@@ -21,6 +21,7 @@ The [product design](product-design.md) and [system architecture](architecture.m
 | MCP responses | Original structuredContent schema checks, object/array projection, common-secret filtering, text regeneration, string/null cursor preservation and final byte limits; pure sample preview and versioned edits |
 | Operations and audit | Filtered operation/audit keyset pages with live counts; role/workspace/client visibility; independent append-only reconciliation and secret-free configuration audit metadata |
 | Capacity | Database-backed workspace/client/upstream concurrency and per-minute admission budgets, 429/Retry-After or MCP tool errors, aggregate outcome/duration/rejection metrics |
+| Public website | Dedicated static product homepage, routing diagram, local response-projection illustration and real documentation links; independently bundled workspace at `/console/`, legacy invitation forwarding and responsive layout |
 | Console | Real-API views for connections, credentials, clients, releases, response policy, approvals, operations, audit, UNKNOWN evidence and capacity; grouped navigation and separate detail tabs with retained drafts |
 | Pi and tasks | Restricted subscription-backed CLI/cloud worker, durable platform Run leases, persistent sessions/intents, creator isolation, cancellation and explicit approval/uncertainty pauses |
 | Release tooling | Committed-source packaging, source/migration checksums, recorded image IDs, explicit deployment/compatible rollback and interrupted metadata repair; separately versioned operations bundles preserve backup/monitor tooling across application rollback |
@@ -39,13 +40,14 @@ The core Gateway flow is working in the cloud: connect an upstream → discover 
 | Operational visibility | Recorded operations, audit, scoped admission, catalog comparison, retained review history and scheduled checks | Telemetry/SLO dashboards and scheduler-specific alerting |
 | Pi tasks | Subscription-backed cloud runner, durable task leases, cancellation and approval pauses | Per-user model accounts, distributed runtime and quality evaluation |
 | Cloud delivery | Known-source releases, encrypted local backups, isolated restore verification and local health collection | Independent off-host backup destination, external alert webhook, actual application rollback and HA |
+| Product website | Public English homepage, independent `/console/` entry, local sample interaction and invitation compatibility implemented; local responsive/browser, invitation, regression and build verification passed | Cloud acceptance and release evidence |
 | Console redesign | Grouped navigation, compact overview, server and tool detail tabs, lazy retained panels, mobile navigation and a shared light theme implemented and locally accepted | Broader usability feedback and future feature views |
 
 ## Development order
 
 The original five packages are implemented: connections/credentials, client access, tool publication, diagnostics/audit, and capacity/recovery. Their cloud.8 acceptance is historical evidence, not the current deployment. Subsequent proxy recovery, private integration and catalog-review releases are recorded chronologically in [verification](verification.md).
 
-The console redesign is deployed and cloud-verified. Scheduled catalog checks are deployed and cloud-verified. The next access capability is upstream OAuth. Off-host recovery and external alert delivery still need real destinations before they can be commissioned. Use the [delivery workflow](development.md#delivery-workflow) for every package; completion of one package does not establish readiness for all production scenarios.
+The console redesign is deployed and cloud-verified. Scheduled catalog checks are deployed and cloud-verified. The public website is being accepted separately from the existing gateway runtime. The next access capability is upstream OAuth. Off-host recovery and external alert delivery still need real destinations before they can be commissioned. Use the [delivery workflow](development.md#delivery-workflow) for every package; completion of one package does not establish readiness for all production scenarios.
 
 ## Remaining production architecture
 

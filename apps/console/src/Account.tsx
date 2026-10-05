@@ -59,14 +59,14 @@ export function CloudLogin({
   return (
     <main className="connect-layout">
       <section className="connect-story">
-        <div className="brand">
+        <a className="brand" href="/" aria-label="MCP Gateway home">
           <span className="brand-mark" aria-hidden="true">
             M
           </span>
           <div>
             MCP Gateway<span>Team workspace</span>
           </div>
-        </div>
+        </a>
         <div className="connect-story-body">
           <span className="eyebrow">YOUR TEAM’S TOOL ACCESS LAYER</span>
           <h1>

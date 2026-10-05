@@ -123,6 +123,9 @@ func TestCloudInvitationSessionAndRevocation(t *testing.T) {
 	call(owner, "POST", "/mcp", map[string]string{}, 401)
 	var invitation struct{ ID, URL string }
 	json.Unmarshal(call(owner, "POST", "/api/v1/auth/invites", map[string]string{"role": "operator"}, 200).Body.Bytes(), &invitation)
+	if !strings.HasPrefix(invitation.URL, origin+"/console/#invite=") {
+		t.Fatal("invitation must point to the workspace and keep its secret in the fragment")
+	}
 	operator := session(accept(strings.Split(invitation.URL, "#invite=")[1], "operator"))
 	call(operator, "GET", "/api/v1/auth/members", nil, 403)
 	var op core.Actor

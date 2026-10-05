@@ -86,7 +86,7 @@ node scripts/bootstrap.mjs
 docker compose --env-file .local/compose.env -f deploy/compose/compose.yaml up --build
 ```
 
-Open [the console](http://127.0.0.1:4782). The bootstrap command creates four independent identities in `.local/identities.json`. Open that private file and use the `admin` token to register tools, the `operator` token to request and execute actions, and the `approver` token to approve another user's action. Tokens stay in browser memory and are cleared on disconnect or refresh.
+Open [the console](http://127.0.0.1:4782/console/). The bootstrap command creates four independent identities in `.local/identities.json`. Open that private file and use the `admin` token to register tools, the `operator` token to request and execute actions, and the `approver` token to approve another user's action. Tokens stay in browser memory and are cleared on disconnect or refresh.
 
 Bootstrap never overwrites existing identities. The private `.local/compose.env` contains a randomly generated database password and local user/group IDs. Both files are ignored by Git and excluded from images. Compose mounts the identity file read-only; backend processes run with the matching local UID to read its restrictive file permissions.
 
@@ -122,7 +122,8 @@ make dev
 
 | Component | Default address | Purpose |
 | --- | --- | --- |
-| Console | `http://127.0.0.1:4782` | Management and operations |
+| Website | `http://127.0.0.1:4782/` | Public product information |
+| Console | `http://127.0.0.1:4782/console/` | Management and operations |
 | API | `http://127.0.0.1:8090/api/v1` | Authenticated management and execution |
 | MCP | `http://127.0.0.1:8091/mcp` | Authenticated Streamable HTTP |
 | Health | `/healthz`, `/readyz` on each Go HTTP service | Process and database availability |
