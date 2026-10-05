@@ -28,7 +28,7 @@ The [product design](product-design.md) and [system architecture](architecture.m
 
 ## Current delivery — 2026-10-05
 
-The core Gateway flow is working in the cloud: connect an upstream → discover and review tools → publish a version → authorize a client → execute through policy → project the response → inspect the operation. The current application release is `20261005-cloud.11` (source `f96f2b6`). PR 5 merged as `cfd6004`; its exact [main CI](https://github.com/alan1-666/mcp-gateway/actions/runs/37296306502) passed. Cloud acceptance is bounded to the journeys recorded in [verification](verification.md); the full production architecture is not complete.
+The core Gateway flow is working in the cloud: connect an upstream → discover and review tools → publish a version → authorize a client → execute through policy → project the response → inspect the operation. The current application release is `20261005-cloud.12` (source `92d574a`), including the console redesign in [PR 6](https://github.com/alan1-666/mcp-gateway/pull/6). All six exact-source push/PR checks and the bounded cloud browser acceptance passed. The preceding PR 5 merge also passed its exact [main CI](https://github.com/alan1-666/mcp-gateway/actions/runs/37296306502). Cloud acceptance is bounded to the journeys recorded in [verification](verification.md); the full production architecture is not complete.
 
 | Workstream | Delivered | Next gap |
 | --- | --- | --- |
@@ -38,13 +38,13 @@ The core Gateway flow is working in the cloud: connect an upstream → discover 
 | Operational visibility | Recorded operations, audit, scoped admission, catalog comparison and retained review history | Scheduled catalog synchronization, telemetry/SLO dashboards |
 | Pi tasks | Subscription-backed cloud runner, durable task leases, cancellation and approval pauses | Per-user model accounts, distributed runtime and quality evaluation |
 | Cloud delivery | Known-source releases, encrypted local backups, isolated restore verification and local health collection | Independent off-host backup destination, external alert webhook, actual application rollback and HA |
-| Console redesign | Grouped navigation, compact overview, server and tool detail tabs, lazy retained panels, mobile navigation and a shared light theme implemented and locally accepted | Exact-source GitHub and cloud visual acceptance for this change |
+| Console redesign | Grouped navigation, compact overview, server and tool detail tabs, lazy retained panels, mobile navigation and a shared light theme implemented and locally accepted | Broader usability feedback and future feature views |
 
 ## Development order
 
 The original five packages are implemented: connections/credentials, client access, tool publication, diagnostics/audit, and capacity/recovery. Their cloud.8 acceptance is historical evidence, not the current deployment. Subsequent proxy recovery, private integration and catalog-review releases are recorded chronologically in [verification](verification.md).
 
-The immediate work is the console redesign and its cloud verification. The next Gateway capabilities are upstream OAuth and scheduled catalog synchronization. Off-host recovery and external alert delivery still need real destinations before they can be commissioned. Use the [delivery workflow](development.md#delivery-workflow) for every package; completion of one package does not establish readiness for all production scenarios.
+The console redesign is deployed and cloud-verified. The next Gateway capabilities are upstream OAuth and scheduled catalog synchronization. Off-host recovery and external alert delivery still need real destinations before they can be commissioned. Use the [delivery workflow](development.md#delivery-workflow) for every package; completion of one package does not establish readiness for all production scenarios.
 
 ## Remaining production architecture
 
@@ -62,7 +62,7 @@ The immediate work is the console redesign and its cloud verification. The next 
 ## Current constraints
 
 - Cloud accounts belong to one workspace. Invitations are bearer links; email ownership is not verified. Client keys are separate identities, not enterprise SSO or unrestricted delegated user access.
-- Cloud.11 is deployed from `f96f2b646a6487958126ee5707b71b1e8e8d6858`, with catalog change review, consistent stored timestamps and the earlier proxy DNS correction. Exact-source push/PR CI and nine bounded cloud acceptance checks passed, including two real catalogs and a projected read through external MCP. The release sequence and initial cloud.10 timestamp finding are recorded in [verification](verification.md). Full cloud administrative-mutation coverage and a real application rollback are not claimed.
+- Cloud.12 is deployed from `92d574a7a3c321f9675132e3d7d055d564c16d73`, including the console redesign and all preceding catalog/proxy fixes. Exact-source push/PR checks and bounded cloud UI acceptance passed. The preceding cloud.11 acceptance includes a projected external MCP read. This UI release added no business calls or production tool mutations. The release sequence and historical findings remain in [verification](verification.md). Full cloud administrative-mutation coverage and a real application rollback are not claimed.
 - The host topology is single-server. An encrypted local snapshot shares that host's failure domain. An authorized second backup destination and an external alert webhook are still pending; no snapshot or backup-key copy to another host has completed. Automatic off-host recovery protection and external notification are not yet commissioned.
 - Backups contain PostgreSQL, cloud configuration and the secret directory including the vault master key. Pi configuration/session volumes, nginx and certificate state need their own coordinated recovery handling. The independent backup key must be escrowed separately. Snapshots are not automatically pruned; production retention/deletion remains future work.
 - HTTP tools require bounded JSON and static paths. Remote MCP supports Streamable HTTP JSON/SSE responses to the original POST and text/structured results; no legacy SSE, standalone streams/resumption, upstream OAuth or stdio. See [remote MCP integration](remote-mcp-contract.md).
