@@ -19,6 +19,7 @@ const MaxServers = 100
 
 var namespacePattern = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,23}$`)
 var credentialPattern = regexp.MustCompile(`^[A-Z][A-Z0-9_]{0,127}$`)
+var targetPattern = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,63}$`)
 
 type Remote interface {
 	ValidateServer(core.Actor, core.MCPServer) error
@@ -60,15 +61,23 @@ func normalize(in core.MCPServerInput) (core.MCPServerInput, error) {
 	in.Name = strings.TrimSpace(in.Name)
 	in.Namespace = strings.TrimSpace(in.Namespace)
 	in.URL = strings.TrimSpace(in.URL)
+	in.ConnectorID = strings.TrimSpace(in.ConnectorID)
+	in.TargetName = strings.TrimSpace(in.TargetName)
 	if len(in.Name) < 1 || len(in.Name) > 120 || !utf8.ValidString(in.Name) || strings.ContainsAny(in.Name, "\x00\r\n") {
 		return in, fmt.Errorf("%w: server name must contain 1-120 UTF-8 bytes", core.ErrInvalid)
 	}
 	if !namespacePattern.MatchString(in.Namespace) {
 		return in, fmt.Errorf("%w: namespace must start with a lowercase letter and contain 1-24 lowercase letters, digits, underscores or hyphens", core.ErrInvalid)
 	}
-	u, err := url.Parse(in.URL)
-	if err != nil || len(in.URL) > 2048 || u.Host == "" || (u.Scheme != "https" && u.Scheme != "http") || u.User != nil || u.Fragment != "" || u.RawQuery != "" || u.ForceQuery {
-		return in, fmt.Errorf("%w: server URL must be HTTP(S) without userinfo, query or fragment", core.ErrInvalid)
+	if in.ConnectorID != "" {
+		if len(in.ConnectorID) > 128 || !targetPattern.MatchString(in.TargetName) || in.URL != "" || in.CredentialRef != "" {
+			return in, fmt.Errorf("%w: a Connector binding requires a target name and cannot include a URL or cloud credential", core.ErrInvalid)
+		}
+	} else {
+		u, err := url.Parse(in.URL)
+		if err != nil || len(in.URL) > 2048 || u.Host == "" || (u.Scheme != "https" && u.Scheme != "http") || u.User != nil || u.Fragment != "" || u.RawQuery != "" || u.ForceQuery || in.TargetName != "" {
+			return in, fmt.Errorf("%w: server URL must be HTTP(S) without userinfo, query or fragment", core.ErrInvalid)
+		}
 	}
 	if in.TimeoutMS == 0 {
 		in.TimeoutMS = 10000

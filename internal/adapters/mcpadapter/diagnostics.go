@@ -28,6 +28,19 @@ func (a *Adapter) Check(ctx context.Context, actor core.Actor, server core.MCPSe
 	if !server.Enabled {
 		return fail("policy", "server_disabled", "Enable the server before checking its connection.")
 	}
+	if server.ConnectorID != "" {
+		items, err := a.Discover(ctx, actor, server)
+		if err != nil {
+			return fail("connector", "connector_unavailable", "Connector discovery failed; check its status, target configuration and catalog compatibility.")
+		}
+		for _, item := range items {
+			report.Tools = append(report.Tools, upstreams.ToolCompatibility{Name: item.Name, Status: "compatible", Code: "supported", Message: "Definition is compatible; business execution has not been tested."})
+		}
+		report.CompatibleCount = len(items)
+		report.Status, report.Stage, report.Code = "ok", "complete", "catalog_compatible"
+		report.Message = "Connector connection and catalog checks passed; no business tool was executed."
+		return report
+	}
 	ctx, cancel := context.WithTimeout(outboundContext{ctx}, time.Duration(server.TimeoutMS)*time.Millisecond)
 	defer cancel()
 	if a.ValidateServerContext(ctx, actor, server) != nil {

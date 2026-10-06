@@ -1,7 +1,14 @@
 import { APIError, messageOf } from "./api";
 import type { APIClient } from "./api";
 import type { CatalogReview } from "./mcp-catalog";
-import type { Identity, MCPServer, RemoteTool, ResponsePolicy, Tool } from "./types";
+import type { Connector } from "./connector-state";
+import type {
+  Identity,
+  MCPServer,
+  RemoteTool,
+  ResponsePolicy,
+  Tool,
+} from "./types";
 
 export const canManageMCPServers = (identity: Pick<Identity, "role">) =>
   identity.role === "admin";
@@ -12,33 +19,88 @@ export interface MCPServerDraft {
   url: string;
   credential: string;
   timeout: string;
+  transport?: "http" | "connector";
+  connectorID?: string;
+  targetName?: string;
 }
 
-export function parseServerDraft(draft: MCPServerDraft) {
+export function parseServerDraft(
+  draft: MCPServerDraft,
+  connectors: Connector[] = [],
+) {
   const name = draft.name.trim();
   const namespace = draft.namespace.trim();
   const credential = draft.credential.trim();
-  if (!name || new TextEncoder().encode(name).length > 120 || /[\r\n\0]/.test(name))
-    throw new Error("Server name must contain 1–120 UTF-8 bytes and no line breaks.");
+  if (
+    !name ||
+    new TextEncoder().encode(name).length > 120 ||
+    /[\r\n\0]/.test(name)
+  )
+    throw new Error(
+      "Server name must contain 1–120 UTF-8 bytes and no line breaks.",
+    );
   if (!/^[a-z][a-z0-9_-]{0,23}$/.test(namespace))
-    throw new Error("Namespace must start with a lowercase letter and use at most 24 lowercase letters, digits, underscores, or hyphens.");
+    throw new Error(
+      "Namespace must start with a lowercase letter and use at most 24 lowercase letters, digits, underscores, or hyphens.",
+    );
+  const timeout = Number(draft.timeout);
+  if (!Number.isSafeInteger(timeout) || timeout < 100 || timeout > 120000)
+    throw new Error(
+      "Timeout must be an integer between 100 and 120,000 milliseconds.",
+    );
+  if (draft.transport === "connector") {
+    const connector = connectors.find((item) => item.id === draft.connectorID);
+    if (!connector?.enabled)
+      throw new Error(
+        "Choose an enabled private connector. Refresh its status if needed.",
+      );
+    if (
+      !draft.targetName ||
+      !connector.targets.some((target) => target.name === draft.targetName)
+    )
+      throw new Error("Choose a target advertised by this connector.");
+    // Changing transport must never send stale cloud URL or credential fields.
+    return {
+      name,
+      namespace,
+      url: "",
+      credential_ref: "",
+      timeout_ms: timeout,
+      connector_id: connector.id,
+      target_name: draft.targetName,
+    };
+  }
   let url: URL;
   try {
     url = new URL(draft.url.trim());
   } catch {
     throw new Error("Enter a complete HTTP or HTTPS server URL.");
   }
-  if (!["http:", "https:"].includes(url.protocol) || /[?#]/.test(draft.url.trim()) || new TextEncoder().encode(draft.url.trim()).length > 2048)
-    throw new Error("Server URL must use HTTP or HTTPS, contain no query or fragment, and fit within 2,048 UTF-8 bytes.");
-  if (url.username || url.password || /^https?:\/\/[^/?#]*@/i.test(draft.url.trim()))
-    throw new Error("Use a credential reference instead of credentials in the URL.");
+  if (
+    !["http:", "https:"].includes(url.protocol) ||
+    /[?#]/.test(draft.url.trim()) ||
+    new TextEncoder().encode(draft.url.trim()).length > 2048
+  )
+    throw new Error(
+      "Server URL must use HTTP or HTTPS, contain no query or fragment, and fit within 2,048 UTF-8 bytes.",
+    );
+  if (
+    url.username ||
+    url.password ||
+    /^https?:\/\/[^/?#]*@/i.test(draft.url.trim())
+  )
+    throw new Error(
+      "Use a credential reference instead of credentials in the URL.",
+    );
   if (credential && !/^[A-Z][A-Z0-9_]*$/.test(credential))
-    throw new Error("Credential references use uppercase letters, digits, and underscores, starting with a letter.");
-  const timeout = Number(draft.timeout);
-  if (!Number.isSafeInteger(timeout) || timeout < 100 || timeout > 120000)
-    throw new Error("Timeout must be an integer between 100 and 120,000 milliseconds.");
+    throw new Error(
+      "Credential references use uppercase letters, digits, and underscores, starting with a letter.",
+    );
   return {
-    name, namespace, url: draft.url.trim(), timeout_ms: timeout,
+    name,
+    namespace,
+    url: draft.url.trim(),
+    timeout_ms: timeout,
     ...(credential ? { credential_ref: credential } : {}),
   };
 }

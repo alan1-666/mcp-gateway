@@ -87,7 +87,7 @@ func (s *Service) Discover(ctx context.Context, a core.Actor, id, issuer string)
 	if err != nil {
 		return Metadata{}, err
 	}
-	if !server.Enabled || server.CredentialRef != "" {
+	if server.ConnectorID != "" || !server.Enabled || server.CredentialRef != "" {
 		return Metadata{}, fmt.Errorf("%w: OAuth requires an enabled server without a static credential", core.ErrConflict)
 	}
 	ctx, cancel := context.WithTimeout(ctx, exchangeTimeout)

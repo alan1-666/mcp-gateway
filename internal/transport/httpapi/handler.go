@@ -12,6 +12,7 @@ import (
 	"github.com/alan1-666/mcp-gateway/internal/adapters/httpadapter"
 	"github.com/alan1-666/mcp-gateway/internal/capacity"
 	"github.com/alan1-666/mcp-gateway/internal/clients"
+	"github.com/alan1-666/mcp-gateway/internal/connectors"
 	"github.com/alan1-666/mcp-gateway/internal/core"
 	"github.com/alan1-666/mcp-gateway/internal/credentials"
 	"github.com/alan1-666/mcp-gateway/internal/execution"
@@ -33,10 +34,12 @@ type API struct {
 	Observability *observability.Service
 	Capacity      *capacity.Service
 	UpstreamOAuth *upstreamoauth.Service
+	Connectors    *connectors.Service
 }
 
 func (a *API) Handler(auth *identity.Auth) http.Handler {
 	mux := http.NewServeMux()
+	a.registerConnectors(mux)
 	a.registerUpstreams(mux)
 	a.registerUpstreamOAuth(mux)
 	a.registerResponsePolicies(mux)

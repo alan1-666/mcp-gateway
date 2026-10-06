@@ -20,6 +20,8 @@ type MCPServerInput struct {
 	Namespace     string `json:"namespace"`
 	URL           string `json:"url"`
 	CredentialRef string `json:"credential_ref,omitempty"`
+	ConnectorID   string `json:"connector_id,omitempty"`
+	TargetName    string `json:"target_name,omitempty"`
 	TimeoutMS     int    `json:"timeout_ms"`
 }
 

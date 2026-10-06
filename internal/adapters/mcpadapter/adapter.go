@@ -36,7 +36,23 @@ type Adapter struct {
 	egress   *httpadapter.Adapter
 	resolver Resolver
 	oauth    OAuthProvider
+	delegate Delegate
+	factory  TransportFactory
 }
+
+// Delegate executes fixed private bindings through an authenticated Connector.
+// Incoming requests cannot choose local commands or override target policy.
+type Delegate interface {
+	ValidateServer(core.Actor, core.MCPServer) error
+	Discover(context.Context, core.Actor, core.MCPServer) ([]core.RemoteTool, error)
+	Execute(context.Context, core.Actor, core.Tool, core.Operation) core.FinishInput
+}
+type TransportFactory func(context.Context, core.MCPServer) (*http.Client, func(), error)
+
+func (a *Adapter) SetDelegate(delegate Delegate) { a.delegate = delegate }
+
+// SetTransportFactory is a startup-only hook for a locally approved stdio target.
+func (a *Adapter) SetTransportFactory(factory TransportFactory) { a.factory = factory }
 
 type OAuthProvider interface {
 	WrapTransport(context.Context, core.Actor, core.MCPServer, http.RoundTripper) (http.RoundTripper, error)
@@ -64,8 +80,20 @@ func (a *Adapter) ValidateServer(actor core.Actor, server core.MCPServer) error 
 	return a.ValidateServerContext(ctx, actor, server)
 }
 func (a *Adapter) ValidateServerContext(ctx context.Context, actor core.Actor, server core.MCPServer) error {
-	if a.egress == nil || server.WorkspaceID != actor.WorkspaceID || server.TimeoutMS < 100 || server.TimeoutMS > 120000 {
+	if server.WorkspaceID != actor.WorkspaceID || server.TimeoutMS < 100 || server.TimeoutMS > 120000 {
 		return fmt.Errorf("%w: invalid MCP server policy or timeout", core.ErrInvalid)
+	}
+	if server.ConnectorID != "" {
+		if a.delegate == nil || server.URL != "" || server.CredentialRef != "" || server.TargetName == "" {
+			return fmt.Errorf("%w: invalid Connector binding", core.ErrInvalid)
+		}
+		return a.delegate.ValidateServer(actor, server)
+	}
+	if a.factory != nil {
+		return nil
+	}
+	if a.egress == nil {
+		return fmt.Errorf("%w: missing egress policy", core.ErrInvalid)
 	}
 	_, closeClient, err := a.egress.NewClientContext(ctx, actor.WorkspaceID, server.URL, server.CredentialRef, time.Duration(server.TimeoutMS)*time.Millisecond)
 	if err != nil {
@@ -79,9 +107,22 @@ func (a *Adapter) connect(ctx context.Context, actor core.Actor, server core.MCP
 	if err := a.ValidateServerContext(ctx, actor, server); err != nil {
 		return nil, nil, nil, err
 	}
-	client, closeClient, err := a.egress.NewClientContext(ctx, actor.WorkspaceID, server.URL, server.CredentialRef, time.Duration(server.TimeoutMS)*time.Millisecond)
+	var client *http.Client
+	var closeClient func()
+	var err error
+	if a.factory != nil {
+		client, closeClient, err = a.factory(ctx, server)
+	} else {
+		client, closeClient, err = a.egress.NewClientContext(ctx, actor.WorkspaceID, server.URL, server.CredentialRef, time.Duration(server.TimeoutMS)*time.Millisecond)
+	}
 	if err != nil {
 		return nil, nil, nil, err
+	}
+	if client == nil || client.Transport == nil || closeClient == nil {
+		if closeClient != nil {
+			closeClient()
+		}
+		return nil, nil, nil, fmt.Errorf("MCP transport is unavailable")
 	}
 	if a.oauth != nil {
 		client.Transport, err = a.oauth.WrapTransport(ctx, actor, server, client.Transport)
@@ -110,6 +151,17 @@ func (a *Adapter) Discover(ctx context.Context, actor core.Actor, server core.MC
 	}
 	ctx, cancel := context.WithTimeout(outboundContext{ctx}, time.Duration(server.TimeoutMS)*time.Millisecond)
 	defer cancel()
+	if server.ConnectorID != "" {
+		if err := a.ValidateServerContext(ctx, actor, server); err != nil {
+			return nil, err
+		}
+		items, err := a.delegate.Discover(ctx, actor, server)
+		if err != nil {
+			return nil, err
+		}
+		return validateDelegatedCatalog(items)
+	}
+
 	session, transport, closeSession, err := a.connect(ctx, actor, server)
 	if err != nil {
 		return nil, err
@@ -233,6 +285,31 @@ func (a *Adapter) Execute(ctx context.Context, actor core.Actor, tool core.Tool,
 	}
 	ctx, cancel := context.WithTimeout(outboundContext{ctx}, time.Duration(server.TimeoutMS)*time.Millisecond)
 	defer cancel()
+	if server.ConnectorID != "" {
+		if err := a.ValidateServerContext(ctx, actor, server); err != nil {
+			return fail("Connector binding is unavailable", false)
+		}
+		if err := core.ValidateArguments(tool.InputSchema, op.Arguments); err != nil {
+			return fail("persisted arguments do not match the MCP tool contract", false)
+		}
+		result := a.delegate.Execute(ctx, actor, tool, op)
+		if result.State != core.StateSucceeded {
+			if result.State == core.StateFailed {
+				return fail("Connector execution did not complete", false)
+			}
+			return fail("Connector did not confirm the outcome; verify before another action", true)
+		}
+		schema := tool.OutputSchema
+		if result.MCPResultValidated {
+			schema = nil
+		}
+		envelope, err := sanitizeResult(result.Result, schema)
+		if err != nil {
+			return fail(err.Error(), true)
+		}
+		return core.FinishInput{State: core.StateSucceeded, Result: envelope}
+	}
+
 	session, transport, closeSession, err := a.connect(ctx, actor, server)
 	if err != nil {
 		return fail("MCP server is blocked or could not be connected", false)
@@ -319,4 +396,46 @@ func sanitizeResult(raw, outputSchema json.RawMessage) (json.RawMessage, error) 
 		return nil, fmt.Errorf("MCP result exceeds the storage size limit")
 	}
 	return envelope, nil
+}
+
+// SanitizeResult validates an upstream envelope before a durable transport queue
+// may persist its projected result. This never trusts an upstream status flag.
+func SanitizeResult(raw, outputSchema json.RawMessage) (json.RawMessage, error) {
+	return sanitizeResult(raw, outputSchema)
+}
+
+// The control plane validates schemas/content at the Connector trust boundary.
+func validateDelegatedCatalog(items []core.RemoteTool) ([]core.RemoteTool, error) {
+	if items == nil || len(items) > maxTools {
+		return nil, fmt.Errorf("Connector returned an invalid catalog")
+	}
+	raw, err := json.Marshal(items)
+	if err != nil || len(raw) > maxCatalogBytes {
+		return nil, fmt.Errorf("Connector catalog exceeds the size limit")
+	}
+	seen := map[string]bool{}
+	for i := range items {
+		t := &items[i]
+		if t.Name == "" || len(t.Name) > 128 || !utf8.ValidString(t.Name) || strings.IndexFunc(t.Name, unicode.IsControl) >= 0 || seen[t.Name] || len(t.Description) > 4000 {
+			return nil, fmt.Errorf("Connector catalog has an invalid or duplicate tool")
+		}
+		seen[t.Name] = true
+		input, err := canonicalSchema(t.InputSchema, true)
+		if err != nil {
+			return nil, fmt.Errorf("Connector tool input schema is unsupported")
+		}
+		var output json.RawMessage
+		if len(t.OutputSchema) > 0 {
+			output, err = canonicalSchema(t.OutputSchema, false)
+			if err != nil {
+				return nil, fmt.Errorf("Connector tool output schema is unsupported")
+			}
+		}
+		if t.SchemaHash != schemaHash(t.Name, input, output) {
+			return nil, fmt.Errorf("Connector tool schema hash does not match its definition")
+		}
+		t.InputSchema, t.OutputSchema = input, output
+		t.GatewayName, t.ImportedToolID = "", ""
+	}
+	return items, nil
 }

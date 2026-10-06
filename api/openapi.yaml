@@ -4,11 +4,14 @@ info:
   version: 0.1.0
   description: |
     HTTP contract for the implemented tool registry, remote MCP server management,
-    upstream OAuth connections, scoped clients, encrypted credentials, reviewed tool releases, approval, durable
+    upstream OAuth connections, private connectors, scoped clients, encrypted credentials, reviewed tool releases, approval, durable
     execution, audit and capacity APIs.
     The MCP transport is exposed separately and is not described by this document.
 
-    These endpoints require a bearer identity or a cloud browser session. Its workspace,
+    The dedicated /connector/v1 endpoints instead require a connector bearer token and
+    use 204 for empty acknowledgments; their result body limit is 4 MiB.
+
+    Management endpoints require a bearer identity or a cloud browser session. Its workspace,
     actor ID and role come from the server; clients cannot select a workspace or role in
     a request. All resource lookups are scoped to that workspace. A supplied browser
     Origin must appear in the server's allowed-origin configuration. Cloud session
@@ -43,6 +46,7 @@ tags:
   - name: Tools
   - name: Operations
   - name: MCP Servers
+  - name: Connectors
   - name: Credentials
   - name: Clients
   - name: Audit
@@ -69,6 +73,171 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /api/v1/connectors:
+    get:
+      operationId: listConnectors
+      tags: [Connectors]
+      summary: List private connector registrations
+      description: Requires an administrator in the authenticated workspace; cloud mode accepts browser sessions only for connector management. Includes revoked registrations, advertised targets and the last contact timestamp. Tokens and local target credentials are never returned. A recent contact is an availability hint, not a guarantee that a job will run.
+      x-required-roles: [admin]
+      responses:
+        '200':
+          description: Complete connector registry, at most 100 registrations
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ConnectorList'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+    post:
+      operationId: createConnector
+      tags: [Connectors]
+      summary: Create a private connector registration and its one-time token
+      description: Requires an administrator; cloud mode accepts browser sessions only. The returned token authenticates only the connector work protocol; it is not a client API key. Save it in the connector host's protected token file. The server stores its hash and cannot return it again. A lost creation response must be checked against the registry before another creation; revoke a registration whose token was lost.
+      x-required-roles: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [name]
+              properties:
+                name: {$ref: '#/components/schemas/Connector/properties/name'}
+      responses:
+        '200':
+          description: Registration with a token available only in this response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [connector, token]
+                properties:
+                  connector: {$ref: '#/components/schemas/Connector'}
+                  token:
+                    type: string
+                    pattern: '^rgc_[A-Za-z0-9_-]{43}$'
+                    description: Secret bearer credential. Never persist it in browser storage, URLs or logs.
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+  /api/v1/connectors/{id}/revoke:
+    parameters:
+      - $ref: '#/components/parameters/ResourceID'
+    post:
+      operationId: revokeConnector
+      tags: [Connectors]
+      summary: Permanently revoke a private connector
+      description: Requires an administrator; cloud mode accepts browser sessions only. Revocation blocks further authentication and expires pending work. It cannot recall a downstream action already authorized to start. Repeated revocation returns the revoked registration. A new registration is required to reconnect.
+      x-required-roles: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: false}
+      responses:
+        '200':
+          description: Revoked connector
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Connector'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+  /connector/v1/poll:
+    post:
+      operationId: pollConnectorWork
+      tags: [Connectors]
+      summary: Advertise fixed targets, record contact, and claim at most one job
+      x-max-request-body-bytes: 16384
+      security:
+        - connectorBearer: []
+      description: |
+        Dedicated connector protocol; browser sessions and client API keys are not accepted.
+        Requests containing Origin or Cookie, or duplicate Authorization headers, are rejected.
+        First contact binds the complete target set. Subsequent contacts must advertise the
+        same names, transports and fingerprints; configuration changes require a new registration.
+        ready=false records contact without claiming work. A claimed job is never reissued,
+        including after a lost response. The connector must journal its claim and obtain
+        a separate start acknowledgment before any local process or network action.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ConnectorPoll'}
+      responses:
+        '200':
+          description: One durably claimed job
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ConnectorJob'}
+        '204': {description: Contact recorded; no job was claimed}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+  /connector/v1/jobs/{id}/start:
+    parameters:
+      - $ref: '#/components/parameters/ResourceID'
+    post:
+      operationId: startConnectorWork
+      tags: [Connectors]
+      summary: Commit permission for one claimed job to begin
+      x-max-request-body-bytes: 1024
+      security:
+        - connectorBearer: []
+      description: |
+        Rechecks registration, exact target binding, deadline and current operation permissions.
+        For execution jobs, the approved tool version and argument snapshot must still match.
+        Acknowledgment is granted once. Duplicate or uncertain start requests must not cause
+        local execution; the connector never retries start to obtain another permission.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: false}
+      responses:
+        '204': {description: Start authorized and durably recorded}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+  /connector/v1/jobs/{id}/result:
+    parameters:
+      - $ref: '#/components/parameters/ResourceID'
+    post:
+      operationId: completeConnectorWork
+      tags: [Connectors]
+      summary: Record the result of a started job
+      security:
+        - connectorBearer: []
+      description: |
+        Records a bounded result while registration, server binding, operation permissions
+        and deadline remain valid. Repeating the identical completed result is idempotent;
+        a different result is rejected. Result reporting must never rerun the underlying tool.
+        A missing confirmed write result is exposed as UNKNOWN by the gateway, not replayed.
+      x-max-request-body-bytes: 4194304
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ConnectorResult'}
+      responses:
+        '204': {description: Result recorded, or identical result already recorded}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '503': {$ref: '#/components/responses/Unavailable'}
   /api/v1/mcp/servers:
     get:
       operationId: listMCPServers
@@ -105,6 +274,9 @@ paths:
         Requires admin. Registers a Streamable HTTP MCP endpoint with a namespace
         unique within the workspace. The origin must be explicitly allowed and
         any credential reference must be bound to that workspace and exact origin.
+        Alternatively, supply connector_id and target_name for an advertised private target
+        in the same workspace, with empty url and credential_ref. Its credentials and process
+        configuration remain on the connector host; cloud OAuth is not used for this path.
         Registration validates configuration but does not import or publish tools.
         The target, namespace and credential reference are immutable; there is no
         edit or delete endpoint. Discovery is a separate network operation.
@@ -2067,6 +2239,10 @@ paths:
           $ref: '#/components/responses/TooManyRequests'
 components:
   securitySchemes:
+    connectorBearer:
+      type: http
+      scheme: bearer
+      description: Dedicated one-time-issued connector token. Accepted only by /connector/v1; workspace and connector identity are derived from its hash.
     sessionCookie:
       type: apiKey
       in: cookie
@@ -2328,10 +2504,132 @@ components:
       type: string
       enum: [read, write]
       description: Administrator-declared risk. HTTP read tools must use GET. MCP read tools require an explicit administrator decision; remote annotations are only hints. Write operations require independent approval.
+    ConnectorTarget:
+      type: object
+      additionalProperties: false
+      required: [name, fingerprint, transport]
+      properties:
+        name:
+          type: string
+          pattern: '^[a-z][a-z0-9_-]{0,63}$'
+        fingerprint:
+          type: string
+          pattern: '^[a-f0-9]{64}$'
+          description: SHA-256 fingerprint of the locally configured target. The cloud cannot change its command, endpoint or credentials.
+        transport:
+          type: string
+          enum: [http, stdio]
+    Connector:
+      type: object
+      additionalProperties: false
+      required: [id, workspace_id, name, enabled, targets, created_at]
+      properties:
+        id: {type: string, format: uuid}
+        workspace_id: {type: string}
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+          x-max-utf8-bytes: 120
+          description: Trimmed display name of 1–120 UTF-8 bytes, without Unicode control characters.
+        enabled: {type: boolean}
+        targets:
+          type: array
+          maxItems: 32
+          items: {$ref: '#/components/schemas/ConnectorTarget'}
+          description: Empty before first contact; fixed for the lifetime of this registration thereafter.
+        last_seen_at: {type: string, format: date-time}
+        created_at: {type: string, format: date-time}
+    ConnectorList:
+      type: object
+      additionalProperties: false
+      required: [items, total]
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items: {$ref: '#/components/schemas/Connector'}
+        total: {type: integer, minimum: 0, maximum: 100}
+    ConnectorPoll:
+      type: object
+      additionalProperties: false
+      required: [targets, ready]
+      properties:
+        targets:
+          type: array
+          minItems: 1
+          maxItems: 32
+          items: {$ref: '#/components/schemas/ConnectorTarget'}
+          description: Complete locally configured target set. Target names must be distinct.
+        ready: {type: boolean}
+    ConnectorJob:
+      type: object
+      additionalProperties: false
+      required: [id, kind, target, deadline, server]
+      properties:
+        id: {type: string, format: uuid}
+        kind: {type: string, enum: [discover, execute]}
+        target: {$ref: '#/components/schemas/ConnectorTarget'}
+        deadline: {type: string, format: date-time}
+        server: {$ref: '#/components/schemas/MCPServer'}
+        tool: {$ref: '#/components/schemas/Tool'}
+        operation: {$ref: '#/components/schemas/Operation'}
+      allOf:
+        - if:
+            properties: {kind: {const: execute}}
+          then:
+            required: [tool, operation]
+      description: Immutable work snapshot. Execution includes the approved tool definition and operation arguments, never a shell command supplied by the cloud.
+    ConnectorRemoteTool:
+      type: object
+      additionalProperties: false
+      required: [name, description, input_schema, read_only_hint, schema_hash]
+      properties:
+        name: {$ref: '#/components/schemas/RemoteTool/properties/name'}
+        description: {$ref: '#/components/schemas/RemoteTool/properties/description'}
+        input_schema: {$ref: '#/components/schemas/InputSchema'}
+        output_schema: {$ref: '#/components/schemas/OutputSchema'}
+        read_only_hint: {$ref: '#/components/schemas/RemoteTool/properties/read_only_hint'}
+        schema_hash: {$ref: '#/components/schemas/RemoteTool/properties/schema_hash'}
+        gateway_name: {type: string}
+        imported_tool_id: {type: string}
+      description: Connector catalog entry before gateway alias assignment. Cloud validation recomputes the schema hash and discards any supplied gateway alias or imported ID.
+    ConnectorResult:
+      type: object
+      additionalProperties: false
+      properties:
+        tools:
+          type: [array, 'null']
+          maxItems: 1000
+          items: {$ref: '#/components/schemas/ConnectorRemoteTool'}
+          description: Discovery catalog only. Successful discovery includes an array, including when empty. Execution and failed discovery may use null.
+        state:
+          type: string
+          enum: [SUCCEEDED, FAILED, UNKNOWN]
+          description: Required for execution. Discovery permits SUCCEEDED, FAILED or omission; UNKNOWN is only an execution outcome.
+        result:
+          description: Execution result only, at most 1 MiB before the configured gateway response policy. Required for successful execution. The gateway validates the MCP envelope and reviewed schema.
+        error:
+          type: string
+          maxLength: 2000
+          x-max-utf8-bytes: 2000
+          description: Bounded error description; successful execution cannot include an error.
+      description: At most 4 MiB in total. Discovery and execution fields cannot be combined. The gateway revalidates results; no credentials or raw process stderr should be included.
     MCPServerInput:
       type: object
       additionalProperties: false
       required: [name, namespace, url]
+      oneOf:
+        - properties:
+            connector_id: {const: ''}
+            target_name: {const: ''}
+            url: {minLength: 1, format: uri}
+        - required: [connector_id, target_name]
+          properties:
+            connector_id: {type: string, minLength: 1, format: uuid}
+            target_name: {type: string, minLength: 1}
+            url: {const: ''}
+            credential_ref: {const: ''}
       properties:
         name:
           type: string
@@ -2345,12 +2643,18 @@ components:
           maxLength: 24
           pattern: '^[a-z][a-z0-9_-]{0,23}$'
           description: Trimmed stable namespace unique within the authenticated workspace.
+        connector_id:
+          type: string
+          description: Enabled connector registration in this workspace. Omit for direct HTTP.
+        target_name:
+          type: string
+          pattern: '^$|^[a-z][a-z0-9_-]{0,63}$'
+          description: Advertised target name of the selected connector. Omit for direct HTTP.
         url:
           type: string
-          format: uri
           maxLength: 2048
           x-max-utf8-bytes: 2048
-          description: Streamable HTTP MCP endpoint on an explicitly permitted HTTP(S) origin. Userinfo, query strings and fragments are rejected; redirects and resolved addresses remain subject to egress policy.
+          description: Empty for a private connector target. Otherwise a Streamable HTTP MCP endpoint on an explicitly permitted HTTP(S) origin. Userinfo, query strings and fragments are rejected; redirects and resolved addresses remain subject to egress policy.
         credential_ref:
           type: string
           maxLength: 128
@@ -2382,6 +2686,10 @@ components:
           $ref: '#/components/schemas/MCPServerInput/properties/url'
         credential_ref:
           $ref: '#/components/schemas/MCPServerInput/properties/credential_ref'
+        connector_id:
+          $ref: '#/components/schemas/MCPServerInput/properties/connector_id'
+        target_name:
+          $ref: '#/components/schemas/MCPServerInput/properties/target_name'
         timeout_ms:
           type: integer
           minimum: 100
