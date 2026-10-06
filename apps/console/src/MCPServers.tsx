@@ -1,4 +1,5 @@
 import { CatalogSchedule } from "./CatalogSchedule";
+import { MCPOAuth } from "./MCPOAuth";
 import { SectionTabs } from "./SectionTabs";
 import { MCPDiagnostics } from "./MCPDiagnostics";
 import { CatalogHistory, CatalogRefresh, CatalogSummary } from "./MCPCatalog";
@@ -33,12 +34,14 @@ function ErrorNotice({ error }: { error: string }) {
 export function MCPServers({
   api,
   identity,
+  cloud = false,
   refreshVersion,
   onRegistry,
   onImported,
 }: {
   api: APIClient;
   identity: Identity;
+  cloud?: boolean;
   refreshVersion: string;
   onRegistry: (toolID: string, section?: "contract" | "versions") => void;
   onImported: () => void;
@@ -555,6 +558,7 @@ export function MCPServers({
                             </dd>
                           </div>
                         </dl>
+                        <MCPOAuth api={api} server={selected} cloud={cloud} />
                         <CatalogSchedule
                           key={selected.id}
                           api={api}
@@ -710,7 +714,7 @@ function ServerForm({
               />
               <span className="field-help">
                 Reference an operator-configured credential. Never paste a
-                secret.
+                secret. Leave empty to configure OAuth in server Settings.
               </span>
             </label>
             <label>

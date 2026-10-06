@@ -48,7 +48,7 @@ For the delivery workflow, source development, downstream configuration and veri
 - Submit cloud Agent tasks, inspect event/output history, cancel work and resume after approval.
 - Run a restricted Pi agent with durable task leases, server-side sessions and intent persistence.
 
-Remote MCP currently supports static-file and encrypted managed header credentials, text/structured results and bounded POST responses (JSON or SSE), with no upstream OAuth, legacy SSE transport, stdio processes or automatic replay. See the [remote MCP contract](docs/remote-mcp-contract.md) for onboarding, projection rules and compatibility limits.
+Remote MCP currently supports static-file and encrypted managed header credentials, text/structured results and bounded POST responses (JSON or SSE), plus [pre-registered upstream OAuth](docs/upstream-oauth.md) with PKCE, issuer-bound callbacks, encrypted grants and fenced refresh. Legacy SSE transport, stdio processes and automatic replay remain unsupported. See the [remote MCP contract](docs/remote-mcp-contract.md) for onboarding, projection rules and compatibility limits.
 
 The sections below describe the target production system. Follow [implementation status](docs/implementation-status.md) for current limitations and [the OpenAPI contract](api/openapi.yaml) for implemented management endpoints.
 
@@ -67,7 +67,7 @@ The platform serves two types of users:
 
 | Area | Scope |
 | --- | --- |
-| Tool integration | Import OpenAPI definitions and Protobuf descriptors; extend existing remote MCP support with upstream OAuth and isolated stdio servers through a Connector. |
+| Tool integration | Import OpenAPI definitions and Protobuf descriptors; extend existing remote MCP support with additional OAuth registration profiles and isolated stdio servers through a Connector. |
 | Tool discovery | Add semantic ranking and service/environment filters to the existing paginated lexical catalog. |
 | Access governance | Extend existing workspace/role/client tool grants with organization, environment, resource and field policies. |
 | Configuration lifecycle | Extend reviewed immutable versions and compatible rollback with signed releases, instance acknowledgements and staged rollout. |

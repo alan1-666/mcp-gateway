@@ -19,6 +19,8 @@ import { Account, CloudLogin, restoreSession } from "./Account";
 import { AgentTasks } from "./AgentTasks";
 import { MCPServers } from "./MCPServers";
 import { canManageMCPServers } from "./mcp-servers";
+import { cleanOAuthCallbackURL, oauthCallback } from "./mcp-oauth";
+import type { OAuthCallback } from "./mcp-oauth";
 import { ToolConnection, ToolResponsePolicy } from "./ToolConnection";
 import { ResponsePolicyEditor } from "./ResponsePolicyEditor";
 import { clearTaskDraft } from "./run-draft";
@@ -312,9 +314,20 @@ function formatDate(value: string) {
 }
 
 export function App() {
+  const [oauthReturn, setOAuthReturn] = useState(() =>
+    oauthCallback(window.location.search),
+  );
   const [session, setSession] = useState<Session | null>(null);
   const [mode, setMode] = useState("loading");
   const [error, setError] = useState("");
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).has("oauth"))
+      window.history.replaceState(
+        window.history.state,
+        "",
+        cleanOAuthCallbackURL(window.location.href),
+      );
+  }, []);
   useEffect(() => {
     let live = true;
     void (async () => {
@@ -379,6 +392,8 @@ export function App() {
         <Workspace
           key={session.identity.id}
           {...session}
+          oauthReturn={oauthReturn}
+          onDismissOAuth={() => setOAuthReturn(null)}
           onLogout={() => void logout()}
           onSignedOut={() => {
             clearTaskDraft(session.identity);
@@ -496,8 +511,17 @@ function Workspace({
   onSignedOut,
   cloud,
   username,
-}: Session & { onLogout: () => void; onSignedOut: () => void }) {
-  const [page, setPage] = useState<Page>("overview");
+  oauthReturn,
+  onDismissOAuth,
+}: Session & {
+  onLogout: () => void;
+  onSignedOut: () => void;
+  oauthReturn: OAuthCallback;
+  onDismissOAuth: () => void;
+}) {
+  const [page, setPage] = useState<Page>(() =>
+    oauthReturn && canManageMCPServers(identity) ? "mcp" : "overview",
+  );
   const [menuOpen, setMenuOpen] = useState(false);
   const menuButton = useRef<HTMLButtonElement>(null);
   useEffect(() => {
@@ -882,18 +906,38 @@ function Workspace({
                 />
               ) : null}
               {page === "mcp" && canManageMCPServers(identity) ? (
-                <MCPServers
-                  api={api}
-                  identity={identity}
-                  refreshVersion={String(mcpRefreshVersion)}
-                  onImported={() => void refresh()}
-                  onRegistry={(id, section = "contract") => {
-                    setRegistrySection(section);
-                    setRegistryTool(id);
-                    setSelectedOperation(null);
-                    setPage("tools");
-                  }}
-                />
+                <>
+                  {oauthReturn ? (
+                    <div
+                      className={`notice notice-${oauthReturn === "connected" ? "info" : "warning"}`}
+                      role="status"
+                    >
+                      {oauthReturn === "connected"
+                        ? "Authorization completed. Select the server and open Settings to review its current OAuth connection."
+                        : "Authorization could not be completed. Select the server and refresh its OAuth status in Settings before connecting again."}
+                      <button
+                        className="text-button"
+                        type="button"
+                        onClick={onDismissOAuth}
+                      >
+                        Dismiss
+                      </button>
+                    </div>
+                  ) : null}
+                  <MCPServers
+                    api={api}
+                    identity={identity}
+                    cloud={!!cloud}
+                    refreshVersion={String(mcpRefreshVersion)}
+                    onImported={() => void refresh()}
+                    onRegistry={(id, section = "contract") => {
+                      setRegistrySection(section);
+                      setRegistryTool(id);
+                      setSelectedOperation(null);
+                      setPage("tools");
+                    }}
+                  />
+                </>
               ) : null}
               {page === "invoke" && canInvoke ? (
                 <Invocation

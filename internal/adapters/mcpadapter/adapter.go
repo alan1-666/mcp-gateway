@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net/http"
 	"strings"
 	"time"
 	"unicode"
@@ -34,7 +35,15 @@ type Resolver interface {
 type Adapter struct {
 	egress   *httpadapter.Adapter
 	resolver Resolver
+	oauth    OAuthProvider
 }
+
+type OAuthProvider interface {
+	WrapTransport(context.Context, core.Actor, core.MCPServer, http.RoundTripper) (http.RoundTripper, error)
+}
+
+// SetOAuthProvider is startup-only configuration shared by all MCP entry points.
+func (a *Adapter) SetOAuthProvider(provider OAuthProvider) { a.oauth = provider }
 
 // A gateway's incoming MCP context contains SDK-private protocol/session
 // values. Passing them to a nested client leaks the caller's negotiated
@@ -73,6 +82,13 @@ func (a *Adapter) connect(ctx context.Context, actor core.Actor, server core.MCP
 	client, closeClient, err := a.egress.NewClientContext(ctx, actor.WorkspaceID, server.URL, server.CredentialRef, time.Duration(server.TimeoutMS)*time.Millisecond)
 	if err != nil {
 		return nil, nil, nil, err
+	}
+	if a.oauth != nil {
+		client.Transport, err = a.oauth.WrapTransport(ctx, actor, server, client.Transport)
+		if err != nil {
+			closeClient()
+			return nil, nil, nil, err
+		}
 	}
 	transport := &protocolTransport{base: client.Transport, ctx: ctx, responses: make(map[string]*responseCapture)}
 	client.Transport = transport

@@ -115,6 +115,12 @@ func (s *Store) setEnabled(ctx context.Context, actor core.Actor, id string, ena
 		if err != nil {
 			return v, err
 		}
+		if !enabled {
+			_, err = tx.Exec(ctx, `UPDATE mcp_upstream_oauth SET version=version+1,status='reconnect_required',token=NULL,expires_at=NULL,state_hash=NULL,session_hash=NULL,actor_id=NULL,verifier=NULL,deadline=NULL,updated_at=clock_timestamp() WHERE workspace_id=$1 AND server_id=$2`, actor.WorkspaceID, id)
+			if err != nil {
+				return v, err
+			}
+		}
 		return v, audit(ctx, tx, actor, "MCP_SERVER_ENABLED_CHANGED", id, map[string]any{"enabled": enabled})
 	})
 }
