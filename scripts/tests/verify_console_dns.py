@@ -62,7 +62,7 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 
 def verify_static_routes(opener, origin):
     for path, marker in (("/", "public-website"), ("/en/", "english-website"),
-                         ("/cn/", "chinese-website"), ("/console/", "private-workspace"),
+                         ("/zh/", "chinese-website"), ("/console/", "private-workspace"),
                          ("/console/reload", "private-workspace"), ("/assets/probe.js", "static-asset")):
         with opener.open(origin + path, timeout=3) as response:
             require(response.status == 200 and response.read(4096).decode() == marker,
@@ -70,14 +70,14 @@ def verify_static_routes(opener, origin):
             require(response.headers.get("Referrer-Policy") == "no-referrer", "missing referrer protection")
             require("frame-ancestors 'none'" in response.headers.get("Content-Security-Policy", ""),
                     "missing static content security policy")
-    for path in ("/missing-page", "/cn/missing", "/en/missing", "/assets/missing.js", "/internal/private"):
+    for path in ("/missing-page", "/cn/missing", "/zh/missing", "/en/missing", "/assets/missing.js", "/internal/private"):
         try:
             opener.open(origin + path, timeout=3)
         except urllib.error.HTTPError as response:
             require(response.code == 404, "incorrect missing-route status: " + path)
         else:
             raise Failure("missing route returned a page: " + path)
-    for entry in ("console", "en", "cn"):
+    for entry in ("console", "en", "zh"):
         try:
             opener.open(origin + f"/{entry}?view=test", timeout=3)
         except urllib.error.HTTPError as response:
@@ -85,6 +85,14 @@ def verify_static_routes(opener, origin):
                     entry + " canonical redirect lost its path or query")
         else:
             raise Failure(entry + " canonical redirect missing")
+    for path in ("/cn", "/cn/", "/cn/index.html"):
+        try:
+            opener.open(origin + path + "?view=test", timeout=3)
+        except urllib.error.HTTPError as response:
+            require(response.code == 308 and response.headers.get("Location") == "/zh/?view=test",
+                    "legacy Chinese redirect lost its path or query: " + path)
+        else:
+            raise Failure("legacy Chinese redirect missing: " + path)
     print(json.dumps({"case": "public_website_workspace_and_missing_assets", "status": "pass"}), flush=True)
 
 
@@ -142,7 +150,7 @@ def verify(args):
         (site_root / "console").mkdir()
         (site_root / "assets").mkdir()
         (site_root / "index.html").write_text("public-website")
-        for locale, marker in (("en", "english-website"), ("cn", "chinese-website")):
+        for locale, marker in (("en", "english-website"), ("zh", "chinese-website")):
             (site_root / locale).mkdir()
             (site_root / locale / "index.html").write_text(marker)
         (site_root / "console/index.html").write_text("private-workspace")

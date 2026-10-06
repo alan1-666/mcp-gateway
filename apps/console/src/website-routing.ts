@@ -5,11 +5,11 @@ export function legacyInvitationDestination(hash: string): string | null {
   return token ? `/console/#invite=${encodeURIComponent(token)}` : null;
 }
 
-export type WebsiteLanguage = "en" | "cn";
+export type WebsiteLanguage = "en" | "zh";
 export const languagePreferenceKey = "rillgate.website.language";
 
 export function languageFromPath(pathname: string): WebsiteLanguage | null {
-  if (/^\/cn(?:\/|\/index\.html)?$/.test(pathname)) return "cn";
+  if (/^\/zh(?:\/|\/index\.html)?$/.test(pathname)) return "zh";
   if (/^\/en(?:\/|\/index\.html)?$/.test(pathname)) return "en";
   return null;
 }
@@ -17,7 +17,9 @@ export function languageFromPath(pathname: string): WebsiteLanguage | null {
 export function readLanguagePreference(storage: Pick<Storage, "getItem">): WebsiteLanguage | null {
   try {
     const value = storage.getItem(languagePreferenceKey);
-    return value === "cn" || value === "en" ? value : null;
+    // Preserve the language choice saved before the Chinese route was renamed.
+    if (value === "cn") return "zh";
+    return value === "zh" || value === "en" ? value : null;
   } catch {
     return null;
   }
@@ -38,6 +40,9 @@ export function websiteDestination(
   // Invitation handling always wins, even when a language was remembered.
   const invitation = legacyInvitationDestination(location.hash);
   if (invitation) return invitation;
+  if (/^\/cn(?:\/|\/index\.html)?$/.test(location.pathname)) {
+    return `/zh/${location.search}${location.hash}`;
+  }
   if ((location.pathname === "/" || location.pathname === "/index.html") && preference) {
     return `/${preference}/${location.search}${location.hash}`;
   }

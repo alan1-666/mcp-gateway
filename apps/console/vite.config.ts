@@ -10,7 +10,7 @@ export default defineConfig({
       handler(html, context) {
         if (context.path.startsWith("/console/")) return html;
         const template = readFileSync(new URL("./index.html", import.meta.url), "utf8");
-        return renderWebsite(template, context.path.startsWith("/cn/") ? "cn" : "en");
+        return renderWebsite(template, context.path.startsWith("/zh/") ? "zh" : "en");
       },
     },
   }],
@@ -19,7 +19,7 @@ export default defineConfig({
       input: {
         website: new URL("./index.html", import.meta.url).pathname,
         english: new URL("./en/index.html", import.meta.url).pathname,
-        chinese: new URL("./cn/index.html", import.meta.url).pathname,
+        chinese: new URL("./zh/index.html", import.meta.url).pathname,
         console: new URL("./console/index.html", import.meta.url).pathname,
       },
     },

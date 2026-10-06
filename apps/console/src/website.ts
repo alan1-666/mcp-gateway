@@ -33,7 +33,7 @@ window.addEventListener("hashchange", routeWebsite);
 document.querySelectorAll<HTMLAnchorElement>("[data-language]").forEach((link) => {
   link.addEventListener("click", () => {
     const language = link.dataset.language;
-    if (language !== "en" && language !== "cn") return;
+    if (language !== "en" && language !== "zh") return;
     if (storage) saveLanguagePreference(storage, language);
     link.href = `/${language}/${window.location.search}${window.location.hash}`;
   });
