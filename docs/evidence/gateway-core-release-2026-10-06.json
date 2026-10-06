@@ -1,0 +1,52 @@
+{
+  "release": "20261006-cloud.23",
+  "deployed_source": "623b46d4dff1242acd8334cc8ed30bc737d293e1",
+  "date": "2026-10-06",
+  "origin": "https://rillgate.cn",
+  "status": "passed_with_documented_provider_boundaries",
+  "github_pr": 17,
+  "source_ci_checks_passed": 6,
+  "cloud_checks": [
+    "upstream_discovery_import_publish",
+    "filtered_ranked_machine_discovery",
+    "mcp_call_tool",
+    "large_result_utf8_chunks",
+    "sha256_integrity",
+    "idempotent_single_dispatch",
+    "invalid_limit_rejected",
+    "independent_approval",
+    "existing_sport_test_read"
+  ],
+  "sdk": {
+    "artifact_bytes": 3991,
+    "chunks": 4,
+    "client": "official MCP Go SDK",
+    "governance_tools": 7,
+    "idempotency_verified": true,
+    "sha256_verified": true,
+    "status": "passed",
+    "visible_scoped_tools": 1
+  },
+  "business_environment": "Previously authorized Sport test environment, read-only calls",
+  "business_rows": 3,
+  "artifact_bytes": 3991,
+  "artifact_chunks": 4,
+  "temporary_access_revoked": true,
+  "artifact_access_denied_after_revocation": true,
+  "test_registrations_disabled": true,
+  "browser_checks": [
+    "service filter shows only selected upstream tools",
+    "approval policy shows pinned version and disables unchanged save",
+    "artifact policy remains opt-in",
+    "supplied-key MCP check shows exactly two authorized tools and clears input",
+    "result reader loads complete 3991-byte result"
+  ],
+  "public_provider_evidence": "cloudflare-public-mcp-2026-10-06.json",
+  "boundaries": [
+    "Cloudflare tested via ephemeral local Gateway, not enabled in production; exact egress change awaits user approval after automatic review rejection",
+    "Microsoft Learn session-bound const/default schemas incompatible with fresh-session adapter; drift gate preserved",
+    "Real vendor OAuth consent not commissioned",
+    "Writes tested with isolated fixtures only; no real business writes in acceptance",
+    "Single host, no HA or commissioned off-host recovery/alerting"
+  ]
+}

@@ -8,7 +8,7 @@ Rillgate connects existing MCP clients and agents to remote MCP services, HTTP A
 
 The Go gateway handles discovery, credentials, permissions, execution records and bounded results. The React console manages services, access keys and call history. No Pi task, model account or separate Rillgate agent application is required.
 
-> **Delivery status:** Gateway core features below are implemented in source. Exact-source CI, named real-service acceptance and deployment remain separate release gates. Earlier cloud acceptance is recorded in [verification](docs/verification.md); it does not establish that unshipped changes are live. See [implementation status](docs/implementation-status.md) for the current boundary.
+> **Delivery status:** The gateway core is deployed as `20261006-cloud.23` from source `623b46d4dff1242acd8334cc8ed30bc737d293e1`. Exact-source CI, official MCP SDK calls against the authorized cloud test integration, browser checks and temporary-key revocation passed. Public Cloudflare compatibility passed separately through an ephemeral local gateway; it is not enabled in production. See the [release evidence](docs/evidence/gateway-core-release-2026-10-06.json) and [implementation status](docs/implementation-status.md) for the supported boundary.
 
 ## How it works
 
@@ -64,6 +64,7 @@ Use the same idempotency key for the same intent. A pending approval is not succ
 - `server_id` filtering applies to imported MCP tools. Search is lexical, with literal punctuation and whitespace-separated terms; it is not semantic search or automatic Chinese segmentation. [Measured discovery fixture](docs/discovery-evaluation.md).
 - Large-result storage requires an explicit MCP response policy and object `structuredContent`. The projected envelope is limited to 1 MiB; only projected structured JSON is stored separately. Default retention is one hour, configurable from 60 seconds to 24 hours, with 100 MiB / 1,000 retained artifacts per workspace. Reads check live permission and expiry. This is not arbitrary file storage or automatic summarization.
 - Automatic retry applies only to HTTP tools classified `read` using GET, with at most two attempts within the original deadline. It excludes writes, MCP/Connector calls, HTTP 429, validation failures and uncertain business effects. Circuit state is local to one gateway process.
+- Microsoft Learn currently embeds a changing session identifier in its input-schema constraints. This supplier profile is not supported by the fresh-session adapter; genuine schema changes remain blocked. [Compatibility observation](docs/remote-mcp-contract.md).
 - OAuth has automated protocol/refresh tests for the [documented registration profile](docs/upstream-oauth.md). Real third-party provider consent acceptance is tracked separately and is not claimed from local fixtures.
 - The current deployment topology is a single host. High availability, an independently commissioned off-host backup destination and external alert delivery are not established.
 

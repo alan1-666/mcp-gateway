@@ -2,6 +2,12 @@
 
 The [product design](product-design.md) and [system architecture](architecture.md) describe the intended production system. This page describes implemented source and the separate acceptance required before a release is considered ready. Historical cloud evidence remains in [verification](verification.md).
 
+## Current core release
+
+Gateway core is deployed as `20261006-cloud.23` from `623b46d4dff1242acd8334cc8ed30bc737d293e1`. Six exact-source GitHub checks passed. Cloud SDK/browser acceptance used the authorized Sport test integration; key revocation and artifact access denial passed and temporary registrations were disabled. Public Cloudflare compatibility passed independently through an ephemeral local Gateway, without a production egress change. See [release evidence](evidence/gateway-core-release-2026-10-06.json). Documentation and additional compatibility regressions may follow the deployed runtime source.
+
+Microsoft Learn's currently observed per-session schema constraints remain incompatible with the fresh-session adapter; real OAuth consent, HA and independently commissioned off-host recovery/alerts remain outside this acceptance.
+
 ## Implemented in source
 
 | Area | Working behavior |
@@ -60,7 +66,7 @@ The console redesign is deployed and cloud-verified. Scheduled catalog checks ar
 
 ### Gateway product priorities
 
-The [Gateway roadmap](gateway-roadmap.md) defines the core release. The corresponding source changes are implemented; exact-source CI, cloud deployment and named real-service checks remain separate acceptance gates:
+The [Gateway roadmap](gateway-roadmap.md) defines the core release. The five core packages are implemented and the release above passed exact-source CI, cloud deployment, named test-service calls and separate public-provider compatibility. Their scope is:
 
 1. Existing-client onboarding: copyable endpoint configuration, supplied-key identity/MCP discovery check, and first-call instructions
 2. Service-filtered, explainably ranked discovery and a fixed 1000-tool evaluation with documented misses

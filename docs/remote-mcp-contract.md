@@ -315,3 +315,11 @@ Migration 011 adds only the catalog-review table/index. Earlier binaries can ign
 ## Source and release acceptance
 
 The call facade, approval policies, ranked service filters and artifact retrieval described here are implemented in source. Publication requires exact-source CI and bounded external-client/cloud checks, recorded independently in [verification](verification.md). Local OAuth/refresh fixtures validate the supported profile but do not claim real third-party vendor consent acceptance. A single-host deployment is not high availability or independent disaster recovery.
+
+## Observed supplier compatibility: Microsoft Learn
+
+On 2026-10-06, cloud.23 discovery of Microsoft Learn returned a different `properties.SessionId.const` and matching `.default` in each of five fresh connections. The schema description instructed callers to use that connection's default value. Two tool-description variants were also observed. The input schema's contract hash consequently changed between discovery and import; the gateway rejected import with `upstream schema changed; discover and review again`.
+
+This is genuine session-bound schema variation, not serialization order or a hash canonicalization failure. The current adapter deliberately pins reviewed schemas and creates a fresh upstream session for each execution. It does not implement supplier-specific session-argument binding. This observed Microsoft Learn profile is therefore incompatible with the current reviewed import/execution path. Removing `const`/`default` from hashing or silently rewriting reviewed arguments would weaken the drift check and is not implemented.
+
+A focused SDK fixture (`TestSessionBoundSchemaConstRemainsPartOfReviewedContract`) reproduces the changing const/default and verifies that execution fails before any business tool call. Earlier dated Microsoft Learn successes remain historical evidence for the then-observed contract; they are not a guarantee of compatibility with this changed supplier behavior. See the dated [verification record](verification.md).

@@ -246,3 +246,14 @@ CI runs `go test -race -coverpkg=./... -coverprofile=coverage/go.out ./...`, the
 The console's `test:coverage` enforces aggregate TypeScript-logic thresholds of 95% lines and 90% branches/functions. Its focused gateway helper gate requires 90% on its declared subset. `.tsx` components are excluded; use browser interaction checks for their selection, cancellation and permission flows. Report these scopes, not a whole-application coverage percentage.
 
 Upstream OAuth unit/local integration fixtures do not establish real vendor login/consent interoperability. Cloud release, named upstream checks, rollback, disaster recovery and production load remain distinct acceptance evidence.
+
+### Opt-in public MCP compatibility check
+
+The fixed Cloudflare public documentation check runs one read-only query through an ephemeral local Gateway and an isolated loopback PostgreSQL schema. It uses no user account, does not edit production egress configuration, and is skipped in normal CI. Review a changed upstream contract before changing its pinned query/tool assumptions.
+
+```sh
+RUN_EXTERNAL_MCP_TEST=1 TEST_DATABASE_URL='<loopback test database URL>' \
+  go test -race ./tests/integration -run '^TestExternalCloudflareDocs$' -count=1 -v
+```
+
+It reports only public compatibility metrics and removes the test schema afterwards. The original observation is in `docs/evidence/cloudflare-public-mcp-2026-10-06.json`; a single external request is not a performance benchmark or OAuth-provider acceptance.
