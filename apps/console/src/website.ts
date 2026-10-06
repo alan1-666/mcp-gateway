@@ -39,36 +39,18 @@ document.querySelectorAll<HTMLAnchorElement>("[data-language]").forEach((link) =
   });
 });
 
-// Entirely local, synthetic data: this example never calls the gateway.
-const code = document.querySelector<HTMLElement>("#response-code")!;
-const sample = {
-  results: [
-    {
-      title: code.dataset.sampleTitle!,
-      url: "https://docs.example/connect",
-      content: code.dataset.sampleContent!,
-      source: "documentation",
-      updatedAt: "2026-10-01",
-      score: 0.94,
-    },
-  ],
-  nextCursor: "page_2",
-};
-const projected = {
-  results: sample.results.map(({ title, url }) => ({ title, url })),
-  nextCursor: sample.nextCursor,
-};
-const note = document.querySelector<HTMLElement>("#response-note")!;
-const buttons = document.querySelectorAll<HTMLButtonElement>("[data-view]");
-buttons.forEach((button) => {
+// Local illustration only: changing the scenario never sends a business request.
+const controls = document.querySelector<HTMLElement>("[data-scenario-controls]");
+const scenarioButtons = document.querySelectorAll<HTMLButtonElement>("[data-scenario]");
+const outcomes = document.querySelectorAll<HTMLElement>("[data-outcome]");
+scenarioButtons.forEach((button) => {
   button.addEventListener("click", () => {
-    const selected = button.dataset.view === "projected";
-    code.textContent = JSON.stringify(selected ? projected : sample, null, 2);
-    note.textContent = selected
-      ? code.dataset.projectedNote!
-      : code.dataset.upstreamNote!;
-    buttons.forEach((item) =>
-      item.setAttribute("aria-pressed", String(item === button)),
-    );
+    outcomes.forEach((outcome) => {
+      outcome.hidden = outcome.dataset.outcome !== button.dataset.scenario;
+    });
+    scenarioButtons.forEach((item) => {
+      item.setAttribute("aria-pressed", String(item === button));
+    });
   });
 });
+if (controls) controls.hidden = false;
