@@ -138,7 +138,34 @@ docker run --rm \
 4. Install `deploy/cloud/mcp-gateway-certificate.{service,timer}` into `/etc/systemd/system/`, then enable the timer. The script renews and reloads nginx twice daily, and fails if fewer than 24 hours remain on the certificate. The old host Certbot package is not used by this recipe. Disable its timer if it also manages this certificate directory: overlapping clients can compete for Certbot’s lock, and older clients do not understand IP renewal.
 5. Check a normal HTTPS request **without** disabling certificate validation. Check `systemctl list-timers` and run the service manually once. A successful initial certificate is not proof that future renewal will succeed; monitor the timer's result and certificate expiry.
 
-Renewal failures currently surface through systemd/journald. External expiry monitoring and alert delivery remain operational work. Registering a domain later changes `PUBLIC_ORIGIN`, nginx and certificate provisioning; existing sessions remain valid only under the new cookie origin and old invitation URLs need replacement.
+Renewal failures currently surface through systemd/journald. External expiry monitoring and alert delivery remain operational work.
+
+### Move to a registered domain
+
+Use the apex domain as the canonical HTTPS origin. Point both its `@` and `www` A records to the host. Confirm authoritative/public resolution and remove any stale AAAA record pointing elsewhere before requesting the certificate. Keep the existing port-80 ACME webroot reachable.
+
+1. Request a separate certificate using the existing ACME account. The existing IP certificate stays in place for the legacy HTTPS redirect:
+
+```sh
+docker run --rm \
+  -v /etc/letsencrypt:/etc/letsencrypt \
+  -v /var/lib/letsencrypt:/var/lib/letsencrypt \
+  -v /var/log/letsencrypt:/var/log/letsencrypt \
+  -v /var/www/mcp-gateway-acme:/var/www/mcp-gateway-acme \
+  certbot/certbot:v5.4.0 certonly --non-interactive \
+  --webroot --webroot-path /var/www/mcp-gateway-acme \
+  --cert-name mcp-gateway-domain -d YOUR_DOMAIN -d www.YOUR_DOMAIN
+```
+
+2. Preserve root-readable copies of `cloud.env`, the nginx site and certificate service configuration on the same host. Replace `PUBLIC_DOMAIN` and `PUBLIC_IP` in `deploy/cloud/nginx-domain.conf.template`, then install it **instead of** the IP-only site. Run `nginx -t` before reload. The template serves the apex and redirects HTTP, `www` and the old HTTPS IP to the fixed canonical origin while preserving the request path/query. Port 80 continues to serve ACME challenges. Unknown HTTPS hosts are rejected.
+3. Change only `PUBLIC_ORIGIN` in `cloud.env` to `https://YOUR_DOMAIN`. Recreate API, gateway and worker from their existing release images using Compose `up -d --no-build --no-deps --force-recreate --wait api gateway worker`. Preserve every other environment value and all volumes. This has a short maintenance window; in-flight operations need the same drain/recovery review as an application replacement.
+4. Install `deploy/cloud/renew-domain-certificates.sh` as `/opt/mcp-gateway/edge/renew-domain-certificates.sh` (root-owned, mode 0755). Install `deploy/cloud/certificate-domain.override.conf` as `/etc/systemd/system/mcp-gateway-certificate.service.d/domain.conf`. Run `systemctl daemon-reload` and start the certificate service once. The existing twice-daily timer now checks both named certificates; unrelated host certificates are untouched. The script and override are host configuration outside application releases, so an application rollback does not disable domain renewal.
+5. Run Certbot `renew --cert-name mcp-gateway-domain --dry-run` with the same Docker mounts to exercise the renewal challenge. A normal renewal invocation that reports “not due” does not test the challenge. Inspect the service/timer result and certificate expiry.
+6. Verify HTTPS normally, without bypassing certificate validation: public and workspace pages, redirect path/query preservation, authentication/CSRF and MCP identity boundaries. Check host DNS too; public propagation does not clear a recursive resolver's negative cache.
+
+Browser cookies are bound to a host: users sign in again at the domain using their existing accounts. Update MCP clients to `https://YOUR_DOMAIN/mcp` directly; do not rely on clients forwarding authorization across redirects. New invitation links use the updated origin. Old browser invitation URLs reach the new origin through the redirect and existing fragment forwarding; verify this with a synthetic token before distributing links.
+
+If the configuration switch fails, restore the saved nginx site and `PUBLIC_ORIGIN`, validate/reload nginx, and recreate the same three services from their existing images. Restore/remove only the new certificate service override as appropriate. This is an origin/configuration rollback, not a database restore or application release rollback; keep both issued certificates for inspection.
 
 ## Backups and recovery
 
