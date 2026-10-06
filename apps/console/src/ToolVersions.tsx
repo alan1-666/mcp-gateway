@@ -1,3 +1,4 @@
+import { useI18n } from "./i18n";
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { APIClient, messageOf, parseObject } from "./api";
@@ -48,6 +49,7 @@ export function ToolVersions({
   tool: Tool;
   onChanged: () => Promise<void>;
 }) {
+  const { t, locale } = useI18n();
   const prefix = `/tools/${tool.id}`;
   const versions = useResource<{ items: Version[]; next_cursor?: number }>(
       api,
@@ -203,11 +205,11 @@ export function ToolVersions({
     <section className="panel detail-panel">
       <div className="panel-heading">
         <div>
-          <span className="eyebrow">REVIEWED RELEASES</span>
-          <h2>Versions & candidates</h2>
+          <span className="eyebrow">{t("REVIEWED RELEASES")}</span>
+          <h2>{t("Versions & candidates")}</h2>
         </div>
         <span className="version-label">
-          Current v{tool.version} · {tool.status}
+          {t("Current v{version}", { version: tool.version })} · {tool.status}
         </span>
       </div>
       <div className="panel-body">
@@ -216,9 +218,9 @@ export function ToolVersions({
           onRetry={() => void reload()}
         />
         <p className="field-help">
-          Publishing creates a new immutable definition. Prepared operations
-          retain their original snapshot. Rollback creates a candidate for
-          review.
+          {t(
+            "Publishing creates a new immutable definition. Prepared operations retain their original snapshot. Rollback creates a candidate for review.",
+          )}{" "}
         </p>
         <form
           onSubmit={(event: FormEvent) => {
@@ -228,7 +230,7 @@ export function ToolVersions({
         >
           <fieldset disabled={action.busy || action.needsReload}>
             <label>
-              Change reason
+              {t("Change reason")}{" "}
               <textarea
                 required
                 rows={2}
@@ -240,7 +242,7 @@ export function ToolVersions({
             {tool.mcp ? (
               <div className="form-grid">
                 <label>
-                  Upstream server
+                  {t("Upstream server")}{" "}
                   <select
                     value={serverID}
                     onChange={(event) => setServerID(event.target.value)}
@@ -248,7 +250,7 @@ export function ToolVersions({
                     {upstreams.data?.items.map((server) => (
                       <option key={server.id} value={server.id}>
                         {server.name}
-                        {server.enabled ? "" : " (disabled)"}
+                        {server.enabled ? "" : t(" (disabled)")}
                       </option>
                     ))}
                   </select>
@@ -258,7 +260,7 @@ export function ToolVersions({
                   />
                 </label>
                 <label>
-                  Upstream tool name
+                  {t("Upstream tool name")}{" "}
                   <input
                     required
                     value={toolName}
@@ -266,19 +268,21 @@ export function ToolVersions({
                   />
                 </label>
                 <label>
-                  Risk for refreshed upstream contract
+                  {t("Risk for refreshed upstream contract")}{" "}
                   <select
                     value={risk}
                     onChange={(event) =>
                       setRisk(event.target.value as Tool["risk"])
                     }
                   >
-                    <option value="read">Read</option>
-                    <option value="write">Write — approval required</option>
+                    <option value="read">{t("Read")}</option>
+                    <option value="write">
+                      {t("Write — approval required")}
+                    </option>
                   </select>
                 </label>
                 <label>
-                  Response policy
+                  {t("Response policy")}{" "}
                   <textarea
                     rows={5}
                     className="code-input"
@@ -289,7 +293,7 @@ export function ToolVersions({
               </div>
             ) : (
               <label>
-                Proposed HTTP definition
+                {t("Proposed HTTP definition")}{" "}
                 <textarea
                   rows={12}
                   className="code-input"
@@ -300,15 +304,15 @@ export function ToolVersions({
             )}
             <button className="button primary">
               {action.busy
-                ? "Working…"
+                ? t("Working…")
                 : tool.mcp
-                  ? "Probe upstream and create candidate"
-                  : "Create candidate for review"}
+                  ? t("Probe upstream and create candidate")
+                  : t("Create candidate for review")}
             </button>
           </fieldset>
         </form>
         <div className="admin-subsection">
-          <h3>Saved candidates</h3>
+          <h3>{t("Saved candidates")}</h3>
           {candidates.loading ? (
             <AdminLoading />
           ) : candidates.data?.items.length ? (
@@ -323,36 +327,39 @@ export function ToolVersions({
                 >
                   <strong>{item.reason}</strong>
                   <span>
-                    Based on v{item.base_version} ·{" "}
+                    {t("Based on v{version}", { version: item.base_version })} ·{" "}
                     {item.published_version
-                      ? `Published as v${item.published_version}`
-                      : "Awaiting review"}
+                      ? t("Published as v{version}", {
+                          version: item.published_version,
+                        })
+                      : t("Awaiting review")}
                   </span>
                 </button>
               ))}
             </div>
           ) : (
-            <AdminEmpty>No candidates yet.</AdminEmpty>
+            <AdminEmpty>{t("No candidates yet.")}</AdminEmpty>
           )}
         </div>
         {loadingCandidate ? <AdminLoading /> : null}
         {selected ? (
           <section className="candidate-preview">
-            <h3>Review candidate changes</h3>
+            <h3>{t("Review candidate changes")}</h3>
             <p>{selected.reason}</p>
-            <AdminJSON label="Field changes" value={selected.changes} />
+            <AdminJSON label={t("Field changes")} value={selected.changes} />
             <details>
-              <summary>Complete proposed definition</summary>
+              <summary>{t("Complete proposed definition")}</summary>
               <AdminJSON
-                label="Proposed contract"
+                label={t("Proposed contract")}
                 value={selected.definition}
               />
             </details>
             {selected.base_version !== tool.version &&
             !selected.published_version ? (
               <div className="notice notice-warning">
-                This candidate is stale. Create a new candidate from the current
-                version.
+                {t(
+                  "This candidate is stale. Create a new candidate from the current version.",
+                )}{" "}
               </div>
             ) : null}
             {!selected.published_version ? (
@@ -367,7 +374,7 @@ export function ToolVersions({
                   }
                   onClick={() => void publish()}
                 >
-                  Publish reviewed candidate
+                  {t("Publish reviewed candidate")}{" "}
                 </button>
                 <button
                   type="button"
@@ -384,24 +391,25 @@ export function ToolVersions({
                       })
                   }
                 >
-                  Discard candidate
+                  {t("Discard candidate")}{" "}
                 </button>
               </div>
             ) : null}
           </section>
         ) : null}
         <div className="admin-subsection">
-          <h3>Version history</h3>
+          <h3>{t("Version history")}</h3>
           {versions.loading ? (
             <AdminLoading />
           ) : history.length ? (
             history.map((version) => (
               <details key={version.version} className="admin-record">
                 <summary>
-                  Version {version.version} · {dateLabel(version.created_at)}
+                  {t("Version {version}", { version: version.version })} ·{" "}
+                  {dateLabel(version.created_at, locale)}
                 </summary>
                 <AdminJSON
-                  label="Immutable definition"
+                  label={t("Immutable definition")}
                   value={version.definition}
                 />
                 <button
@@ -410,12 +418,14 @@ export function ToolVersions({
                   disabled={action.busy || action.needsReload || !reason.trim()}
                   onClick={() => void create(version.version)}
                 >
-                  Create rollback candidate from v{version.version}
+                  {t("Create rollback candidate from v{version}", {
+                    version: version.version,
+                  })}
                 </button>
               </details>
             ))
           ) : (
-            <AdminEmpty>No version history available.</AdminEmpty>
+            <AdminEmpty>{t("No version history available.")}</AdminEmpty>
           )}
           <AdminError error={historyError} onRetry={() => void more()} />
           {cursor ? (
@@ -425,7 +435,7 @@ export function ToolVersions({
               disabled={loadingMore}
               onClick={() => void more()}
             >
-              {loadingMore ? "Loading…" : "Load older versions"}
+              {loadingMore ? t("Loading…") : t("Load older versions")}
             </button>
           ) : null}
         </div>
@@ -437,14 +447,14 @@ export function ToolVersions({
               disabled={action.busy}
               onClick={() => setRetiring(!retiring)}
             >
-              Retire tool
+              {t("Retire tool")}{" "}
             </button>
             {retiring ? (
               <div className="notice notice-warning">
                 <p>
-                  Retirement removes this tool from discovery and stops new
-                  dispatches. Restoration requires publishing a reviewed
-                  candidate.
+                  {t(
+                    "Retirement removes this tool from discovery and stops new dispatches. Restoration requires publishing a reviewed candidate.",
+                  )}{" "}
                 </p>
                 <button
                   type="button"
@@ -463,14 +473,16 @@ export function ToolVersions({
                       })
                   }
                 >
-                  Confirm retirement
+                  {t("Confirm retirement")}{" "}
                 </button>
               </div>
             ) : null}
           </div>
         ) : (
           <p className="notice notice-info">
-            This tool is retired. A reviewed candidate can restore it.
+            {t(
+              "This tool is retired. A reviewed candidate can restore it.",
+            )}{" "}
           </p>
         )}
       </div>

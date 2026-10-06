@@ -1,3 +1,4 @@
+import { useI18n } from "./i18n";
 import { useEffect, useState, type FormEvent } from "react";
 import { APIClient, messageOf } from "./api";
 import type { Identity } from "./types";
@@ -25,6 +26,7 @@ export function CloudLogin({
 }: {
   onConnect: (s: CloudSession) => void;
 }) {
+  const { t } = useI18n();
   const [invite] = useState(
     () =>
       new URLSearchParams(window.location.hash.slice(1)).get("invite") ?? "",
@@ -59,7 +61,7 @@ export function CloudLogin({
   return (
     <main className="connect-layout">
       <section className="connect-story">
-        <a className="brand" href="/" aria-label="Rillgate home">
+        <a className="brand" href="/" aria-label={t("Rillgate home")}>
           <span className="brand-mark" aria-hidden="true">
             <svg viewBox="0 0 32 32" fill="none">
               <path
@@ -70,47 +72,51 @@ export function CloudLogin({
             </svg>
           </span>
           <div>
-            Rillgate<span>Team workspace</span>
+            Rillgate<span>{t("Team workspace")}</span>
           </div>
         </a>
         <div className="connect-story-body">
-          <span className="eyebrow">YOUR TEAM’S TOOL ACCESS LAYER</span>
+          <span className="eyebrow">{t("YOUR TEAM’S TOOL ACCESS LAYER")}</span>
           <h1>
-            Shared tools.
+            {t("Shared tools.")}
             <br />
-            Accountable actions.
+            {t("Accountable actions.")}
           </h1>
           <p>
-            Manage integrations, review sensitive actions, and follow every
-            operation from request to outcome.
+            {t(
+              "Manage integrations, review sensitive actions, and follow every operation from request to outcome.",
+            )}
           </p>
           <div className="flow-strip">
-            <span>Discover</span>
+            <span>{t("Discover")}</span>
             <i />
-            <span>Authorize</span>
+            <span>{t("Authorize")}</span>
             <i />
-            <span>Execute</span>
+            <span>{t("Execute")}</span>
           </div>
         </div>
         <div className="connect-story-foot">
-          <span className="connection-dot" /> A private workspace for your team.
+          <span className="connection-dot" />{" "}
+          {t("A private workspace for your team.")}
         </div>
       </section>
       <section className="connect-form-wrap">
         <form className="connect-form" onSubmit={submit}>
-          <span className="eyebrow">INVITATION-ONLY ACCESS</span>
-          <h2>{invite ? "Join your workspace" : "Welcome back"}</h2>
+          <span className="eyebrow">{t("INVITATION-ONLY ACCESS")}</span>
+          <h2>{invite ? t("Join your workspace") : t("Welcome back")}</h2>
           <p>
             {invite
-              ? "Choose your account details to accept this invitation."
-              : "Sign in with your workspace account. New here? Ask an administrator for an invitation."}
+              ? t("Choose your account details to accept this invitation.")
+              : t(
+                  "Sign in with your workspace account. New here? Ask an administrator for an invitation.",
+                )}
           </p>
           {error && (
             <div role="alert" className="notice notice-error">
-              {error}
+              {t(error)}
             </div>
           )}
-          <label htmlFor="username">Username</label>
+          <label htmlFor="username">{t("Username")}</label>
           <input
             id="username"
             autoComplete="username"
@@ -124,7 +130,7 @@ export function CloudLogin({
             required
             disabled={busy}
           />
-          <label htmlFor="password">Password</label>
+          <label htmlFor="password">{t("Password")}</label>
           <input
             id="password"
             type="password"
@@ -138,21 +144,28 @@ export function CloudLogin({
           />
           <p className="field-help">
             {invite
-              ? "At least 12 characters. This invitation can only be used once."
-              : "Forgot your password? Contact the workspace administrator."}
+              ? t(
+                  "At least 12 characters. This invitation can only be used once.",
+                )
+              : t("Forgot your password? Contact the workspace administrator.")}
           </p>
           <button className="button primary connect-button" disabled={busy}>
-            {busy ? "Please wait…" : invite ? "Create account" : "Sign in"}
+            {busy
+              ? t("Please wait…")
+              : invite
+                ? t("Create account")
+                : t("Sign in")}
           </button>
           <div className="connect-note">
             <p>
-              Your workspace permissions determine which tools and actions you
-              can access.
+              {t(
+                "Your workspace permissions determine which tools and actions you can access.",
+              )}
             </p>
           </div>
         </form>
         <span className="connect-caption">
-          Rillgate · Enterprise tool governance
+          {t("Rillgate · Enterprise tool governance")}
         </span>
       </section>
     </main>
@@ -192,6 +205,7 @@ export function Account({
   onSignedOut: () => void;
   refreshVersion: string;
 }) {
+  const { t, locale } = useI18n();
   const [members, setMembers] = useState<Member[]>([]);
   const [invites, setInvites] = useState<Invite[]>([]);
   const [keys, setKeys] = useState<Key[]>([]);
@@ -272,44 +286,46 @@ export function Account({
     <div className="account-panels">
       {error && (
         <div role="alert" className="notice notice-error">
-          {error}
+          {t(error)}
         </div>
       )}
       {secret && (
         <section className="panel account-panel" role="status">
-          <h2>{secret.label}</h2>
+          <h2>{t(secret.label)}</h2>
           <p>
-            Copy this value now. It will not be shown again after you leave this
-            page.
+            {t(
+              "Copy this value now. It will not be shown again after you leave this page.",
+            )}
           </p>
           <textarea
-            aria-label={secret.label}
+            aria-label={t(secret.label)}
             readOnly
             value={secret.value}
             rows={3}
             onFocus={(e) => e.currentTarget.select()}
           />
           <button className="button secondary" onClick={() => setSecret(null)}>
-            Dismiss
+            {t("Dismiss")}
           </button>
         </section>
       )}
       {isAdmin && (
         <>
           <section className="panel account-panel">
-            <h2>Team members</h2>
+            <h2>{t("Team members")}</h2>
             <p>
-              Changes revoke the member’s sessions and API keys. Your own access
-              must be changed by another administrator.
+              {t(
+                "Changes revoke the member’s sessions and API keys. Your own access must be changed by another administrator.",
+              )}
             </p>
             {members.map((m) => (
               <div className="account-row" key={m.id}>
                 <div>
                   <strong>{m.username}</strong>
-                  <small>{m.disabled ? "Disabled" : "Active"}</small>
+                  <small>{m.disabled ? t("Disabled") : t("Active")}</small>
                 </div>
                 <select
-                  aria-label={`Role for ${m.username}`}
+                  aria-label={t("Role for {name}", { name: m.username })}
                   value={m.role}
                   disabled={busy || m.id === identity.id}
                   onChange={(e) =>
@@ -322,7 +338,9 @@ export function Account({
                   }
                 >
                   {roles.map((r) => (
-                    <option key={r}>{r}</option>
+                    <option key={r} value={r}>
+                      {t(r)}
+                    </option>
                   ))}
                 </select>
                 <button
@@ -337,42 +355,47 @@ export function Account({
                     )
                   }
                 >
-                  {m.disabled ? "Enable" : "Disable"}
+                  {m.disabled ? t("Enable") : t("Disable")}
                 </button>
               </div>
             ))}
           </section>
           <section className="panel account-panel">
-            <h2>Invite a teammate</h2>
+            <h2>{t("Invite a teammate")}</h2>
             <p>
-              Send the link to the intended person. Anyone holding it can claim
-              the selected role once.
+              {t(
+                "Send the link to the intended person. Anyone holding it can claim the selected role once.",
+              )}
             </p>
             <form className="account-row" onSubmit={createInvite}>
-              <label htmlFor="invite-role">Role</label>
+              <label htmlFor="invite-role">{t("Role")}</label>
               <select
                 id="invite-role"
                 value={role}
                 onChange={(e) => setRole(e.target.value)}
               >
                 {roles.map((r) => (
-                  <option key={r}>{r}</option>
+                  <option key={r} value={r}>
+                    {t(r)}
+                  </option>
                 ))}
               </select>
               <button className="button primary" disabled={busy}>
-                Create invitation
+                {t("Create invitation")}
               </button>
             </form>
             {invites.map((i) => (
               <div className="account-row" key={i.id}>
                 <div>
-                  <strong>{i.role} invitation</strong>
+                  <strong>{t("{role} invitation", { role: t(i.role) })}</strong>
                   <small>
                     {i.consumed_at
-                      ? "Accepted"
+                      ? t("Accepted")
                       : i.revoked_at
-                        ? "Revoked"
-                        : `Expires ${new Date(i.expires_at).toLocaleString()}`}
+                        ? t("Revoked")
+                        : t("Expires {date}", {
+                            date: new Date(i.expires_at).toLocaleString(locale),
+                          })}
                   </small>
                 </div>
                 {!i.consumed_at && !i.revoked_at && (
@@ -388,7 +411,7 @@ export function Account({
                       )
                     }
                   >
-                    Revoke
+                    {t("Revoke")}
                   </button>
                 )}
               </div>
@@ -397,23 +420,24 @@ export function Account({
         </>
       )}
       <section className="panel account-panel">
-        <h2>Personal API keys</h2>
+        <h2>{t("Personal API keys")}</h2>
         <p>
-          Use these keys with MCP clients and automation. Each key has your
-          workspace role; account administration requires signing in here.
+          {t(
+            "Use these keys with MCP clients and automation. Each key has your workspace role; account administration requires signing in here.",
+          )}
         </p>
         <form className="account-row" onSubmit={createKey}>
-          <label htmlFor="key-name">Name</label>
+          <label htmlFor="key-name">{t("Name")}</label>
           <input
             id="key-name"
             value={keyName}
             onChange={(e) => setKeyName(e.target.value)}
-            placeholder="e.g. Development client"
+            placeholder={t("e.g. Development client")}
             required
             maxLength={80}
           />
           <button className="button primary" disabled={busy}>
-            Create key
+            {t("Create key")}
           </button>
         </form>
         {keys.map((k) => (
@@ -422,8 +446,10 @@ export function Account({
               <strong>{k.name}</strong>
               <small>
                 {k.revoked_at
-                  ? "Revoked"
-                  : `Expires ${new Date(k.expires_at).toLocaleString()}`}
+                  ? t("Revoked")
+                  : t("Expires {date}", {
+                      date: new Date(k.expires_at).toLocaleString(locale),
+                    })}
               </small>
             </div>
             {!k.revoked_at && (
@@ -439,15 +465,15 @@ export function Account({
                   )
                 }
               >
-                Revoke
+                {t("Revoke")}
               </button>
             )}
           </div>
         ))}
       </section>
       <section className="panel account-panel">
-        <h2>Change password</h2>
-        <p>This signs out all sessions and revokes all your API keys.</p>
+        <h2>{t("Change password")}</h2>
+        <p>{t("This signs out all sessions and revokes all your API keys.")}</p>
         <form
           className="account-password"
           onSubmit={(e) => {
@@ -463,7 +489,7 @@ export function Account({
             }, false);
           }}
         >
-          <label htmlFor="current-password">Current password</label>
+          <label htmlFor="current-password">{t("Current password")}</label>
           <input
             id="current-password"
             type="password"
@@ -473,7 +499,7 @@ export function Account({
             required
             maxLength={72}
           />
-          <label htmlFor="new-password">New password</label>
+          <label htmlFor="new-password">{t("New password")}</label>
           <input
             id="new-password"
             type="password"
@@ -485,14 +511,14 @@ export function Account({
             maxLength={72}
           />
           <button className="button secondary" disabled={busy}>
-            Update password
+            {t("Update password")}
           </button>
         </form>
       </section>
       {isAdmin && (
         <section className="panel account-panel">
-          <h2>Account activity</h2>
-          <p>Latest 100 account and access changes.</p>
+          <h2>{t("Account activity")}</h2>
+          <p>{t("Latest 100 account and access changes.")}</p>
           {events.map((e) => (
             <div className="account-row" key={e.id}>
               <div>
@@ -500,7 +526,7 @@ export function Account({
                 <small>
                   {members.find((m) => m.id === e.actor_id)?.username ??
                     e.actor_id}{" "}
-                  · {new Date(e.created_at).toLocaleString()}
+                  · {new Date(e.created_at).toLocaleString(locale)}
                 </small>
               </div>
             </div>

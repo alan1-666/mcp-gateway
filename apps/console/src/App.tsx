@@ -1,3 +1,4 @@
+import { LanguageSwitcher, useI18n } from "./i18n";
 import { ResultReader } from "./ResultReader";
 import { ApprovalPolicy } from "./ApprovalPolicy";
 import { SectionTabs } from "./SectionTabs";
@@ -224,6 +225,7 @@ function Icon({ name, size = 18 }: { name: string; size?: number }) {
 }
 
 function Brand() {
+  const { t } = useI18n();
   return (
     <div className="brand">
       <span className="brand-mark" aria-hidden="true">
@@ -236,18 +238,19 @@ function Brand() {
         </svg>
       </span>
       <div>
-        Rillgate<span>Team workspace</span>
+        Rillgate<span>{t("Team workspace")}</span>
       </div>
     </div>
   );
 }
 
 function Status({ state }: { state: string }) {
+  const { t } = useI18n();
   const text = state.toLowerCase().replaceAll("_", " ");
   return (
     <span className={`status status-${state.toLowerCase()}`}>
       <span />
-      {text}
+      {t(text)}
     </span>
   );
 }
@@ -259,12 +262,13 @@ function Notice({
   children: ReactNode;
   kind?: "error" | "warning" | "info";
 }) {
+  const { t } = useI18n();
   return (
     <div
       className={`notice notice-${kind}`}
       role={kind === "error" ? "alert" : "status"}
     >
-      {children}
+      {typeof children === "string" ? t(children) : children}
     </div>
   );
 }
@@ -278,37 +282,39 @@ function Empty({
   children: ReactNode;
   action?: ReactNode;
 }) {
+  const { t } = useI18n();
   return (
     <div className="empty">
       <span className="empty-symbol">
         <Icon name="tools" size={26} />
       </span>
-      <h3>{title}</h3>
-      <p>{children}</p>
+      <h3>{t(title)}</h3>
+      <p>{typeof children === "string" ? t(children) : children}</p>
       {action}
     </div>
   );
 }
 
 function JsonBlock({ value, label }: { value: unknown; label: string }) {
+  const { t } = useI18n();
   return (
     <div className="json-block">
       <div className="json-label">
-        {label}
+        {t(label)}
         <span>JSON</span>
       </div>
-      <pre tabIndex={0} aria-label={label}>
+      <pre tabIndex={0} aria-label={t(label)}>
         {JSON.stringify(value, null, 2) ?? "null"}
       </pre>
     </div>
   );
 }
 
-function formatDate(value: string) {
+function formatDate(value: string, locale: string) {
   const date = new Date(value);
   return Number.isNaN(date.getTime())
     ? "—"
-    : new Intl.DateTimeFormat("en-US", {
+    : new Intl.DateTimeFormat(locale, {
         month: "short",
         day: "numeric",
         hour: "2-digit",
@@ -318,6 +324,7 @@ function formatDate(value: string) {
 }
 
 export function App() {
+  const { t } = useI18n();
   const [oauthReturn, setOAuthReturn] = useState(() =>
     oauthCallback(window.location.search),
   );
@@ -381,14 +388,19 @@ export function App() {
   }
   return (
     <>
+      {!session ? (
+        <div className="login-language">
+          <LanguageSwitcher />
+        </div>
+      ) : null}
       {error && (
         <div className="notice notice-error" role="alert">
-          {error}{" "}
+          {t(error)}{" "}
           <button
             className="button secondary"
             onClick={() => window.location.reload()}
           >
-            Reload
+            {t("Reload")}
           </button>
         </div>
       )}
@@ -406,7 +418,7 @@ export function App() {
         />
       ) : mode === "loading" ? (
         <div className="loading-panel" role="status">
-          Connecting to workspace…
+          {t("Connecting to workspace…")}
         </div>
       ) : mode === "cloud" ? (
         <CloudLogin onConnect={setSession} />
@@ -418,6 +430,7 @@ export function App() {
 }
 
 function Connect({ onConnect }: { onConnect: (session: Session) => void }) {
+  const { t } = useI18n();
   const [token, setToken] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -440,36 +453,37 @@ function Connect({ onConnect }: { onConnect: (session: Session) => void }) {
       <section className="connect-story">
         <Brand />
         <div className="connect-story-body">
-          <span className="eyebrow">THE TOOL ACCESS LAYER</span>
+          <span className="eyebrow">{t("THE TOOL ACCESS LAYER")}</span>
           <h1>
-            Connect tools.
+            {t("Connect tools.")}
             <br />
-            Keep control.
+            {t("Keep control.")}
           </h1>
           <p>
-            One workspace for tool contracts, human approval, and a traceable
-            record of every operation.
+            {t(
+              "One workspace for tool contracts, human approval, and a traceable record of every operation.",
+            )}
           </p>
           <div className="flow-strip">
-            <span>Discover</span>
+            <span>{t("Discover")}</span>
             <i />
-            <span>Authorize</span>
+            <span>{t("Authorize")}</span>
             <i />
-            <span>Execute</span>
+            <span>{t("Execute")}</span>
           </div>
         </div>
         <div className="connect-story-foot">
-          <span className="connection-dot" /> Built around explicit access and
-          recorded outcomes.
+          <span className="connection-dot" />{" "}
+          {t("Built around explicit access and recorded outcomes.")}
         </div>
       </section>
       <section className="connect-form-wrap">
         <form className="connect-form" onSubmit={connect}>
-          <span className="eyebrow">WORKSPACE CONNECTION</span>
-          <h2>Open your gateway</h2>
-          <p>Use an access token issued for your workspace.</p>
-          {error ? <Notice>{error}</Notice> : null}
-          <label htmlFor="access-token">Workspace access token</label>
+          <span className="eyebrow">{t("WORKSPACE CONNECTION")}</span>
+          <h2>{t("Open your gateway")}</h2>
+          <p>{t("Use an access token issued for your workspace.")}</p>
+          {error ? <Notice>{t(error)}</Notice> : null}
+          <label htmlFor="access-token">{t("Workspace access token")}</label>
           <input
             id="access-token"
             type="password"
@@ -478,30 +492,32 @@ function Connect({ onConnect }: { onConnect: (session: Session) => void }) {
             required
             value={token}
             onChange={(event) => setToken(event.target.value)}
-            placeholder="Enter your access token"
+            placeholder={t("Enter your access token")}
             disabled={busy}
           />
           <p className="field-help">
-            Kept in memory for this session. Reloading or signing out clears the
-            connection.
+            {t(
+              "Kept in memory for this session. Reloading or signing out clears the connection.",
+            )}
           </p>
           <button
             className="button primary connect-button"
             disabled={busy || !token.trim()}
           >
-            {busy ? "Connecting…" : "Connect to workspace"}
+            {busy ? t("Connecting…") : t("Connect to workspace")}
             <Icon name="arrow" />
           </button>
           <div className="connect-note">
             <Icon name="approvals" />
             <p>
-              Your identity and permissions are verified by the gateway before
-              any workspace data is loaded.
+              {t(
+                "Your identity and permissions are verified by the gateway before any workspace data is loaded.",
+              )}
             </p>
           </div>
         </form>
         <span className="connect-caption">
-          Rillgate · Enterprise tool governance
+          {t("Rillgate · Enterprise tool governance")}
         </span>
       </section>
     </main>
@@ -523,6 +539,7 @@ function Workspace({
   oauthReturn: OAuthCallback;
   onDismissOAuth: () => void;
 }) {
+  const { t, locale } = useI18n();
   const [page, setPage] = useState<Page>(() =>
     oauthReturn && canManageMCPServers(identity) ? "mcp" : "overview",
   );
@@ -668,12 +685,12 @@ function Workspace({
       }}
     >
       <a className="skip-link" href="#main-content">
-        Skip to content
+        {t("Skip to content")}
       </a>
       <button
         className="icon-button mobile-menu"
         type="button"
-        aria-label="Toggle navigation"
+        aria-label={t("Toggle navigation")}
         aria-expanded={menuOpen}
         aria-controls="workspace-navigation"
         ref={menuButton}
@@ -689,13 +706,13 @@ function Workspace({
         <div className="workspace-label">
           <span className="workspace-avatar">W</span>
           <div>
-            <span>Workspace</span>
+            <span>{t("Workspace")}</span>
             <strong title={identity.workspace_id}>
               {identity.workspace_id}
             </strong>
           </div>
         </div>
-        <nav aria-label="Main navigation">
+        <nav aria-label={t("Main navigation")}>
           {[
             {
               label: "Gateway",
@@ -733,7 +750,7 @@ function Workspace({
               );
             return items.length ? (
               <div className="nav-group" key={group.label}>
-                <span className="nav-group-label">{group.label}</span>
+                <span className="nav-group-label">{t(group.label)}</span>
                 {items.map((item) => (
                   <button
                     key={item.id}
@@ -742,9 +759,11 @@ function Workspace({
                     aria-current={page === item.id ? "page" : undefined}
                   >
                     <Icon name={item.icon} />
-                    <span>{item.label}</span>
+                    <span>{t(item.label)}</span>
                     {item.id === "approvals" && pendingTotal > 0 ? (
-                      <span className="nav-count">{pendingTotal}</span>
+                      <span className="nav-count">
+                        {pendingTotal.toLocaleString(locale)}
+                      </span>
                     ) : null}
                   </button>
                 ))}
@@ -759,12 +778,12 @@ function Workspace({
             </span>
             <div>
               <strong title={identity.id}>{username ?? identity.id}</strong>
-              <span>{identity.role}</span>
+              <span>{t(identity.role)}</span>
             </div>
             <button
               className="icon-button"
-              aria-label="Sign out"
-              title="Sign out"
+              aria-label={t("Sign out")}
+              title={t("Sign out")}
               onClick={onLogout}
             >
               <Icon name="exit" />
@@ -784,18 +803,19 @@ function Workspace({
             <span>/</span>
             <strong>
               {page === "account"
-                ? "Team & account"
+                ? t("Team & account")
                 : page === "runs"
-                  ? "Agent tasks"
-                  : navigation.find((item) => item.id === page)?.label}
+                  ? t("Agent tasks")
+                  : t(navigation.find((item) => item.id === page)?.label ?? "")}
             </strong>
           </div>
           <div className="topbar-end">
+            <LanguageSwitcher />
             <span className="workspace-status">
               <span className="connection-dot" />
-              Connected
+              {t("Connected")}
             </span>
-            <span className="role-tag">{identity.role}</span>
+            <span className="role-tag">{t(identity.role)}</span>
           </div>
         </header>
         <main
@@ -806,8 +826,8 @@ function Workspace({
         >
           <div className="page-heading">
             <div>
-              <h1>{pageCopy[page].title}</h1>
-              <p>{pageCopy[page].description}</p>
+              <h1>{t(pageCopy[page].title)}</h1>
+              <p>{t(pageCopy[page].description)}</p>
             </div>
             <button
               className="button secondary refresh-button"
@@ -823,14 +843,14 @@ function Workspace({
             >
               <Icon name="refresh" />
               {page !== "runs" && page !== "mcp" && refreshing
-                ? "Refreshing…"
-                : "Refresh"}
+                ? t("Refreshing…")
+                : t("Refresh")}
             </button>
           </div>
           {error ? (
             <Notice>
-              {error}
-              {loaded ? " The view may show previously loaded data." : ""}
+              {t(error)}
+              {loaded ? t(" The view may show previously loaded data.") : ""}
             </Notice>
           ) : null}
           {cloud && page === "runs" ? (
@@ -850,10 +870,10 @@ function Workspace({
               {refreshing ? (
                 <>
                   <span className="spinner" />
-                  Loading workspace…
+                  {t("Loading workspace…")}
                 </>
               ) : (
-                "Workspace data is unavailable. Refresh to try again."
+                t("Workspace data is unavailable. Refresh to try again.")
               )}
             </div>
           ) : (
@@ -912,14 +932,18 @@ function Workspace({
                       role="status"
                     >
                       {oauthReturn === "connected"
-                        ? "Authorization completed. Select the server and open Settings to review its current OAuth connection."
-                        : "Authorization could not be completed. Select the server and refresh its OAuth status in Settings before connecting again."}
+                        ? t(
+                            "Authorization completed. Select the server and open Settings to review its current OAuth connection.",
+                          )
+                        : t(
+                            "Authorization could not be completed. Select the server and refresh its OAuth status in Settings before connecting again.",
+                          )}
                       <button
                         className="text-button"
                         type="button"
                         onClick={onDismissOAuth}
                       >
-                        Dismiss
+                        {t("Dismiss")}
                       </button>
                     </div>
                   ) : null}
@@ -1002,8 +1026,9 @@ function Workspace({
               ) : null}
               {page === "approvals" && !canApprove ? (
                 <p className="section-note">
-                  Your role can inspect pending operations. An approver or
-                  administrator must review write requests.
+                  {t(
+                    "Your role can inspect pending operations. An approver or administrator must review write requests.",
+                  )}
                 </p>
               ) : null}
             </>
@@ -1011,15 +1036,19 @@ function Workspace({
           <footer className="workspace-footer">
             <span>
               {page === "runs"
-                ? "Latest 100 accessible Agent tasks · Creator and administrator access"
-                : "Paginated tool catalog · Authorized operation history"}
+                ? t(
+                    "Latest 100 accessible Agent tasks · Creator and administrator access",
+                  )
+                : t("Paginated tool catalog · Authorized operation history")}
             </span>
             <span>
               {page === "runs"
-                ? "Task status refreshes while this view is open."
+                ? t("Task status refreshes while this view is open.")
                 : updated
-                  ? `Last refreshed ${formatDate(updated)}`
-                  : "Waiting for workspace data"}
+                  ? t("Last refreshed {time}", {
+                      time: formatDate(updated, locale),
+                    })
+                  : t("Waiting for workspace data")}
             </span>
           </footer>
         </main>
@@ -1051,6 +1080,7 @@ function Overview({
   onOperation: (id: string) => void;
   onInvoke: () => void;
 }) {
+  const { t, locale } = useI18n();
   const published = availableTools;
   const pending = pendingTotal;
   const uncertain = unknownTotal;
@@ -1058,7 +1088,8 @@ function Overview({
     {
       label: "Available tools",
       value: published,
-      detail: `${registryTotal.toLocaleString()} visible registry entries`,
+      detail: "{count} visible registry entries",
+      detailValues: { count: registryTotal.toLocaleString(locale) },
       page: "tools" as Page,
       icon: "tools",
     },
@@ -1094,7 +1125,7 @@ function Overview({
             onClick={() => onNavigate(stat.page)}
           >
             <div className="metric-label">
-              {stat.label}
+              {t(stat.label)}
               <Icon name={stat.icon} />
             </div>
             <strong
@@ -1104,10 +1135,10 @@ function Overview({
                   : ""
               }
             >
-              {stat.value.toLocaleString()}
+              {stat.value.toLocaleString(locale)}
             </strong>
             <span className="metric-detail">
-              {stat.detail}
+              {t(stat.detail, stat.detailValues)}
               <Icon name="arrow" size={14} />
             </span>
           </button>
@@ -1115,40 +1146,44 @@ function Overview({
       </div>
       {uncertain ? (
         <Notice kind="warning">
-          {uncertain} operation{uncertain === 1 ? " has" : "s have"} an
-          uncertain outcome. A connection failure does not prove an external
-          action failed. Inspect the downstream system before considering
-          another action.
+          {t(
+            uncertain === 1
+              ? "{count} operation has an uncertain outcome. A connection failure does not prove an external action failed. Inspect the downstream system before considering another action."
+              : "{count} operations have an uncertain outcome. A connection failure does not prove an external action failed. Inspect the downstream system before considering another action.",
+            { count: uncertain.toLocaleString(locale) },
+          )}
         </Notice>
       ) : null}
-      <div className="overview-shortcuts" aria-label="Quick actions">
+      <div className="overview-shortcuts" aria-label={t("Quick actions")}>
         <div>
-          <strong>Work with your tools</strong>
-          <span>Explore the catalog or follow a call through the gateway.</span>
+          <strong>{t("Work with your tools")}</strong>
+          <span>
+            {t("Explore the catalog or follow a call through the gateway.")}
+          </span>
         </div>
         <button
           className="button secondary"
           onClick={() => onNavigate("tools")}
         >
-          Browse tools
+          {t("Browse tools")}
           <Icon name="tools" size={16} />
         </button>
         {canInvoke ? (
           <button className="button primary" onClick={onInvoke}>
-            New invocation
+            {t("New invocation")}
             <Icon name="plus" size={16} />
           </button>
         ) : null}
       </div>
       <div className="section-heading">
         <div>
-          <h2>Recent operations</h2>
+          <h2>{t("Recent operations")}</h2>
         </div>
         <button
           className="text-button"
           onClick={() => onNavigate("operations")}
         >
-          View operations
+          {t("View operations")}
           <Icon name="arrow" size={16} />
         </button>
       </div>
@@ -1156,9 +1191,10 @@ function Overview({
         operations={operations.slice(0, 6)}
         onSelect={onOperation}
         empty={
-          <Empty title="No operations recorded">
-            Published tools will appear in the invocation workspace. Prepare a
-            request to begin its execution record.
+          <Empty title={t("No operations recorded")}>
+            {t(
+              "Published tools will appear in the invocation workspace. Prepare a request to begin its execution record.",
+            )}
           </Empty>
         }
       />
@@ -1173,14 +1209,15 @@ function ToolPagination<T extends { id: string }>({
   state: ToolSearchState<T>;
   controller: ToolSearchController<T>;
 }) {
+  const { t, locale } = useI18n();
   const busy = state.phase !== "idle";
   return (
     <div className="tool-pagination">
       {state.error ? (
         <div className="notice notice-error" role="alert">
           <span>
-            {state.error}
-            {state.loaded ? " Loaded results are retained." : ""}
+            {t(state.error)}
+            {state.loaded ? t(" Loaded results are retained.") : ""}
           </span>
           <div className="action-row">
             <button
@@ -1189,7 +1226,7 @@ function ToolPagination<T extends { id: string }>({
               disabled={busy}
               onClick={() => void controller.retry()}
             >
-              {state.loaded ? "Retry loading more" : "Retry search"}
+              {state.loaded ? t("Retry loading more") : t("Retry search")}
             </button>
             {state.loaded ? (
               <button
@@ -1198,7 +1235,7 @@ function ToolPagination<T extends { id: string }>({
                 disabled={busy}
                 onClick={() => void controller.reload()}
               >
-                Restart search
+                {t("Restart search")}
               </button>
             ) : null}
           </div>
@@ -1207,10 +1244,13 @@ function ToolPagination<T extends { id: string }>({
       <div className="tool-pagination-row">
         <span role="status">
           {state.loaded
-            ? `${state.items.length.toLocaleString()} loaded · ${state.total?.toLocaleString()} matching tools`
+            ? t("{loaded} loaded · {total} matching tools", {
+                loaded: state.items.length.toLocaleString(locale),
+                total: state.total?.toLocaleString(locale) ?? "—",
+              })
             : busy
-              ? "Searching the complete visible catalog…"
-              : "No search results loaded"}
+              ? t("Searching the complete visible catalog…")
+              : t("No search results loaded")}
         </span>
         {state.nextCursor && !state.error ? (
           <button
@@ -1220,11 +1260,11 @@ function ToolPagination<T extends { id: string }>({
             onClick={() => void controller.loadMore()}
           >
             {state.phase === "loading-more"
-              ? "Loading more…"
-              : "Load more tools"}
+              ? t("Loading more…")
+              : t("Load more tools")}
           </button>
         ) : state.loaded && !state.error ? (
-          <span className="muted">End of results</span>
+          <span className="muted">{t("End of results")}</span>
         ) : null}
       </div>
     </div>
@@ -1250,6 +1290,7 @@ function Registry({
   onRefresh: () => Promise<void>;
   onInvoke: (id: string) => void;
 }) {
+  const { t, locale } = useI18n();
   const [showForm, setShowForm] = useState(false);
   const [detailTab, setDetailTab] = useState({
     id: initialSelectedId,
@@ -1296,8 +1337,8 @@ function Registry({
         <div className="search-field">
           <Icon name="search" />
           <input
-            aria-label="Search tools"
-            placeholder="Search tools by name or description"
+            aria-label={t("Search tools")}
+            placeholder={t("Search tools by name or description")}
             type="search"
             value={search.state.input}
             onChange={(event) => {
@@ -1319,15 +1360,15 @@ function Registry({
             onClick={() => setShowForm((current) => !current)}
           >
             <Icon name={showForm ? "close" : "plus"} />
-            {showForm ? "Close form" : "Register tool"}
+            {showForm ? t("Close form") : t("Register tool")}
           </button>
         ) : (
           <span className="muted">
-            Tool configuration is managed by administrators.
+            {t("Tool configuration is managed by administrators.")}
           </span>
         )}
       </div>
-      {error ? <Notice>{error}</Notice> : null}
+      {error ? <Notice>{t(error)}</Notice> : null}
       {showForm && !selectedId ? (
         <ToolForm
           api={api}
@@ -1342,22 +1383,24 @@ function Registry({
       <div className="panel registry-list" hidden={!!selectedId}>
         <div className="panel-heading">
           <h2>
-            Registered tools{" "}
-            <span className="count-label">{search.state.total ?? "—"}</span>
+            {t("Registered tools")}{" "}
+            <span className="count-label">
+              {search.state.total?.toLocaleString(locale) ?? "—"}
+            </span>
           </h2>
-          <span className="muted">HTTP & MCP integrations</span>
+          <span className="muted">{t("HTTP & MCP integrations")}</span>
         </div>
         {visible.length ? (
           <div className="table-scroll">
             <table>
               <thead>
                 <tr>
-                  <th>Tool</th>
-                  <th>Contract</th>
-                  <th>Risk</th>
-                  <th>Status</th>
+                  <th>{t("Tool")}</th>
+                  <th>{t("Contract")}</th>
+                  <th>{t("Risk")}</th>
+                  <th>{t("Status")}</th>
                   <th>
-                    <span className="sr-only">Details</span>
+                    <span className="sr-only">{t("Details")}</span>
                   </th>
                 </tr>
               </thead>
@@ -1375,7 +1418,7 @@ function Registry({
                         {tool.mcp?.tool_name ?? tool.name}
                       </button>
                       <span className="table-description">
-                        {tool.description || "No description provided"}
+                        {tool.description || t("No description provided")}
                       </span>
                     </td>
                     <td>
@@ -1406,7 +1449,7 @@ function Registry({
                     <td>
                       <button
                         className="icon-button"
-                        aria-label={`Inspect ${tool.name}`}
+                        aria-label={t("Inspect {name}", { name: tool.name })}
                         onClick={() => setSelectedId(tool.id)}
                       >
                         <Icon name="arrow" />
@@ -1420,19 +1463,21 @@ function Registry({
         ) : search.state.phase === "loading" ? (
           <div className="tool-search-loading" role="status">
             <span className="spinner" />
-            Searching tools…
+            {t("Searching tools…")}
           </div>
         ) : search.state.loaded && !search.state.error ? (
           <Empty
             title={
               search.state.query
-                ? "No tools match your search"
-                : "Your tool registry starts here"
+                ? t("No tools match your search")
+                : t("Your tool registry starts here")
             }
           >
             {search.state.query
-              ? "Try another name or description."
-              : "Register an HTTP integration or import a tool from MCP Servers, then review its contract before publishing."}
+              ? t("Try another name or description.")
+              : t(
+                  "Register an HTTP integration or import a tool from MCP Servers, then review its contract before publishing.",
+                )}
           </Empty>
         ) : null}
         <ToolPagination {...search} />
@@ -1442,17 +1487,17 @@ function Registry({
           className="text-button detail-back"
           onClick={() => setSelectedId(null)}
         >
-          ← All tools
+          {t("← All tools")}
         </button>
       ) : null}
       {selectedId && !selected ? (
         <section className="panel detail-panel">
           <div className="panel-heading">
-            <h2>Tool contract</h2>
+            <h2>{t("Tool contract")}</h2>
             <button
               type="button"
               className="icon-button"
-              aria-label="Close tool details"
+              aria-label={t("Close tool details")}
               onClick={() => setSelectedId(null)}
             >
               <Icon name="close" />
@@ -1460,16 +1505,16 @@ function Registry({
           </div>
           <div className="panel-body">
             {details.loading ? (
-              <p role="status">Loading the selected tool's contract…</p>
+              <p role="status">{t("Loading the selected tool's contract…")}</p>
             ) : (
               <>
-                <Notice>{details.error}</Notice>
+                <Notice>{t(details.error)}</Notice>
                 <button
                   type="button"
                   className="button secondary"
                   onClick={details.reload}
                 >
-                  Retry loading contract
+                  {t("Retry loading contract")}
                 </button>
               </>
             )}
@@ -1481,7 +1526,8 @@ function Registry({
           <div className="tool-detail-header">
             <div>
               <span className="eyebrow">
-                {selected.mcp ? "MCP tool" : "HTTP tool"} · v{selected.version}
+                {selected.mcp ? t("MCP tool") : t("HTTP tool")} · v
+                {selected.version}
               </span>
               <h2>{selected.mcp?.tool_name ?? selected.name}</h2>
               {selected.mcp ? (
@@ -1501,7 +1547,7 @@ function Registry({
           </div>
           <SectionTabs
             key={selected.id}
-            label="Tool details"
+            label={t("Tool details")}
             value={detailTab.id === selected.id ? detailTab.value : "contract"}
             onChange={(value) => setDetailTab({ id: selected.id, value })}
             tabs={[
@@ -1514,23 +1560,23 @@ function Registry({
                       <p>{selected.description}</p>
                       <dl className="metadata-grid">
                         <div>
-                          <dt>Tool ID</dt>
+                          <dt>{t("Tool ID")}</dt>
                           <dd className="mono">{selected.id}</dd>
                         </div>
                         <div>
-                          <dt>Version</dt>
+                          <dt>{t("Version")}</dt>
                           <dd>v{selected.version}</dd>
                         </div>
                         <ToolConnection tool={selected} />
                       </dl>
                       <ToolResponsePolicy tool={selected} />
                       <JsonBlock
-                        label="Input schema"
+                        label={t("Input schema")}
                         value={selected.input_schema}
                       />
                       {selected.output_schema ? (
                         <JsonBlock
-                          label="Output schema"
+                          label={t("Output schema")}
                           value={selected.output_schema}
                         />
                       ) : null}
@@ -1541,7 +1587,7 @@ function Registry({
                             disabled={!!busy}
                             onClick={() => void changeTool(selected, "publish")}
                           >
-                            {busy ? "Publishing…" : "Publish tool"}
+                            {busy ? t("Publishing…") : t("Publish tool")}
                           </button>
                         ) : null}
                         {canManage && selected.status === "published" ? (
@@ -1551,10 +1597,10 @@ function Registry({
                             onClick={() => void changeTool(selected, "enabled")}
                           >
                             {busy
-                              ? "Updating…"
+                              ? t("Updating…")
                               : selected.enabled
-                                ? "Disable tool"
-                                : "Enable tool"}
+                                ? t("Disable tool")
+                                : t("Enable tool")}
                           </button>
                         ) : null}
                         {canInvoke &&
@@ -1564,7 +1610,7 @@ function Registry({
                             className="button primary"
                             onClick={() => onInvoke(selected.id)}
                           >
-                            Call tool
+                            {t("Call tool")}
                             <Icon name="arrow" />
                           </button>
                         ) : null}
@@ -1655,6 +1701,7 @@ function ToolForm({
   onCreated: (tool: Tool) => Promise<void>;
   onCancel: () => void;
 }) {
+  const { t } = useI18n();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [url, setUrl] = useState("");
@@ -1725,17 +1772,17 @@ function ToolForm({
     <form className="panel tool-form" onSubmit={submit}>
       <div className="panel-heading">
         <div>
-          <span className="eyebrow">NEW INTEGRATION</span>
-          <h2>Register an HTTP tool</h2>
+          <span className="eyebrow">{t("NEW INTEGRATION")}</span>
+          <h2>{t("Register an HTTP tool")}</h2>
         </div>
         <Status state="draft" />
       </div>
       <div className="panel-body">
-        {error ? <Notice>{error}</Notice> : null}
+        {error ? <Notice>{t(error)}</Notice> : null}
         <fieldset disabled={busy}>
           <div className="form-grid">
             <label>
-              Tool name
+              {t("Tool name")}
               <input
                 required
                 maxLength={64}
@@ -1746,7 +1793,7 @@ function ToolForm({
               />
             </label>
             <label>
-              Risk classification
+              {t("Risk classification")}
               <select
                 value={risk}
                 onChange={(event) => {
@@ -1755,23 +1802,27 @@ function ToolForm({
                   if (next === "read") setMethod("GET");
                 }}
               >
-                <option value="read">Read — no external state changes</option>
-                <option value="write">Write — requires approval</option>
+                <option value="read">
+                  {t("Read — no external state changes")}
+                </option>
+                <option value="write">{t("Write — requires approval")}</option>
               </select>
             </label>
             <label className="span-two">
-              Description
+              {t("Description")}
               <textarea
                 required
                 rows={2}
                 maxLength={4000}
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
-                placeholder="Describe what the tool does and when it should be used."
+                placeholder={t(
+                  "Describe what the tool does and when it should be used.",
+                )}
               />
             </label>
             <label>
-              HTTP method
+              {t("HTTP method")}
               <select
                 value={method}
                 onChange={(event) => {
@@ -1781,12 +1832,14 @@ function ToolForm({
                 }}
               >
                 {["GET", "POST", "PUT", "PATCH", "DELETE"].map((item) => (
-                  <option key={item}>{item}</option>
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
                 ))}
               </select>
             </label>
             <label>
-              Timeout (milliseconds)
+              {t("Timeout (milliseconds)")}
               <input
                 type="number"
                 min={100}
@@ -1798,7 +1851,7 @@ function ToolForm({
               />
             </label>
             <label className="span-two">
-              Destination URL
+              {t("Destination URL")}
               <input
                 type="url"
                 required
@@ -1809,7 +1862,8 @@ function ToolForm({
               />
             </label>
             <label className="span-two">
-              Credential reference <span className="optional">optional</span>
+              {t("Credential reference")}{" "}
+              <span className="optional">{t("optional")}</span>
               <input
                 value={credential}
                 onChange={(event) => setCredential(event.target.value)}
@@ -1817,12 +1871,13 @@ function ToolForm({
                 autoComplete="off"
               />
               <span className="field-help">
-                Enter the reference name. Never paste a secret or access token
-                here.
+                {t(
+                  "Enter the reference name. Never paste a secret or access token here.",
+                )}
               </span>
             </label>
             <label className="span-two">
-              Input schema
+              {t("Input schema")}
               <textarea
                 className="code-input"
                 rows={8}
@@ -1833,7 +1888,8 @@ function ToolForm({
               />
             </label>
             <label className="span-two">
-              Output schema <span className="optional">optional</span>
+              {t("Output schema")}{" "}
+              <span className="optional">{t("optional")}</span>
               <textarea
                 className="code-input"
                 rows={5}
@@ -1843,15 +1899,16 @@ function ToolForm({
                 placeholder='{ "type": "object", "required": ["status"] }'
               />
               <span className="field-help">
-                Define the JSON response contract required for successful
-                execution.
+                {t(
+                  "Define the JSON response contract required for successful execution.",
+                )}
               </span>
             </label>
           </div>
         </fieldset>
         <div className="action-row">
           <button className="button primary" disabled={busy}>
-            {busy ? "Registering…" : "Create draft tool"}
+            {busy ? t("Registering…") : t("Create draft tool")}
           </button>
           <button
             className="button secondary"
@@ -1859,10 +1916,10 @@ function ToolForm({
             disabled={busy}
             onClick={onCancel}
           >
-            Cancel
+            {t("Cancel")}
           </button>
           <span className="field-help">
-            Review and publish the draft to make it available.
+            {t("Review and publish the draft to make it available.")}
           </span>
         </div>
       </div>
@@ -1883,6 +1940,7 @@ function Invocation({
   onCreated: (operation: Operation) => void;
   onRegistry: () => void;
 }) {
+  const { t } = useI18n();
   const search = useToolSearch<ToolSummary>(api, "discovery", refreshVersion);
   const [toolId, setToolId] = useState(initialTool);
   const [argumentsText, setArgumentsText] = useState("{}");
@@ -1925,17 +1983,19 @@ function Invocation({
         aria-labelledby="tool-picker-title"
       >
         <div className="panel-heading">
-          <h2 id="tool-picker-title">Select a published tool</h2>
-          <span className="step-label">CATALOG</span>
+          <h2 id="tool-picker-title">{t("Select a published tool")}</h2>
+          <span className="step-label">{t("CATALOG")}</span>
         </div>
         <div className="tool-picker-search">
           <label className="search-field">
             <Icon name="search" />
-            <span className="sr-only">Search published tools</span>
+            <span className="sr-only">{t("Search published tools")}</span>
             <input
               type="search"
               value={search.state.input}
-              placeholder="Search all published tools by name or description…"
+              placeholder={t(
+                "Search all published tools by name or description…",
+              )}
               disabled={busy}
               onChange={(event) =>
                 void search.controller.setQuery(event.target.value, 250)
@@ -1943,13 +2003,14 @@ function Invocation({
             />
           </label>
           <p className="field-help">
-            Search covers the complete available catalog. Select a tool to load
-            its contract.
+            {t(
+              "Search covers the complete available catalog. Select a tool to load its contract.",
+            )}
           </p>
         </div>
         {search.state.items.length ? (
           <fieldset className="tool-options" disabled={busy}>
-            <legend className="sr-only">Available tools</legend>
+            <legend className="sr-only">{t("Available tools")}</legend>
             {search.state.items.map((item) => (
               <label
                 key={item.id}
@@ -1967,7 +2028,9 @@ function Invocation({
                     {item.name}
                     <span className="version-label">v{item.version}</span>
                   </strong>
-                  <span>{item.description || "No description provided."}</span>
+                  <span>
+                    {item.description || t("No description provided.")}
+                  </span>
                 </span>
                 <Status state={item.risk} />
               </label>
@@ -1975,25 +2038,29 @@ function Invocation({
           </fieldset>
         ) : search.state.phase === "loading" ? (
           <div className="tool-search-loading" role="status">
-            <span className="spinner" /> Searching published tools…
+            <span className="spinner" /> {t("Searching published tools…")}
           </div>
         ) : search.state.loaded && !search.state.error ? (
           <Empty
             title={
-              search.state.query ? "No matching tools" : "No available tools"
+              search.state.query
+                ? t("No matching tools")
+                : t("No available tools")
             }
             action={
               !search.state.query ? (
                 <button className="button secondary" onClick={onRegistry}>
-                  Open tool registry
+                  {t("Open tool registry")}
                   <Icon name="arrow" />
                 </button>
               ) : undefined
             }
           >
             {search.state.query
-              ? "Try another name or a word from the tool description."
-              : "An administrator can register, enable and publish an integration."}
+              ? t("Try another name or a word from the tool description.")
+              : t(
+                  "An administrator can register, enable and publish an integration.",
+                )}
           </Empty>
         ) : null}
         <ToolPagination {...search} />
@@ -2001,32 +2068,34 @@ function Invocation({
       <div className="invocation-layout">
         <form className="panel" onSubmit={submit}>
           <div className="panel-heading">
-            <h2>Call the selected tool</h2>
-            <span className="step-label">REQUEST</span>
+            <h2>{t("Call the selected tool")}</h2>
+            <span className="step-label">{t("REQUEST")}</span>
           </div>
           <div className="panel-body">
             {error ? (
               <Notice>
-                {error} You can submit unchanged arguments again with the same
-                request ID.
+                {t(error)}{" "}
+                {t(
+                  "You can submit unchanged arguments again with the same request ID.",
+                )}
               </Notice>
             ) : null}
             <div className="selected-tool-label">
-              <span>Selected tool</span>
+              <span>{t("Selected tool")}</span>
               <strong>
                 {tool
                   ? tool.name
                   : details.loading
-                    ? "Loading contract…"
+                    ? t("Loading contract…")
                     : toolId
-                      ? "Contract unavailable"
-                      : "Choose a tool above"}
+                      ? t("Contract unavailable")
+                      : t("Choose a tool above")}
               </strong>
               {tool ? <span className="mono">v{tool.version}</span> : null}
             </div>
             <fieldset disabled={busy}>
               <label>
-                Arguments
+                {t("Arguments")}
                 <textarea
                   rows={13}
                   className="code-input"
@@ -2041,41 +2110,43 @@ function Invocation({
               </label>
             </fieldset>
             <div className="request-id">
-              <span>Request ID</span>
+              <span>{t("Request ID")}</span>
               <code>{key}</code>
             </div>
             {tool?.risk === "write" ? (
               <Notice kind="warning">
-                This tool can change external state. The prepared operation will
-                wait for approval before it can execute.
+                {t(
+                  "This tool can change external state. The prepared operation will wait for approval before it can execute.",
+                )}
               </Notice>
             ) : (
               <Notice kind="info">
-                Preparing records your intent. You will review and execute the
-                operation on the next screen.
+                {t(
+                  "Preparing records your intent. You will review and execute the operation on the next screen.",
+                )}
               </Notice>
             )}
             <button className="button primary" disabled={busy || !tool}>
-              {busy ? "Preparing…" : "Prepare operation"}
+              {busy ? t("Preparing…") : t("Prepare operation")}
               <Icon name="arrow" />
             </button>
           </div>
         </form>
         <aside className="panel contract-preview" aria-live="polite">
           <div className="panel-heading">
-            <h2>Published contract</h2>
+            <h2>{t("Published contract")}</h2>
             {tool ? <Status state={tool.risk} /> : null}
           </div>
           <div className="panel-body">
             {details.loading ? (
               <p className="tool-search-loading" role="status">
-                <span className="spinner" /> Loading selected contract…
+                <span className="spinner" /> {t("Loading selected contract…")}
               </p>
             ) : details.error ? (
               <Notice>
-                {details.error}
+                {t(details.error)}
                 <button className="button secondary" onClick={details.reload}>
-                  Retry loading contract
+                  {t("Retry loading contract")}
                 </button>
               </Notice>
             ) : tool ? (
@@ -2084,11 +2155,11 @@ function Invocation({
                 <p className="muted">{tool.description}</p>
                 <dl className="metadata-grid">
                   <div>
-                    <dt>Version</dt>
+                    <dt>{t("Version")}</dt>
                     <dd>v{tool.version}</dd>
                   </div>
                   <div>
-                    <dt>Transport</dt>
+                    <dt>{t("Transport")}</dt>
                     <dd>
                       {tool.mcp
                         ? "MCP · Streamable HTTP"
@@ -2098,13 +2169,13 @@ function Invocation({
                   {tool.mcp ? (
                     <>
                       <div>
-                        <dt>Remote tool</dt>
+                        <dt>{t("Remote tool")}</dt>
                         <dd className="mono break-word">
                           {tool.mcp.tool_name}
                         </dd>
                       </div>
                       <div>
-                        <dt>MCP server ID</dt>
+                        <dt>{t("MCP server ID")}</dt>
                         <dd className="mono break-word">
                           {tool.mcp.server_id}
                         </dd>
@@ -2114,13 +2185,15 @@ function Invocation({
                 </dl>
                 <ToolResponsePolicy tool={tool} />
                 <JsonBlock
-                  label="Expected arguments"
+                  label={t("Expected arguments")}
                   value={tool.input_schema}
                 />
               </>
             ) : (
               <p className="muted">
-                Select an available tool to inspect its current input schema.
+                {t(
+                  "Select an available tool to inspect its current input schema.",
+                )}
               </p>
             )}
           </div>
@@ -2141,18 +2214,19 @@ function OperationTable({
   onSelect: (id: string) => void;
   empty: ReactNode;
 }) {
+  const { t, locale } = useI18n();
   if (!operations.length) return <div className="panel">{empty}</div>;
   return (
     <div className="panel table-scroll">
       <table>
         <thead>
           <tr>
-            <th>Operation / tool</th>
-            <th>State</th>
-            <th>Requested by</th>
-            <th>Created</th>
+            <th>{t("Operation / tool")}</th>
+            <th>{t("State")}</th>
+            <th>{t("Requested by")}</th>
+            <th>{t("Created")}</th>
             <th>
-              <span className="sr-only">Inspect</span>
+              <span className="sr-only">{t("Inspect")}</span>
             </th>
           </tr>
         </thead>
@@ -2177,11 +2251,13 @@ function OperationTable({
               <td>
                 <span className="actor-label">{operation.actor_id}</span>
               </td>
-              <td className="date-cell">{formatDate(operation.created_at)}</td>
+              <td className="date-cell">
+                {formatDate(operation.created_at, locale)}
+              </td>
               <td>
                 <button
                   className="icon-button"
-                  aria-label={`Inspect operation ${operation.id}`}
+                  aria-label={t("Inspect operation {id}", { id: operation.id })}
                   onClick={() => onSelect(operation.id)}
                 >
                   <Icon name="arrow" />
@@ -2212,6 +2288,7 @@ function OperationList({
   onSelect: (id: string) => void;
   onInvoke: () => void;
 }) {
+  const { t, locale } = useI18n();
   const [filters, setFilters] = useState({
     state: approvalView ? "WAITING_APPROVAL" : "",
     tool_id: "",
@@ -2247,27 +2324,27 @@ function OperationList({
     <section className="operation-list">
       <div className="toolbar">
         <div className="list-summary">
-          <strong>{pages.state.total ?? "—"}</strong>{" "}
-          {approvalView ? "pending review" : "matching operations"}
+          <strong>{pages.state.total?.toLocaleString(locale) ?? "—"}</strong>{" "}
+          {approvalView ? t("pending review") : t("matching operations")}
         </div>
         {canInvoke && !approvalView ? (
           <button className="button primary" onClick={onInvoke}>
             <Icon name="plus" />
-            New invocation
+            {t("New invocation")}
           </button>
         ) : null}
       </div>
       <form className="panel panel-body admin-filter-form" onSubmit={submit}>
         {!approvalView ? (
           <label>
-            State
+            {t("State")}
             <select
               value={filters.state}
               onChange={(event) =>
                 setFilters({ ...filters, state: event.target.value })
               }
             >
-              <option value="">All states</option>
+              <option value="">{t("All states")}</option>
               {[
                 "WAITING_APPROVAL",
                 "READY",
@@ -2277,14 +2354,16 @@ function OperationList({
                 "UNKNOWN",
                 "REJECTED",
               ].map((state) => (
-                <option key={state}>{state}</option>
+                <option key={state} value={state}>
+                  {t(state.toLowerCase().replaceAll("_", " "))}
+                </option>
               ))}
             </select>
           </label>
         ) : null}
         {(["tool_id", "actor_id", "from", "to"] as const).map((name) => (
           <label key={name}>
-            {name.replaceAll("_", " ")}
+            {t(name.replaceAll("_", " "))}
             <input
               type={
                 name === "from" || name === "to" ? "datetime-local" : "text"
@@ -2296,7 +2375,7 @@ function OperationList({
             />
           </label>
         ))}
-        <button className="button secondary">Apply filters</button>
+        <button className="button secondary">{t("Apply filters")}</button>
       </form>
       <AdminError error={error} />
       {pages.state.phase === "loading" ? (
@@ -2310,11 +2389,13 @@ function OperationList({
             <Empty
               title={
                 approvalView
-                  ? "No requests awaiting approval"
-                  : "No matching operations"
+                  ? t("No requests awaiting approval")
+                  : t("No matching operations")
               }
             >
-              Try another filter or prepare an invocation from a published tool.
+              {t(
+                "Try another filter or prepare an invocation from a published tool.",
+              )}
             </Empty>
           }
         />
@@ -2339,6 +2420,7 @@ function OperationDetail({
   onClose: () => void;
   onChanged: (operation: Operation) => void;
 }) {
+  const { t, locale } = useI18n();
   const [operation, setOperation] = useState<Operation | null>(null);
   const [events, setEvents] = useState<OperationEvent[]>([]);
   const [error, setError] = useState("");
@@ -2441,13 +2523,13 @@ function OperationDetail({
     <section className="panel operation-detail">
       <div className="panel-heading">
         <div>
-          <span className="eyebrow">OPERATION RECORD</span>
-          <h2>{operation?.tool_name || "Loading operation"}</h2>
+          <span className="eyebrow">{t("OPERATION RECORD")}</span>
+          <h2>{operation?.tool_name || t("Loading operation")}</h2>
         </div>
         <button
           className="icon-button"
           onClick={onClose}
-          aria-label="Close operation details"
+          aria-label={t("Close operation details")}
         >
           <Icon name="close" />
         </button>
@@ -2455,17 +2537,17 @@ function OperationDetail({
       <div className="panel-body">
         {error ? (
           <Notice>
-            {error} Refresh the record before taking another action.
+            {t(error)} {t("Refresh the record before taking another action.")}
           </Notice>
         ) : null}
         {!operation ? (
           <div role="status">
             {error ? (
               <button className="button secondary" onClick={() => void load()}>
-                Retry loading record
+                {t("Retry loading record")}
               </button>
             ) : (
-              "Loading operation and events…"
+              t("Loading operation and events…")
             )}
           </div>
         ) : (
@@ -2478,62 +2560,67 @@ function OperationDetail({
                 disabled={!!busy}
               >
                 <Icon name="refresh" size={14} />
-                Refresh record
+                {t("Refresh record")}
               </button>
             </div>
             <p className="record-id mono">{operation.id}</p>
             {operation.state === "UNKNOWN" ? (
               <Notice kind="warning">
-                Outcome unknown. The downstream action may have completed.
-                Verify its state before creating another operation. This record
-                cannot be executed again.
+                {t(
+                  "Outcome unknown. The downstream action may have completed. Verify its state before creating another operation. This record cannot be executed again.",
+                )}
               </Notice>
             ) : null}
             {operation.state === "DISPATCHING" ? (
               <Notice kind="info">
-                The operation has been dispatched. Its recorded outcome will
-                appear here when available.
+                {t(
+                  "The operation has been dispatched. Its recorded outcome will appear here when available.",
+                )}
               </Notice>
             ) : null}
             {operation.error ? <Notice>{operation.error}</Notice> : null}
             <dl className="metadata-grid">
               <div>
-                <dt>Requested by</dt>
+                <dt>{t("Requested by")}</dt>
                 <dd>{operation.actor_id}</dd>
               </div>
               <div>
-                <dt>Tool version</dt>
+                <dt>{t("Tool version")}</dt>
                 <dd>v{operation.tool_version}</dd>
               </div>
               <div>
-                <dt>Created</dt>
-                <dd>{formatDate(operation.created_at)}</dd>
+                <dt>{t("Created")}</dt>
+                <dd>{formatDate(operation.created_at, locale)}</dd>
               </div>
               <div>
-                <dt>Updated</dt>
-                <dd>{formatDate(operation.updated_at)}</dd>
+                <dt>{t("Updated")}</dt>
+                <dd>{formatDate(operation.updated_at, locale)}</dd>
               </div>
               {operation.approved_by ? (
                 <div>
-                  <dt>Approved by</dt>
+                  <dt>{t("Approved by")}</dt>
                   <dd>{operation.approved_by}</dd>
                 </div>
               ) : null}
             </dl>
-            <JsonBlock label="Exact arguments" value={operation.arguments} />
+            <JsonBlock
+              label={t("Exact arguments")}
+              value={operation.arguments}
+            />
             {unsafeArguments ? (
               <Notice kind="warning">
-                These arguments contain numbers outside the browser's exact
-                numeric range. The displayed values may be rounded. Approval and
-                execution are blocked in this console; inspect the original
-                request with a client that preserves numeric precision.
+                {t(
+                  "These arguments contain numbers outside the browser's exact numeric range. The displayed values may be rounded. Approval and execution are blocked in this console; inspect the original request with a client that preserves numeric precision.",
+                )}
               </Notice>
             ) : null}
             {operation.state === "WAITING_APPROVAL" ? (
               <div className="approval-actions">
-                <h3>Review required</h3>
+                <h3>{t("Review required")}</h3>
                 <p className="muted">
-                  Approval authorizes this operation and its recorded arguments.
+                  {t(
+                    "Approval authorizes this operation and its recorded arguments.",
+                  )}
                 </p>
                 {canApprove && !selfApproval ? (
                   <>
@@ -2544,22 +2631,23 @@ function OperationDetail({
                         onClick={() => void act("approve")}
                       >
                         {busy === "approve"
-                          ? "Approving…"
-                          : "Approve operation"}
+                          ? t("Approving…")
+                          : t("Approve operation")}
                       </button>
                       <button
                         className="button danger"
                         disabled={!!busy}
                         onClick={() => setRejectOpen((current) => !current)}
                       >
-                        Reject
+                        {t("Reject")}
                       </button>
                     </div>
                     {rejectOpen ? (
                       <div className="reject-form">
                         <p>
-                          This operation will be rejected and cannot execute. A
-                          new request would require a new operation.
+                          {t(
+                            "This operation will be rejected and cannot execute. A new request would require a new operation.",
+                          )}
                         </p>
                         <div className="action-row">
                           <button
@@ -2568,15 +2656,15 @@ function OperationDetail({
                             onClick={() => void act("reject")}
                           >
                             {busy === "reject"
-                              ? "Rejecting…"
-                              : "Confirm rejection"}
+                              ? t("Rejecting…")
+                              : t("Confirm rejection")}
                           </button>
                           <button
                             className="button secondary"
                             disabled={!!busy}
                             onClick={() => setRejectOpen(false)}
                           >
-                            Cancel
+                            {t("Cancel")}
                           </button>
                         </div>
                       </div>
@@ -2585,8 +2673,12 @@ function OperationDetail({
                 ) : (
                   <Notice kind="info">
                     {selfApproval
-                      ? "A different authorized reviewer must approve this request. You cannot approve your own operation."
-                      : "An approver or administrator must review this request."}
+                      ? t(
+                          "A different authorized reviewer must approve this request. You cannot approve your own operation.",
+                        )
+                      : t(
+                          "An approver or administrator must review this request.",
+                        )}
                   </Notice>
                 )}
               </div>
@@ -2597,8 +2689,9 @@ function OperationDetail({
                 operation.actor_id === identity.id)) ? (
               <div className="execution-actions">
                 <p className="muted">
-                  The operation is ready. Execution calls the configured
-                  downstream service.
+                  {t(
+                    "The operation is ready. Execution calls the configured downstream service.",
+                  )}
                 </p>
                 <button
                   className="button primary"
@@ -2606,13 +2699,18 @@ function OperationDetail({
                   onClick={() => void act("execute")}
                 >
                   <Icon name="invoke" />
-                  {busy === "execute" ? "Executing…" : "Execute operation"}
+                  {busy === "execute"
+                    ? t("Executing…")
+                    : t("Execute operation")}
                 </button>
               </div>
             ) : null}
             {operation.result !== undefined ? (
               <>
-                <JsonBlock label="Recorded result" value={operation.result} />
+                <JsonBlock
+                  label={t("Recorded result")}
+                  value={operation.result}
+                />
                 {operation.result &&
                 typeof operation.result === "object" &&
                 "gateway_result_ref" in operation.result ? (
@@ -2632,17 +2730,19 @@ function OperationDetail({
               />
             ) : null}
             <details className="request-details">
-              <summary>Request identity</summary>
+              <summary>{t("Request identity")}</summary>
               <dl>
-                <dt>Idempotency key</dt>
+                <dt>{t("Idempotency key")}</dt>
                 <dd className="mono">{operation.idempotency_key}</dd>
-                <dt>Arguments hash</dt>
+                <dt>{t("Arguments hash")}</dt>
                 <dd className="mono">{operation.arguments_hash}</dd>
               </dl>
             </details>
             <div className="event-heading">
-              <h3>Event timeline</h3>
-              <span className="count-label">{events.length}</span>
+              <h3>{t("Event timeline")}</h3>
+              <span className="count-label">
+                {events.length.toLocaleString(locale)}
+              </span>
             </div>
             {events.length ? (
               <ol className="event-timeline">
@@ -2651,17 +2751,17 @@ function OperationDetail({
                     <span className="event-marker" />
                     <div>
                       <strong>
-                        {event.type.replaceAll("_", " ").toLowerCase()}
+                        {t(event.type.replaceAll("_", " ").toLowerCase())}
                       </strong>
                       <time dateTime={event.created_at}>
-                        {formatDate(event.created_at)}
+                        {formatDate(event.created_at, locale)}
                       </time>
                       <span className="event-actor">
-                        {event.actor_id || "Gateway"}
+                        {event.actor_id || t("Gateway")}
                       </span>
                       {event.data && Object.keys(event.data).length ? (
                         <details>
-                          <summary>Event details</summary>
+                          <summary>{t("Event details")}</summary>
                           <pre>{JSON.stringify(event.data, null, 2)}</pre>
                         </details>
                       ) : null}
@@ -2670,7 +2770,9 @@ function OperationDetail({
                 ))}
               </ol>
             ) : (
-              <p className="muted">No events returned for this operation.</p>
+              <p className="muted">
+                {t("No events returned for this operation.")}
+              </p>
             )}
           </>
         )}
@@ -2688,16 +2790,17 @@ function ServerFilter({
   value: string;
   onChange: (value: string) => void;
 }) {
+  const { t } = useI18n();
   const servers = useResource<{ items: MCPServer[] }>(api, "/mcp/servers");
   return (
     <label className="server-filter">
-      Service
+      {t("Service")}
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
         disabled={servers.loading}
       >
-        <option value="">All services</option>
+        <option value="">{t("All services")}</option>
         {servers.data?.items.map((server) => (
           <option key={server.id} value={server.id}>
             {server.name}

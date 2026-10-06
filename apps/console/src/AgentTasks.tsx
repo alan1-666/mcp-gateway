@@ -1,3 +1,4 @@
+import { useI18n } from "./i18n";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { APIClient, APIError, messageOf } from "./api";
@@ -16,9 +17,9 @@ import {
 import type { AgentRun, EventFeed, RunEvent, RuntimeStatus } from "./run-state";
 import { readTaskDraft, saveTaskDraft } from "./run-draft";
 
-function date(value?: string) {
+function date(value?: string, locale = "en-US") {
   if (!value || Number.isNaN(Date.parse(value))) return "Not reported";
-  return new Intl.DateTimeFormat("en-US", {
+  return new Intl.DateTimeFormat(locale, {
     month: "short",
     day: "numeric",
     hour: "2-digit",
@@ -28,10 +29,11 @@ function date(value?: string) {
 }
 
 function RunStatus({ state }: { state: string }) {
+  const { t } = useI18n();
   return (
     <span className={`status status-${state.toLowerCase()}`}>
       <span />
-      {state.toLowerCase().replaceAll("_", " ")}
+      {t(state.toLowerCase().replaceAll("_", " "))}
     </span>
   );
 }
@@ -49,6 +51,7 @@ function RuntimeCard({
   error: string;
   loading: boolean;
 }) {
+  const { t, locale } = useI18n();
   const ready = runtime?.online && runtime.model_ready;
   const title =
     loading && !runtime
@@ -71,30 +74,30 @@ function RuntimeCard({
   return (
     <section
       className={`agent-runtime ${ready ? "is-ready" : "needs-attention"}`}
-      aria-label="Agent runtime status"
+      aria-label={t("Agent runtime status")}
     >
       <div className="agent-runtime-indicator" aria-hidden="true" />
       <div className="agent-runtime-copy">
-        <h2>{title}</h2>
-        <p>{description}</p>
+        <h2>{t(title)}</h2>
+        <p>{t(description)}</p>
         {error && runtime ? (
           <p className="agent-runtime-error">
-            {error} Showing the last reported status.
+            {t(error)} {t("Showing the last reported status.")}{" "}
           </p>
         ) : null}
       </div>
       <dl className="agent-runtime-meta">
         {runtime?.provider || runtime?.model_id ? (
           <div>
-            <dt>Configured model</dt>
+            <dt>{t("Configured model")}</dt>
             <dd>
               {[runtime.provider, runtime.model_id].filter(Boolean).join(" / ")}
             </dd>
           </div>
         ) : null}
         <div>
-          <dt>Worker last seen</dt>
-          <dd>{date(runtime?.last_seen_at)}</dd>
+          <dt>{t("Worker last seen")}</dt>
+          <dd>{t(date(runtime?.last_seen_at, locale))}</dd>
         </div>
       </dl>
     </section>
@@ -116,6 +119,7 @@ export function AgentTasks({
   onOperation: (id: string) => void;
   onApprovals: () => void;
 }) {
+  const { t, locale } = useI18n();
   const [runs, setRuns] = useState<AgentRun[]>([]);
   const [runtime, setRuntime] = useState<RuntimeStatus | null>(null);
   const [runtimeError, setRuntimeError] = useState("");
@@ -281,15 +285,17 @@ export function AgentTasks({
       <RuntimeCard runtime={runtime} error={runtimeError} loading={loading} />
       {error ? (
         <div role="alert" className="notice notice-error">
-          {error}
-          {loaded ? " The task list may be out of date." : ""}
+          {t(error)}
+          {loaded ? t(" The task list may be out of date.") : ""}
         </div>
       ) : null}
       <div className="agent-toolbar">
         <p>
           {identity.role === "admin"
-            ? "Workspace administrators can review all workspace tasks."
-            : "Only your own tasks are shown. Workspace administrators can review them."}
+            ? t("Workspace administrators can review all workspace tasks.")
+            : t(
+                "Only your own tasks are shown. Workspace administrators can review them.",
+              )}
         </p>
         {canCreate ? (
           <button
@@ -299,26 +305,29 @@ export function AgentTasks({
               setSelected(null);
             }}
           >
-            + {submitted ? "Return to pending request" : "New Agent task"}
+            + {submitted ? t("Return to pending request") : t("New Agent task")}
           </button>
         ) : null}
       </div>
       <div className="agent-task-layout">
         <section
           className="panel agent-task-list"
-          aria-label="Agent task history"
+          aria-label={t("Agent task history")}
         >
           <div className="panel-heading">
             <h2>
-              Task history <span className="count-label">{runs.length}</span>
+              {t("Task history")}{" "}
+              <span className="count-label">{runs.length}</span>
             </h2>
-            <span className="muted">Latest 100</span>
+            <span className="muted">{t("Latest 100")}</span>
           </div>
           {!loaded ? (
             <div className="agent-empty" role="status">
               {loading
-                ? "Loading task history…"
-                : "Task history could not be loaded. Use Refresh to try again."}
+                ? t("Loading task history…")
+                : t(
+                    "Task history could not be loaded. Use Refresh to try again.",
+                  )}
             </div>
           ) : runs.length ? (
             <ol>
@@ -337,7 +346,7 @@ export function AgentTasks({
                     <div>
                       <RunStatus state={run.state} />
                       <time dateTime={run.created_at}>
-                        {date(run.created_at)}
+                        {t(date(run.created_at, locale))}
                       </time>
                     </div>
                     <strong>{run.prompt}</strong>
@@ -348,11 +357,15 @@ export function AgentTasks({
             </ol>
           ) : (
             <div className="agent-empty">
-              <h3>No tasks recorded</h3>
+              <h3>{t("No tasks recorded")}</h3>
               <p>
                 {canCreate
-                  ? "Describe a task to start a governed Agent run. Its prompt, output, and activity stay together."
-                  : "Your role cannot create Agent tasks. An administrator or operator can start a task."}
+                  ? t(
+                      "Describe a task to start a governed Agent run. Its prompt, output, and activity stay together.",
+                    )
+                  : t(
+                      "Your role cannot create Agent tasks. An administrator or operator can start a task.",
+                    )}
               </p>
             </div>
           )}
@@ -363,26 +376,29 @@ export function AgentTasks({
               <div className="panel-heading">
                 <div>
                   <span className="eyebrow">
-                    A TASK WITH A TRACEABLE OUTCOME
+                    {t("A TASK WITH A TRACEABLE OUTCOME")}{" "}
                   </span>
-                  <h2>What needs to be done?</h2>
+                  <h2>{t("What needs to be done?")}</h2>
                 </div>
               </div>
               <div className="panel-body">
                 <p>
-                  The Agent can discover and call published workspace tools.
-                  Writes remain subject to the gateway's approval policy.
+                  {t(
+                    "The Agent can discover and call published workspace tools. Writes remain subject to the gateway's approval policy.",
+                  )}{" "}
                 </p>
                 {createError ? (
                   <div className="notice notice-error" role="alert">
-                    {createError}
+                    {t(createError)}
                     {submitted
-                      ? " The result of this request may be uncertain. Retry sends the same prompt and request ID."
+                      ? t(
+                          " The result of this request may be uncertain. Retry sends the same prompt and request ID.",
+                        )
                       : ""}
                   </div>
                 ) : null}
                 <label htmlFor="agent-task-prompt">
-                  Task instructions
+                  {t("Task instructions")}{" "}
                   <textarea
                     id="agent-task-prompt"
                     rows={10}
@@ -395,34 +411,45 @@ export function AgentTasks({
                       setDraftKey(crypto.randomUUID());
                     }}
                     required
-                    placeholder="Describe the outcome, relevant service, and constraints. The Agent will use only the tools available in this workspace."
+                    placeholder={t(
+                      "Describe the outcome, relevant service, and constraints. The Agent will use only the tools available in this workspace.",
+                    )}
                     aria-describedby="agent-prompt-help"
                   />
                 </label>
                 <div id="agent-prompt-help" className="agent-prompt-help">
                   <span>
                     {submitted
-                      ? "Request locked for safe retry. The prompt will remain immutable."
-                      : "The prompt is immutable once submitted."}
+                      ? t(
+                          "Request locked for safe retry. The prompt will remain immutable.",
+                        )
+                      : t("The prompt is immutable once submitted.")}
                   </span>
                   <span>
-                    {[...(submitted?.prompt ?? prompt)].length.toLocaleString()}{" "}
-                    / 8,000 characters
+                    {[...(submitted?.prompt ?? prompt)].length.toLocaleString(
+                      locale,
+                    )}{" "}
+                    {t("/ 8,000 characters")}{" "}
                   </span>
                 </div>
                 <div className="request-id">
-                  <span>Creation request ID</span>
+                  <span>{t("Creation request ID")}</span>
                   <code>{submitted?.idempotency_key ?? draftKey}</code>
                 </div>
                 <p className="field-help">
                   {draftStored
-                    ? "An unfinished request is saved in this browser tab for recovery after a refresh. Signing out clears the draft."
-                    : "This browser could not save the recovery draft. Keep this page open while a request result is uncertain."}
+                    ? t(
+                        "An unfinished request is saved in this browser tab for recovery after a refresh. Signing out clears the draft.",
+                      )
+                    : t(
+                        "This browser could not save the recovery draft. Keep this page open while a request result is uncertain.",
+                      )}
                 </p>
                 {runtime && (!runtime.online || !runtime.model_ready) ? (
                   <div className="notice notice-info">
-                    The runtime needs attention. You can queue this task; it
-                    will wait for a worker or model credentials.
+                    {t(
+                      "The runtime needs attention. You can queue this task; it will wait for a worker or model credentials.",
+                    )}{" "}
                   </div>
                 ) : null}
                 <div className="action-row">
@@ -431,10 +458,10 @@ export function AgentTasks({
                     disabled={createBusy || (!submitted && !prompt.trim())}
                   >
                     {createBusy
-                      ? "Creating task…"
+                      ? t("Creating task…")
                       : submitted
-                        ? "Retry same request"
-                        : "Create Agent task"}
+                        ? t("Retry same request")
+                        : t("Create Agent task")}
                   </button>
                   <button
                     className="button secondary"
@@ -442,7 +469,7 @@ export function AgentTasks({
                     onClick={() => setCreating(false)}
                     disabled={createBusy}
                   >
-                    Back to tasks
+                    {t("Back to tasks")}{" "}
                   </button>
                 </div>
               </div>
@@ -461,32 +488,37 @@ export function AgentTasks({
             />
           ) : (
             <section className="panel agent-task-welcome">
-              <span className="eyebrow">AGENT WORKSPACE</span>
-              <h2>One task. Its complete record.</h2>
+              <span className="eyebrow">{t("AGENT WORKSPACE")}</span>
+              <h2>{t("One task. Its complete record.")}</h2>
               <p>
-                Select a task to inspect its immutable instructions, live
-                output, governed operations, and event history.
+                {t(
+                  "Select a task to inspect its immutable instructions, live output, governed operations, and event history.",
+                )}{" "}
               </p>
               <div className="agent-principles">
                 <div>
                   <span>01</span>
-                  <strong>Describe an outcome</strong>
+                  <strong>{t("Describe an outcome")}</strong>
                   <p>
-                    The Agent works with the published tools your account may
-                    use.
+                    {t(
+                      "The Agent works with the published tools your account may use.",
+                    )}{" "}
                   </p>
                 </div>
                 <div>
                   <span>02</span>
-                  <strong>Review sensitive actions</strong>
-                  <p>Write requests pause for independent human approval.</p>
+                  <strong>{t("Review sensitive actions")}</strong>
+                  <p>
+                    {t("Write requests pause for independent human approval.")}
+                  </p>
                 </div>
                 <div>
                   <span>03</span>
-                  <strong>Check the evidence</strong>
+                  <strong>{t("Check the evidence")}</strong>
                   <p>
-                    Task completion and business operation outcomes have
-                    separate records.
+                    {t(
+                      "Task completion and business operation outcomes have separate records.",
+                    )}{" "}
                   </p>
                 </div>
               </div>
@@ -517,6 +549,7 @@ function TaskDetail({
   onOperation: (id: string) => void;
   onApprovals: () => void;
 }) {
+  const { t, locale } = useI18n();
   const [run, setRun] = useState<AgentRun | null>(null);
   const [feed, setFeed] = useState<EventFeed>(emptyFeed);
   const [operation, setOperation] = useState<Operation | null>(null);
@@ -686,17 +719,17 @@ function TaskDetail({
         <div className="panel-body">
           {error ? (
             <div className="notice notice-error" role="alert">
-              {error}
+              {t(error)}
             </div>
           ) : (
-            <p role="status">Loading task and event history…</p>
+            <p role="status">{t("Loading task and event history…")}</p>
           )}
           <button
             className="button secondary"
             disabled={loading}
             onClick={() => void load()}
           >
-            Refresh task
+            {t("Refresh task")}{" "}
           </button>
         </div>
       </section>
@@ -705,20 +738,21 @@ function TaskDetail({
     <section className="panel agent-task-detail">
       <div className="panel-heading">
         <div>
-          <span className="eyebrow">AGENT TASK RECORD</span>
-          <h2>Task details</h2>
+          <span className="eyebrow">{t("AGENT TASK RECORD")}</span>
+          <h2>{t("Task details")}</h2>
         </div>
         <RunStatus state={run.state} />
       </div>
       <div className="panel-body">
         {error ? (
           <div className="notice notice-error" role="alert">
-            {error} The record may be out of date.
+            {t(error)} {t("The record may be out of date.")}{" "}
           </div>
         ) : null}
         {actionError ? (
           <div className="notice notice-error" role="alert">
-            {actionError} Refresh the task before trying another action.
+            {t(actionError)}{" "}
+            {t("Refresh the task before trying another action.")}{" "}
           </div>
         ) : null}
         <div className="agent-task-identifiers">
@@ -728,63 +762,72 @@ function TaskDetail({
             disabled={!!busy || loading}
             onClick={() => void load()}
           >
-            {loading ? "Refreshing…" : "Refresh task"}
+            {loading ? t("Refreshing…") : t("Refresh task")}
           </button>
         </div>
         <dl className="metadata-grid">
           <div>
-            <dt>Created by</dt>
+            <dt>{t("Created by")}</dt>
             <dd>{run.actor_id}</dd>
           </div>
           <div>
-            <dt>Attempt</dt>
+            <dt>{t("Attempt")}</dt>
             <dd>{run.attempt}</dd>
           </div>
           <div>
-            <dt>Created</dt>
-            <dd>{date(run.created_at)}</dd>
+            <dt>{t("Created")}</dt>
+            <dd>{t(date(run.created_at, locale))}</dd>
           </div>
           <div>
-            <dt>Updated</dt>
-            <dd>{date(run.updated_at)}</dd>
+            <dt>{t("Updated")}</dt>
+            <dd>{t(date(run.updated_at, locale))}</dd>
           </div>
         </dl>
         <div
           className={`notice ${run.state === "NEEDS_REVIEW" || run.state === "FAILED" ? "notice-warning" : "notice-info"}`}
           role="status"
         >
-          {stateDescription(run, linked)}
+          {t(stateDescription(run, linked))}
         </div>
         {run.error_code ? (
           <p className="agent-error-code">
-            Recorded reason: <code>{run.error_code}</code>
+            {t("Recorded reason:")} <code>{run.error_code}</code>
           </p>
         ) : null}
         <section className="agent-instructions">
           <h3>
-            Original instructions <span>Immutable</span>
+            {t("Original instructions")} <span>{t("Immutable")}</span>
           </h3>
           <p>{run.prompt}</p>
         </section>
         {run.waiting_operation_id ? (
           <section className="agent-linked-operation">
             <div>
-              <span className="eyebrow">RELATED TOOL OPERATION</span>
+              <span className="eyebrow">{t("RELATED TOOL OPERATION")}</span>
               <code>{run.waiting_operation_id}</code>
             </div>
             {linked ? <RunStatus state={linked.state} /> : null}
             <p>
               {linked?.state === "UNKNOWN"
-                ? "The external action may have completed. Verify its downstream state before taking further action. Resume is blocked while the operation is uncertain."
+                ? t(
+                    "The external action may have completed. Verify its downstream state before taking further action. Resume is blocked while the operation is uncertain.",
+                  )
                 : linked?.state === "DISPATCHING"
-                  ? "An admitted action is still in progress. Its operation record determines the eventual outcome."
+                  ? t(
+                      "An admitted action is still in progress. Its operation record determines the eventual outcome.",
+                    )
                   : linked?.state === "WAITING_APPROVAL"
-                    ? "An independent authorized reviewer must approve the exact tool arguments. Resume the task after approval."
-                    : "Inspect the tool's recorded outcome before continuing the task."}
+                    ? t(
+                        "An independent authorized reviewer must approve the exact tool arguments. Resume the task after approval.",
+                      )
+                    : t(
+                        "Inspect the tool's recorded outcome before continuing the task.",
+                      )}
             </p>
             {operationError ? (
               <p className="agent-linked-error">
-                The related operation could not be loaded: {operationError}
+                {t("The related operation could not be loaded:")}{" "}
+                {t(operationError)}
               </p>
             ) : null}
             <div className="action-row">
@@ -792,11 +835,11 @@ function TaskDetail({
                 className="button secondary"
                 onClick={() => onOperation(run.waiting_operation_id!)}
               >
-                Inspect operation
+                {t("Inspect operation")}{" "}
               </button>
               {linked?.state === "WAITING_APPROVAL" ? (
                 <button className="text-button" onClick={onApprovals}>
-                  Open approval inbox →
+                  {t("Open approval inbox →")}{" "}
                 </button>
               ) : null}
             </div>
@@ -810,7 +853,7 @@ function TaskDetail({
                 disabled={!!busy || resumeBlocked || !!error}
                 onClick={() => void act("resume")}
               >
-                {busy === "resume" ? "Resuming…" : "Resume task"}
+                {busy === "resume" ? t("Resuming…") : t("Resume task")}
               </button>
             ) : null}
             <button
@@ -818,22 +861,24 @@ function TaskDetail({
               disabled={!!busy}
               onClick={() => setConfirmCancel(true)}
             >
-              Cancel task
+              {t("Cancel task")}{" "}
             </button>
             {resumeBlocked ? (
               <p>
-                Resume is unavailable until the related operation is approved,
-                completed, or safely resolved.
+                {t(
+                  "Resume is unavailable until the related operation is approved, completed, or safely resolved.",
+                )}{" "}
               </p>
             ) : null}
           </div>
         ) : null}
         {confirmCancel && controls && !terminalRunStates.has(run.state) ? (
           <div className="notice notice-warning">
-            <strong>Cancel this task?</strong>
+            <strong>{t("Cancel this task?")}</strong>
             <p>
-              Cancellation stops new tool actions. A downstream action already
-              admitted may still finish; cancellation does not undo it.
+              {t(
+                "Cancellation stops new tool actions. A downstream action already admitted may still finish; cancellation does not undo it.",
+              )}{" "}
             </p>
             <div className="action-row">
               <button
@@ -841,20 +886,22 @@ function TaskDetail({
                 disabled={!!busy}
                 onClick={() => void act("cancel")}
               >
-                {busy === "cancel" ? "Cancelling…" : "Confirm cancellation"}
+                {busy === "cancel"
+                  ? t("Cancelling…")
+                  : t("Confirm cancellation")}
               </button>
               <button
                 className="button secondary"
                 disabled={!!busy}
                 onClick={() => setConfirmCancel(false)}
               >
-                Keep task
+                {t("Keep task")}{" "}
               </button>
             </div>
           </div>
         ) : null}
         <div className="agent-output-heading">
-          <h3>Agent output</h3>
+          <h3>{t("Agent output")}</h3>
           {run.state === "RUNNING" ? (
             <label>
               <input
@@ -862,19 +909,20 @@ function TaskDetail({
                 checked={followOutput}
                 onChange={(event) => setFollowOutput(event.target.checked)}
               />
-              Follow output
+              {t("Follow output")}{" "}
             </label>
           ) : null}
         </div>
         {catchingUp ? (
           <p className="field-help" role="status">
-            Catching up with the recorded event stream…
+            {t("Catching up with the recorded event stream…")}{" "}
           </p>
         ) : null}
         {output.truncated ? (
           <p className="notice notice-warning">
-            The output is long. This view shows its most recent 262,144
-            characters.
+            {t(
+              "The output is long. This view shows its most recent 262,144 characters.",
+            )}{" "}
           </p>
         ) : null}
         {output.text ? (
@@ -882,29 +930,32 @@ function TaskDetail({
             className="agent-output"
             ref={outputElement}
             tabIndex={0}
-            aria-label="Agent output"
+            aria-label={t("Agent output")}
           >
             {output.text}
           </pre>
         ) : (
           <div className="agent-output-empty">
             {run.state === "RUNNING"
-              ? "Waiting for text from this attempt…"
-              : "No Agent output has been recorded for this task state."}
+              ? t("Waiting for text from this attempt…")
+              : t("No Agent output has been recorded for this task state.")}
           </div>
         )}
         <p className="agent-outcome-note">
-          A successful Agent task means the task finished. Check each tool
-          operation to confirm whether a requested business action succeeded.
+          {t(
+            "A successful Agent task means the task finished. Check each tool operation to confirm whether a requested business action succeeded.",
+          )}{" "}
         </p>
         <div className="event-heading">
-          <h3>Task activity</h3>
+          <h3>{t("Task activity")}</h3>
           <span className="count-label">{feed.count}</span>
         </div>
         {feed.count > EVENT_HISTORY_LIMIT ? (
           <p className="field-help">
-            Showing the latest {EVENT_HISTORY_LIMIT} loaded events. Output is
-            reconstructed across the complete loaded stream.
+            {t(
+              "Showing the latest {count} loaded events. Output is reconstructed across the complete loaded stream.",
+              { count: EVENT_HISTORY_LIMIT },
+            )}
           </p>
         ) : null}
         {feed.items.length ? (
@@ -917,26 +968,30 @@ function TaskDetail({
                     {event.type.replaceAll("_", " ").toLowerCase()}
                   </strong>
                   <time dateTime={event.created_at}>
-                    {date(event.created_at)}
+                    {t(date(event.created_at, locale))}
                   </time>
                   {event.type === "TEXT_DELTA" ? (
                     <span className="event-actor">
-                      Text added to Agent output
+                      {t("Text added to Agent output")}{" "}
                     </span>
                   ) : Object.keys(event.data ?? {}).length ? (
                     <details>
-                      <summary>Event details · #{event.id}</summary>
+                      <summary>
+                        {t("Event details · #{id}", { id: event.id })}
+                      </summary>
                       <pre>{JSON.stringify(event.data, null, 2)}</pre>
                     </details>
                   ) : (
-                    <span className="event-actor">Event #{event.id}</span>
+                    <span className="event-actor">
+                      {t("Event #{id}", { id: event.id })}
+                    </span>
                   )}
                 </div>
               </li>
             ))}
           </ol>
         ) : (
-          <p className="muted">No task events returned yet.</p>
+          <p className="muted">{t("No task events returned yet.")}</p>
         )}
       </div>
     </section>

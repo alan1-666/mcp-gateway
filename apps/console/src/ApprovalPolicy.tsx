@@ -1,3 +1,4 @@
+import { useI18n } from "./i18n";
 import { useState } from "react";
 import type { APIClient } from "./api";
 import { AdminError, useAdminAction } from "./AdminUI";
@@ -12,23 +13,25 @@ export function ApprovalPolicy({
   tool: Tool;
   onChanged: () => Promise<void>;
 }) {
+  const { t } = useI18n();
   const saved =
     tool.approval_policy ?? (tool.risk === "write" ? "required" : "none");
   const [policy, setPolicy] = useState(saved);
   const action = useAdminAction(api);
   return (
-    <section className="panel" aria-label="Invocation approval policy">
+    <section className="panel" aria-label={t("Invocation approval policy")}>
       <div className="panel-heading">
-        <h2>Invocation policy</h2>
+        <h2>{t("Invocation policy")}</h2>
         <span className="version-label">v{tool.version}</span>
       </div>
       <div className="panel-body">
         <p>
-          Choose whether this tool requires an independent approval for each
-          operation. Client permissions always apply.
+          {t(
+            "Choose whether this tool requires an independent approval for each operation. Client permissions always apply.",
+          )}{" "}
         </p>
         <label>
-          Approval policy
+          {t("Approval policy")}{" "}
           <select
             value={policy}
             disabled={action.busy || action.needsReload}
@@ -36,16 +39,19 @@ export function ApprovalPolicy({
               setPolicy(event.target.value as "required" | "none")
             }
           >
-            <option value="required">Require independent approval</option>
+            <option value="required">
+              {t("Require independent approval")}
+            </option>
             <option value="none">
-              Allow authorized calls without approval
+              {t("Allow authorized calls without approval")}{" "}
             </option>
           </select>
         </label>
         {tool.risk === "write" && policy === "none" ? (
           <p className="field-help">
-            This allows authorized clients to perform this tool's writes without
-            per-call approval. Existing pending approvals are retained.
+            {t(
+              "This allows authorized clients to perform this tool's writes without per-call approval. Existing pending approvals are retained.",
+            )}{" "}
           </p>
         ) : null}
         <AdminError error={action.error} onRetry={() => void onChanged()} />
@@ -61,7 +67,7 @@ export function ApprovalPolicy({
             if (updated) await onChanged();
           }}
         >
-          {action.busy ? "Saving…" : "Publish policy change"}
+          {action.busy ? t("Saving…") : t("Publish policy change")}
         </button>
       </div>
     </section>

@@ -1,3 +1,4 @@
+import { useI18n } from "./i18n";
 import { useEffect, useRef, useState } from "react";
 import { APIError, messageOf } from "./api";
 import type { APIClient } from "./api";
@@ -12,6 +13,7 @@ export function ResultReader({
   api: APIClient;
   operationID: string;
 }) {
+  const { t, locale } = useI18n();
   const [text, setText] = useState("");
   const [page, setPage] = useState<ResultPage | null>(null);
   const [error, setError] = useState("");
@@ -55,10 +57,11 @@ export function ResultReader({
     }
   }
   return (
-    <section className="panel-body" aria-label="Read large result">
+    <section className="panel-body" aria-label={t("Read large result")}>
       <p>
-        Large result stored with an expiry. Load only the chunks you need; each
-        request checks current access.
+        {t(
+          "Large result stored with an expiry. Load only the chunks you need; each request checks current access.",
+        )}{" "}
       </p>
       <AdminError error={error} />
       {!page || page.next_cursor ? (
@@ -68,11 +71,13 @@ export function ResultReader({
           disabled={busy}
           onClick={() => void read()}
         >
-          {busy ? "Loading…" : "Read next 8 KiB"}
+          {busy ? t("Loading…") : t("Read next 8 KiB")}
         </button>
       ) : (
         <p role="status">
-          Complete result loaded · {page.bytes.toLocaleString()} bytes
+          {t("Complete result loaded · {bytes} bytes", {
+            bytes: page.bytes.toLocaleString(locale),
+          })}
         </p>
       )}
       {text ? (

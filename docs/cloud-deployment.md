@@ -1,8 +1,12 @@
 # Cloud deployment
 
+## Console language
+
+The login screen and console header provide `EN / 中文` controls. The console shares the website's `rillgate.website.language` preference (`en` or `zh`; legacy `cn` migrates to `zh`). With no saved preference, the first browser language selects Chinese when it starts with `zh`, otherwise English. Storage restrictions do not prevent switching within the current page. Switching language preserves forms, selections and authentication, and updates labels, known errors, dates and numbers. Tool names, upstream descriptions, credentials, schemas and raw JSON remain unchanged; unknown upstream errors retain their original text.
+
 ## Product decision
 
-Rillgate is delivered as an invitation-only cloud workspace for an owner and their team. The browser console, API, MCP endpoint and operation ledger run on the server. Local Compose and static identities are development facilities.
+Rillgate is delivered as an invitation-only cloud workspace for an owner and their team. The browser console, API, MCP endpoint and operation ledger run on the server. Other users may self-host this same cloud stack on their own infrastructure; the hosted instance at rillgate.cn currently requires an invitation. Self-hosting includes the API, gateway, console and database, not a separate desktop client. Operators own TLS, secrets, backups, access policy and upgrades. Local Compose with static identities remains a development facility, not the production authentication model.
 
 The deployment recipe uses one Linux host with Docker Compose, host nginx and PostgreSQL. This is a deliberately single-host topology: it supports a small team but does not provide high availability. Cloud hosting does not change the remaining product scope listed in [implementation status](implementation-status.md). This guide describes the current source and operator procedure. The governance/recovery packages were deployed as `20261005-cloud.8` from feature commit `05d1706780ce7f5c8a085a8801eb144be15c9631`; the dated [verification record](verification.md) separates confirmed deployment/API/browser/restore checks from remaining cloud mutation, rollback and external-destination coverage.
 

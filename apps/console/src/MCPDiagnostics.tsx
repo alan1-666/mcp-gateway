@@ -1,3 +1,4 @@
+import { useI18n } from "./i18n";
 import { useState } from "react";
 import { APIClient } from "./api";
 import {
@@ -30,18 +31,19 @@ export function MCPDiagnostics({
   api: APIClient;
   serverID: string;
 }) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(expanded);
   return (
     <section className="admin-subsection">
       <div className="action-row">
-        <h3>Connection diagnostics</h3>
+        <h3>{t("Connection diagnostics")}</h3>
         {!expanded ? (
           <button
             type="button"
             className="button secondary"
             onClick={() => setOpen(!open)}
           >
-            {open ? "Hide checks" : "Open connection checks"}
+            {open ? t("Hide checks") : t("Open connection checks")}
           </button>
         ) : null}
       </div>
@@ -50,6 +52,7 @@ export function MCPDiagnostics({
   );
 }
 function Reports({ api, serverID }: { api: APIClient; serverID: string }) {
+  const { t, locale } = useI18n();
   const action = useAdminAction(api),
     pages = useRecordPages<Report>(
       api,
@@ -67,8 +70,9 @@ function Reports({ api, serverID }: { api: APIClient; serverID: string }) {
   return (
     <>
       <p className="field-help">
-        Checks inspect connectivity and tool compatibility without invoking a
-        business tool.
+        {t(
+          "Checks inspect connectivity and tool compatibility without invoking a business tool.",
+        )}
       </p>
       <AdminError
         error={action.error}
@@ -82,32 +86,36 @@ function Reports({ api, serverID }: { api: APIClient; serverID: string }) {
         disabled={action.busy || action.needsReload}
         onClick={() => void check()}
       >
-        {action.busy ? "Checking connection…" : "Run connection check"}
+        {action.busy ? t("Checking connection…") : t("Run connection check")}
       </button>
       {pages.state.phase === "loading" ? (
         <AdminLoading />
       ) : !pages.state.items.length && !pages.state.error ? (
-        <AdminEmpty>No checks recorded.</AdminEmpty>
+        <AdminEmpty>{t("No checks recorded.")}</AdminEmpty>
       ) : null}
       {pages.state.items.map((report) => (
         <details key={report.id} className="admin-record">
           <summary>
             <strong>{report.status}</strong> · {report.stage} ·{" "}
-            {report.duration_ms} ms <span>{dateLabel(report.checked_at)}</span>
+            {report.duration_ms} {t("ms")}{" "}
+            <span>{dateLabel(report.checked_at, locale)}</span>
           </summary>
-          <p>{report.message}</p>
+          <p>{t(report.message)}</p>
           <p className="field-help">
-            {report.code} · {report.compatible_count} compatible ·{" "}
-            {report.incompatible_count} incompatible
+            {report.code} ·{" "}
+            {t("{compatible} compatible · {incompatible} incompatible", {
+              compatible: report.compatible_count,
+              incompatible: report.incompatible_count,
+            })}
           </p>
           {report.tools.length ? (
             <div className="table-scroll">
               <table>
                 <thead>
                   <tr>
-                    <th>Tool</th>
-                    <th>Compatibility</th>
-                    <th>Detail</th>
+                    <th>{t("Tool")}</th>
+                    <th>{t("Compatibility")}</th>
+                    <th>{t("Detail")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -116,7 +124,7 @@ function Reports({ api, serverID }: { api: APIClient; serverID: string }) {
                       <td>{tool.name}</td>
                       <td>{tool.status}</td>
                       <td>
-                        {tool.message}
+                        {t(tool.message)}
                         <span className="table-description">{tool.code}</span>
                       </td>
                     </tr>

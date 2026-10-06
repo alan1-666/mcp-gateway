@@ -1,3 +1,4 @@
+import { useI18n } from "./i18n";
 import { ClientConnection } from "./ClientConnection";
 import { useState } from "react";
 import type { FormEvent } from "react";
@@ -38,6 +39,7 @@ export function Clients({
   api: APIClient;
   refreshVersion: string;
 }) {
+  const { t, locale } = useI18n();
   const resource = useResource<{ items: Client[] }>(
       api,
       "/clients",
@@ -81,8 +83,9 @@ export function Clients({
     <div className="admin-workspace">
       <div className="toolbar">
         <p className="muted">
-          Create a scoped key for your existing MCP application. Empty grants
-          deny every tool.
+          {t(
+            "Create a scoped key for your existing MCP application. Empty grants deny every tool.",
+          )}
         </p>
         <button
           className="button primary"
@@ -93,29 +96,32 @@ export function Clients({
             setSecret("");
           }}
         >
-          Create client
+          {t("Create client")}
         </button>
       </div>
       <AdminError
-        error={resource.error || action.error}
+        error={t(resource.error || action.error)}
         onRetry={() => void reload()}
       />
       {rotation ? (
         <section className="panel panel-body">
-          <h2>Rotate {rotation.name}</h2>
+          <h2>{t("Rotate {name}", { name: rotation.name })}</h2>
           <p>
-            The current API key stops working immediately. Save the replacement
-            and update the application using it.
+            {t(
+              "The current API key stops working immediately. Save the replacement and update the application using it.",
+            )}
           </p>
-          <AdminError error={rotationError} />
+          <AdminError error={t(rotationError)} />
           <label>
-            Replacement key expiry
+            {t("Replacement key expiry")}
             <input
               type="datetime-local"
               value={rotationExpiry}
               onChange={(event) => setRotationExpiry(event.target.value)}
             />
-            <span className="field-help">Optional; defaults to 30 days.</span>
+            <span className="field-help">
+              {t("Optional; defaults to 30 days.")}
+            </span>
           </label>
           <div className="action-row">
             <button
@@ -124,7 +130,7 @@ export function Clients({
               disabled={action.busy || action.needsReload}
               onClick={() => void rotate(rotation)}
             >
-              {action.busy ? "Rotating…" : "Replace API key"}
+              {action.busy ? t("Rotating…") : t("Replace API key")}
             </button>
             <button
               type="button"
@@ -132,7 +138,7 @@ export function Clients({
               disabled={action.busy}
               onClick={() => setRotation(null)}
             >
-              Cancel
+              {t("Cancel")}
             </button>
           </div>
         </section>
@@ -143,9 +149,9 @@ export function Clients({
       <div className="panel">
         <div className="panel-heading">
           <h2>
-            Access keys{" "}
+            {t("Access keys")}{" "}
             <span className="count-label">
-              {resource.data?.items.length ?? "—"}
+              {resource.data?.items.length.toLocaleString(locale) ?? "—"}
             </span>
           </h2>
         </div>
@@ -156,11 +162,11 @@ export function Clients({
             <table>
               <thead>
                 <tr>
-                  <th>Client</th>
-                  <th>Access</th>
-                  <th>Key expires</th>
-                  <th>Version</th>
-                  <th>Manage</th>
+                  <th>{t("Client")}</th>
+                  <th>{t("Access")}</th>
+                  <th>{t("Key expires")}</th>
+                  <th>{t("Version")}</th>
+                  <th>{t("Manage")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -180,13 +186,16 @@ export function Clients({
                       <span className="table-description mono">{item.id}</span>
                     </td>
                     <td>
-                      {item.enabled ? "Enabled" : "Disabled"}
+                      {item.enabled ? t("Enabled") : t("Disabled")}
                       <span className="table-description">
-                        {item.tool_ids.length} tool grants ·{" "}
-                        {item.server_ids.length} server grants
+                        {t("{tools} tool grants · {servers} server grants", {
+                          tools: item.tool_ids.length.toLocaleString(locale),
+                          servers:
+                            item.server_ids.length.toLocaleString(locale),
+                        })}
                       </span>
                     </td>
-                    <td>{dateLabel(item.key_expires_at)}</td>
+                    <td>{dateLabel(item.key_expires_at, locale)}</td>
                     <td>v{item.version}</td>
                     <td>
                       <button
@@ -198,7 +207,7 @@ export function Clients({
                           setSecret("");
                         }}
                       >
-                        Rotate key
+                        {t("Rotate key")}
                       </button>
                     </td>
                   </tr>
@@ -208,8 +217,9 @@ export function Clients({
           </div>
         ) : !resource.error ? (
           <AdminEmpty>
-            No clients yet. Create a named client and explicitly grant its
-            tools.
+            {t(
+              "No clients yet. Create a named client and explicitly grant its tools.",
+            )}
           </AdminEmpty>
         ) : null}
       </div>
@@ -252,6 +262,7 @@ function ClientForm({
   onClose: () => void;
   onSaved: (value: Client | Issued) => Promise<void>;
 }) {
+  const { t, locale } = useI18n();
   const [name, setName] = useState(initial?.name ?? ""),
     [enabled, setEnabled] = useState(initial?.enabled ?? true),
     [read, setRead] = useState(initial?.scopes.includes("tools:read") ?? false),
@@ -290,27 +301,33 @@ function ClientForm({
   return (
     <form className="panel" onSubmit={submit}>
       <div className="panel-heading">
-        <h2>{initial ? `Edit ${initial.name}` : "Create client"}</h2>
+        <h2>
+          {initial
+            ? t("Edit {name}", { name: initial.name })
+            : t("Create client")}
+        </h2>
         <button
           type="button"
           className="button secondary"
           disabled={action.busy}
           onClick={onClose}
         >
-          Close
+          {t("Close")}
         </button>
       </div>
       <div className="panel-body">
-        <AdminError error={error || action.error} />
+        <AdminError error={t(error || action.error)} />
         {action.needsReload ? (
           <p className="field-help">
-            Close this editor and reload the client list before editing again.
+            {t(
+              "Close this editor and reload the client list before editing again.",
+            )}
           </p>
         ) : null}
         <fieldset disabled={action.busy || action.needsReload}>
           <div className="form-grid">
             <label>
-              Client name
+              {t("Client name")}
               <input
                 required
                 maxLength={120}
@@ -325,13 +342,13 @@ function ClientForm({
                   checked={enabled}
                   onChange={(event) => setEnabled(event.target.checked)}
                 />
-                Client enabled
+                {t("Client enabled")}
               </label>
             ) : (
               <label>
-                Key expiry{" "}
+                {t("Key expiry")}{" "}
                 <span className="field-help">
-                  Optional; defaults to 30 days.
+                  {t("Optional; defaults to 30 days.")}
                 </span>
                 <input
                   type="datetime-local"
@@ -341,7 +358,7 @@ function ClientForm({
               </label>
             )}
           </div>
-          <h3>API scopes</h3>
+          <h3>{t("API scopes")}</h3>
           <div className="action-row">
             <label className="admin-check">
               <input
@@ -352,7 +369,7 @@ function ClientForm({
                   if (!event.target.checked) setInvoke(false);
                 }}
               />
-              Discover and read granted tools
+              {t("Discover and read granted tools")}
             </label>
             <label className="admin-check">
               <input
@@ -361,18 +378,19 @@ function ClientForm({
                 checked={invoke}
                 onChange={(event) => setInvoke(event.target.checked)}
               />
-              Prepare and execute granted tools
+              {t("Prepare and execute granted tools")}
             </label>
           </div>
           <div className="admin-grants">
             <section>
-              <h3>Server grants</h3>
+              <h3>{t("Server grants")}</h3>
               <p className="field-help">
-                A server grant includes all its published tools, including
-                future imports.
+                {t(
+                  "A server grant includes all its published tools, including future imports.",
+                )}
               </p>
               <AdminError
-                error={upstreams.error}
+                error={t(upstreams.error)}
                 onRetry={() => void upstreams.reload()}
               />
               {upstreams.loading ? (
@@ -391,13 +409,13 @@ function ClientForm({
                   </label>
                 ))
               ) : (
-                <p className="muted">No MCP servers registered.</p>
+                <p className="muted">{t("No MCP servers registered.")}</p>
               )}
             </section>
             <section>
-              <h3>Specific tool grants</h3>
+              <h3>{t("Specific tool grants")}</h3>
               <label>
-                Search registry
+                {t("Search registry")}
                 <input
                   type="search"
                   value={catalog.state.input}
@@ -407,11 +425,13 @@ function ClientForm({
                 />
               </label>
               <p className="field-help">
-                {tools.length} selected · {catalog.state.total ?? "—"} matching
-                tools
+                {t("{selected} selected · {total} matching tools", {
+                  selected: tools.length.toLocaleString(locale),
+                  total: catalog.state.total?.toLocaleString(locale) ?? "—",
+                })}
               </p>
               <AdminError
-                error={catalog.state.error}
+                error={t(catalog.state.error)}
                 onRetry={() => void catalog.controller.retry()}
               />
               <div className="admin-grant-list">
@@ -436,12 +456,12 @@ function ClientForm({
                   disabled={catalog.state.phase !== "idle"}
                   onClick={() => void catalog.controller.loadMore()}
                 >
-                  Load more tools
+                  {t("Load more tools")}
                 </button>
               ) : null}
               {tools.length ? (
                 <details>
-                  <summary>Review all selected tool IDs</summary>
+                  <summary>{t("Review all selected tool IDs")}</summary>
                   {tools.map((id) => (
                     <div className="grant-chip" key={id}>
                       <code>{id}</code>
@@ -450,7 +470,7 @@ function ClientForm({
                         className="text-button"
                         onClick={() => setTools(toggleGrant(tools, id))}
                       >
-                        Remove
+                        {t("Remove")}
                       </button>
                     </div>
                   ))}
@@ -464,10 +484,10 @@ function ClientForm({
           disabled={action.busy || action.needsReload}
         >
           {action.busy
-            ? "Saving…"
+            ? t("Saving…")
             : initial
-              ? "Save client permissions"
-              : "Create and reveal API key"}
+              ? t("Save client permissions")
+              : t("Create and reveal API key")}
         </button>
       </div>
     </form>

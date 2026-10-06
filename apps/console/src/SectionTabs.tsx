@@ -1,3 +1,4 @@
+import { useI18n } from "./i18n";
 import { useId, useState } from "react";
 import type { ReactNode } from "react";
 
@@ -13,6 +14,7 @@ export function SectionTabs({
   value: string;
   onChange: (id: string) => void;
 }) {
+  const { t } = useI18n();
   const id = useId();
   const selected = tabs.some((tab) => tab.id === value) ? value : tabs[0]?.id;
   const [visited, setVisited] = useState(() => new Set([selected]));
@@ -22,7 +24,7 @@ export function SectionTabs({
   }
   return (
     <div className="section-tabs">
-      <div role="tablist" aria-label={label} className="section-tab-list">
+      <div role="tablist" aria-label={t(label)} className="section-tab-list">
         {tabs.map((tab, index) => (
           <button
             key={tab.id}
@@ -54,7 +56,7 @@ export function SectionTabs({
               buttons?.[next]?.focus();
             }}
           >
-            {tab.label}
+            {t(tab.label)}
           </button>
         ))}
       </div>

@@ -1,3 +1,4 @@
+import { useI18n } from "./i18n";
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { APIClient, messageOf } from "./api";
@@ -28,6 +29,7 @@ export function AuditTrail({
   api: APIClient;
   refreshVersion: string;
 }) {
+  const { t, locale } = useI18n();
   const [filters, setFilters] = useState({
       actor_id: "",
       action: "",
@@ -59,7 +61,7 @@ export function AuditTrail({
       <form className="panel panel-body admin-filter-form" onSubmit={submit}>
         {Object.entries(filters).map(([name, value]) => (
           <label key={name}>
-            {name.replaceAll("_", " ")}
+            {t(name.replaceAll("_", " "))}
             <input
               type={
                 name === "from" || name === "to" ? "datetime-local" : "text"
@@ -71,38 +73,40 @@ export function AuditTrail({
             />
           </label>
         ))}
-        <button className="button secondary">Apply filters</button>
+        <button className="button secondary">{t("Apply filters")}</button>
       </form>
       <AdminError error={error} />
       <div className="panel">
         <div className="panel-heading">
-          <h2>Audit records</h2>
+          <h2>{t("Audit records")}</h2>
           <span className="muted">
-            {pages.state.total ?? "—"} matching records
+            {t("{count} matching records", {
+              count: pages.state.total ?? "—",
+            })}{" "}
           </span>
         </div>
         {pages.state.phase === "loading" ? (
           <AdminLoading />
         ) : !pages.state.items.length && !pages.state.error ? (
-          <AdminEmpty>No audit records match these filters.</AdminEmpty>
+          <AdminEmpty>{t("No audit records match these filters.")}</AdminEmpty>
         ) : null}
         {pages.state.items.map((item) => (
           <details className="admin-record" key={item.id}>
             <summary>
               <strong>{item.action}</strong>
-              <span>{dateLabel(item.created_at)}</span>
+              <span>{dateLabel(item.created_at, locale)}</span>
             </summary>
             <dl className="metadata-grid">
               <div>
-                <dt>Actor</dt>
+                <dt>{t("Actor")}</dt>
                 <dd className="mono">{item.actor_id}</dd>
               </div>
               <div>
-                <dt>Resource</dt>
+                <dt>{t("Resource")}</dt>
                 <dd className="mono">{item.resource_id}</dd>
               </div>
             </dl>
-            <AdminJSON label="Recorded change" value={item.data} />
+            <AdminJSON label={t("Recorded change")} value={item.data} />
           </details>
         ))}
         <MoreRecords pages={pages} />
@@ -128,6 +132,7 @@ export function Reconciliations({
   operation: Operation;
   identity: Identity;
 }) {
+  const { t, locale } = useI18n();
   const path = `/operations/${operation.id}/reconciliations`,
     pages = useRecordPages<Reconciliation>(api, path),
     action = useAdminAction(api);
@@ -157,22 +162,23 @@ export function Reconciliations({
   }
   return (
     <section className="admin-subsection">
-      <h3>Outcome verification</h3>
+      <h3>{t("Outcome verification")}</h3>
       <p className="field-help">
-        Record evidence from the downstream system. The original operation
-        remains UNKNOWN; verification does not execute or retry it.
+        {t(
+          "Record evidence from the downstream system. The original operation remains UNKNOWN; verification does not execute or retry it.",
+        )}{" "}
       </p>
       <AdminError error={action.error} onRetry={() => void reload()} />
       {pages.state.phase === "loading" ? (
         <AdminLoading />
       ) : !pages.state.items.length && !pages.state.error ? (
-        <p className="muted">No verification evidence recorded.</p>
+        <p className="muted">{t("No verification evidence recorded.")}</p>
       ) : null}
       {pages.state.items.map((item) => (
         <div className="admin-record" key={item.id}>
-          <strong>{item.outcome.replaceAll("_", " ")}</strong>
+          <strong>{t(item.outcome.replaceAll("_", " "))}</strong>
           <span className="field-help">
-            {dateLabel(item.created_at)} · {item.actor_id}
+            {dateLabel(item.created_at, locale)} · {item.actor_id}
           </span>
           <p className="break-word">{item.note}</p>
           <code className="break-word">{item.evidence_ref}</code>
@@ -190,30 +196,36 @@ export function Reconciliations({
             }
           >
             <label>
-              Observed outcome
+              {t("Observed outcome")}{" "}
               <select
                 value={outcome}
                 onChange={(event) => setOutcome(event.target.value)}
               >
-                <option value="inconclusive">Inconclusive</option>
-                <option value="confirmed_success">Confirmed success</option>
-                <option value="confirmed_failure">Confirmed failure</option>
+                <option value="inconclusive">{t("Inconclusive")}</option>
+                <option value="confirmed_success">
+                  {t("Confirmed success")}
+                </option>
+                <option value="confirmed_failure">
+                  {t("Confirmed failure")}
+                </option>
               </select>
             </label>
             <label>
-              Evidence reference
+              {t("Evidence reference")}{" "}
               <input
                 required
                 value={evidence}
                 onChange={(event) => setEvidence(event.target.value)}
-                placeholder="HTTPS URL or record ID"
+                placeholder={t("HTTPS URL or record ID")}
               />
               <span className="field-help">
-                HTTPS links must omit query parameters and fragments.
+                {t(
+                  "HTTPS links must omit query parameters and fragments.",
+                )}{" "}
               </span>
             </label>
             <label>
-              Verification notes
+              {t("Verification notes")}{" "}
               <textarea
                 rows={3}
                 required
@@ -223,13 +235,17 @@ export function Reconciliations({
               />
             </label>
             <button className="button primary">
-              {action.busy ? "Recording…" : "Record verification evidence"}
+              {action.busy
+                ? t("Recording…")
+                : t("Record verification evidence")}
             </button>
           </fieldset>
         </form>
       ) : (
         <p className="notice notice-info">
-          An independent administrator or approver must verify this outcome.
+          {t(
+            "An independent administrator or approver must verify this outcome.",
+          )}{" "}
         </p>
       )}
     </section>
