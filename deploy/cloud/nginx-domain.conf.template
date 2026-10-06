@@ -58,8 +58,9 @@ server {
     return 308 https://PUBLIC_DOMAIN$request_uri;
 }
 server {
-    listen 443 ssl;
-    listen [::]:443 ssl;
+    # IP clients commonly omit SNI; keep their certificate as the TLS default.
+    listen 443 ssl default_server;
+    listen [::]:443 ssl default_server;
     server_name PUBLIC_IP;
     if ($host != PUBLIC_IP) { return 444; }
     ssl_certificate /etc/letsencrypt/live/mcp-gateway-ip/fullchain.pem;

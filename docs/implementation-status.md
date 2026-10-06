@@ -30,7 +30,7 @@ The [product design](product-design.md) and [system architecture](architecture.m
 
 ## Current delivery — 2026-10-06
 
-The product brand is **Rillgate**; MCP gateway describes its function. The public website, workspace, browser identity, CLI help and current product documentation use this name. A custom domain is awaiting owner registration.
+The product brand is **Rillgate**; MCP gateway describes its function. The public website, workspace, browser identity, CLI help and current product documentation use this name. The public site is [rillgate.cn](https://rillgate.cn/), with the workspace at [/console/](https://rillgate.cn/console/) and MCP endpoint at `https://rillgate.cn/mcp`. Domain TLS, canonical redirects and certificate renewal are configured independently of application release cloud.16.
 
 The core Gateway flow is working in the cloud: connect an upstream → discover and review tools → publish a version → authorize a client → execute through policy → project the response → inspect the operation. The current application release is `20261006-cloud.16` (source `9dc23b7`), applying the Rillgate product name in [PR 9](https://github.com/alan1-666/mcp-gateway/pull/9). The website is at `/`; the authenticated team workspace is at `/console/`. All six exact-source push/PR checks and 16 bounded cloud brand/route/asset/auth checks passed. Browser acceptance confirmed the deployed Rillgate identity and restoration of the existing authenticated workspace session. The public website and invitation routing were introduced and accepted in cloud.15. Both existing upstreams retain hourly catalog checks. Cloud acceptance is bounded to the journeys recorded in [verification](verification.md); the full production architecture is not complete.
 
@@ -42,7 +42,7 @@ The core Gateway flow is working in the cloud: connect an upstream → discover 
 | Operational visibility | Recorded operations, audit, scoped admission, catalog comparison, retained review history and scheduled checks | Telemetry/SLO dashboards and scheduler-specific alerting |
 | Pi tasks | Subscription-backed cloud runner, durable task leases, cancellation and approval pauses | Per-user model accounts, distributed runtime and quality evaluation |
 | Cloud delivery | Known-source releases, encrypted local backups, isolated restore verification and local health collection | Independent off-host backup destination, external alert webhook, actual application rollback and HA |
-| Product website | Public English homepage, independent `/console/` entry, responsive layout, local sample interaction and invitation compatibility; released with cloud route/session/browser acceptance | Product feedback and a custom domain when available |
+| Product website | Public English homepage, independent `/console/` entry, responsive layout, local sample interaction and invitation compatibility; released with cloud route/session/browser acceptance | Product feedback and broader usability acceptance |
 | Console redesign | Grouped navigation, compact overview, server and tool detail tabs, lazy retained panels, mobile navigation and a shared light theme implemented and locally accepted | Broader usability feedback and future feature views |
 
 ## Development order
