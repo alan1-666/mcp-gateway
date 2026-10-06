@@ -313,3 +313,13 @@ Nine cloud checks passed after this deployment. Each existing schedule was pause
 - Browser acceptance on the canonical domain passed: real account login, session restoration after refresh, public website navigation and a synthetic old-IP invitation link reaching the join form with its fragment cleared. No invitation was accepted or account created. Browser errors were empty on the accepted domain journey. Detailed reports and the screenshot remain private under `.local/verification/`.
 - The host's primary recursive DNS retained a negative response from before registration while public resolvers and external clients already worked. Its already-configured fallback resolvers were prioritized at runtime; no hosts-file entry or certificate-validation exception was added. This is separate from the domain's public DNS configuration.
 - PostgreSQL, API, gateway and console were healthy; worker and Pi runner were running. Integration, backup, monitor and certificate timers/services remained active. The host nginx configuration SHA256 is `5ba7d6d26134b0287c6f0935d4841ba91a204dc84dea8cbc4c2469097d93d742`; the installed renewal script SHA256 is `15910c0bb7c1eb4d7b06bf73a7b6a6d22b07de601e6c3e8dfd26ffde71f5c0b5`. Changes are tracked in [PR 10](https://github.com/alan1-666/mcp-gateway/pull/10).
+
+## English and Chinese public website — 2026-10-06
+
+- Shared, escaped HTML template generates complete English and Simplified Chinese pages at `/en/` and `/cn/`; localized content and metadata are present without JavaScript. Native language links remain usable if preference storage is unavailable.
+- Explicit language URLs override the saved choice. Root visits reuse a valid preference; language switching retains the query and section anchor. Legacy invitation forwarding takes priority on every public entry.
+- Local acceptance passed: Go race tests with real PostgreSQL and the Node cloud-worker integration, 70 console tests, 31 Pi tests, `go vet`, TypeScript checks and production builds. Focused language regressions cover complete dictionaries, escaped rendering, metadata, explicit-route precedence, restricted storage and invitation priority.
+- Browser acceptance passed at desktop, 390px and 320px: translated content, keyboard switching, English/Chinese preference restoration, query/anchor preservation, localized response example and synthetic invitation forwarding. Both languages have no horizontal document overflow at 320px. The workspace remains independently bundled and English.
+- Real nginx CI fixtures now check both language entries, query-preserving slash redirects and missing-page 404s in addition to API/MCP proxy recovery.
+
+Cloud rollout and deployed browser evidence are recorded after release acceptance.

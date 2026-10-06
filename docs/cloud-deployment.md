@@ -25,6 +25,8 @@ No database or backend port is published publicly. The cloud configuration runs 
 
 The public deployment is [https://rillgate.cn/](https://rillgate.cn/); its team workspace is [https://rillgate.cn/console/](https://rillgate.cn/console/) and MCP endpoint is `https://rillgate.cn/mcp`. The public website is served at `/`; the team workspace is served at `/console/`. Both share the existing HTTPS origin. New invitations point to `/console/#invite=...`; previously issued `/#invite=...` links are forwarded in the browser, keeping the token in the fragment. The website is a separate static entry and makes no account or gateway requests. The workspace continues to require authentication.
 
+The public website has English (`/en/`) and Simplified Chinese (`/cn/`, HTML language `zh-CN`) entries. Both are complete static pages generated from one template and a typed copy dictionary, with localized metadata and alternate-language links. The root defaults to English and follows a valid saved language preference when JavaScript is available. Explicit language URLs take precedence and save the selection; switching retains the query and section anchor. Storage restrictions leave the native language links usable. Legacy invitation forwarding takes precedence over language selection. The workspace and repository documentation remain English.
+
 ## Identity and access
 
 - One account belongs to one workspace. Usernames are globally unique, normalized to lowercase, and are not verified email addresses.

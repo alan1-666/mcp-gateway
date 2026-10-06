@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="{{lang}}">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -7,25 +7,31 @@
     <meta name="referrer" content="no-referrer" />
     <meta
       name="description"
-      content="Connect agents to MCP servers and HTTP APIs through one governed gateway. Control tool access, approve writes and return only the fields your agents need."
+      content="{{description}}"
     />
     <meta
       property="og:title"
-      content="Rillgate — Give agents access. Keep control."
+      content="{{ogTitle}}"
     />
     <meta
       property="og:description"
-      content="One gateway for your agents and tools. Reviewed connections, scoped access, human approvals and focused responses."
+      content="{{ogDescription}}"
     />
     <meta property="og:type" content="website" />
-    <title>Rillgate — MCP Gateway for AI agents</title>
+    <meta property="og:locale" content="{{ogLocale}}" />
+    <meta property="og:url" content="https://rillgate.cn{{homePath}}" />
+    <link rel="canonical" href="https://rillgate.cn{{homePath}}" />
+    <link rel="alternate" hreflang="en" href="https://rillgate.cn/en/" />
+    <link rel="alternate" hreflang="zh-CN" href="https://rillgate.cn/cn/" />
+    <link rel="alternate" hreflang="x-default" href="https://rillgate.cn/" />
+    <title>{{pageTitle}}</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   </head>
   <body>
-    <a class="skip-link" href="#main-content">Skip to content</a>
+    <a class="skip-link" href="#main-content">{{skip}}</a>
     <header class="site-header">
       <div class="wrap header-inner">
-        <a class="wordmark" href="/" aria-label="Rillgate home"
+        <a class="wordmark" href="{{homePath}}" aria-label="{{homeLabel}}"
           ><span class="brand-symbol" aria-hidden="true"
             ><svg viewBox="0 0 32 32" fill="none">
               <path
@@ -35,15 +41,20 @@
               /></svg></span
           >Rillgate</a
         >
-        <nav aria-label="Main navigation">
-          <a href="#how-it-works">How it works</a
-          ><a href="#response-control">Response control</a
+        <nav aria-label="{{navLabel}}">
+          <a href="#how-it-works">{{how}}</a
+          ><a href="#response-control">{{response}}</a
           ><a href="https://github.com/alan1-666/mcp-gateway/tree/main/docs"
-            >Docs <span aria-hidden="true">↗</span></a
+            >{{docs}} <span aria-hidden="true">↗</span></a
           >
         </nav>
+        <div class="language-switch" role="group" aria-label="{{languageLabel}}">
+          <a href="/en/" lang="en" hreflang="en" data-language="en" aria-current="{{enCurrent}}" aria-label="English">EN</a>
+          <span aria-hidden="true">/</span>
+          <a href="/cn/" lang="zh-CN" hreflang="zh-CN" data-language="cn" aria-current="{{cnCurrent}}" aria-label="简体中文">中文</a>
+        </div>
         <a class="header-cta" href="/console/"
-          >Open workspace <span aria-hidden="true">↗</span></a
+          >{{workspace}} <span aria-hidden="true">↗</span></a
         >
       </div>
     </header>
@@ -52,45 +63,43 @@
         <div class="wrap hero-layout">
           <div class="hero-copy">
             <p class="eyebrow">
-              <span class="tiny-cross" aria-hidden="true">+</span> THE ACCESS
-              LAYER FOR YOUR AGENTS
+              <span class="tiny-cross" aria-hidden="true">+</span> {{heroEyebrow}}
             </p>
             <h1>
-              Give agents<br />access.<br /><span class="heading-last"
-                >Keep control<svg
+              {{heroFirst}}<br />{{heroSecond}}<br /><span class="heading-last"
+                >{{heroLast}}<svg
                   aria-hidden="true"
                   viewBox="0 0 325 12"
                   preserveAspectRatio="none"
                 >
                   <path d="M2 8C90 0 190 2 323 7" /></svg></span
-              >.
+              >{{heroPeriod}}
             </h1>
             <p class="hero-description">
-              Your agents. Your tools. One governed gateway.<br
+              {{heroIntro}}<br
                 class="desktop-break"
               />
-              Connect MCP servers and HTTP APIs with clear permissions and
-              focused responses.
+              {{heroDescription}}
             </p>
             <div class="actions">
               <a class="button button-dark" href="/console/"
-                >Open workspace <span aria-hidden="true">↗</span></a
+                >{{workspace}} <span aria-hidden="true">↗</span></a
               ><a
                 class="text-link"
                 href="https://github.com/alan1-666/mcp-gateway"
-                >Explore on GitHub <span aria-hidden="true">↗</span></a
+                >{{github}} <span aria-hidden="true">↗</span></a
               >
             </div>
             <p class="hero-note">
-              Built for teams. Cloud workspace · Invitation-only access.
+              {{heroNote}}
             </p>
           </div>
           <figure
             class="routing-map"
-            aria-label="Agent clients connect to Rillgate, which checks access, approvals and response policies before connecting to remote MCP servers or HTTP APIs. The operation ledger records the outcome."
+            aria-label="{{mapLabel}}"
           >
             <div class="map-heading">
-              <span>ONE CONNECTION. CLEAR BOUNDARIES.</span
+              <span>{{mapHeading}}</span
               ><span aria-hidden="true">01 / 03</span>
             </div>
             <div class="map-body" aria-hidden="true">
@@ -110,7 +119,7 @@
               <div class="map-side">
                 <div class="map-node">
                   <span class="node-icon terminal-icon">&gt;_</span
-                  ><strong>Pi agent</strong><span>Task runtime</span>
+                  ><strong>{{pi}}</strong><span>{{runtime}}</span>
                 </div>
                 <div class="map-node">
                   <span class="node-icon"
@@ -120,11 +129,11 @@
                         stroke="currentColor"
                         stroke-width="1.5"
                       /></svg></span
-                  ><strong>MCP client</strong><span>Your agent stack</span>
+                  ><strong>{{client}}</strong><span>{{stack}}</span>
                 </div>
               </div>
               <div class="map-gateway">
-                <span class="gateway-caption">THE CONTROL POINT</span
+                <span class="gateway-caption">{{controlPoint}}</span
                 ><svg class="gateway-mark" viewBox="0 0 32 32" fill="none">
                   <path
                     d="M8 26V6h8a7 7 0 0 1 0 14H8m9 0 8 6"
@@ -133,8 +142,8 @@
                   /></svg
                 ><strong>Rillgate</strong>
                 <div class="gate-policies">
-                  <span>✓ Scoped access</span><span>✓ Write approvals</span
-                  ><span>✓ Response policy</span>
+                  <span>{{access}}</span><span>{{approvals}}</span
+                  ><span>{{policy}}</span>
                 </div>
                 <span class="gateway-port">/mcp</span>
               </div>
@@ -165,26 +174,26 @@
                         stroke="currentColor"
                         stroke-width="1.5"
                       /></svg></span
-                  ><strong>MCP servers</strong><span>Streamable HTTP</span>
+                  ><strong>{{servers}}</strong><span>Streamable HTTP</span>
                 </div>
                 <div class="map-node">
                   <span class="node-icon">{ }</span><strong>HTTP APIs</strong
-                  ><span>Existing services</span>
+                  ><span>{{services}}</span>
                 </div>
               </div>
             </div>
             <figcaption>
               <span class="ledger-icon" aria-hidden="true">≡</span
-              ><span>Every governed operation leaves a record.</span
+              ><span>{{ledger}}</span
               ><span aria-hidden="true">↳</span>
             </figcaption>
           </figure>
         </div>
         <div class="wrap principle-strip">
-          <span>DESIGNED AROUND THE CALL</span>
-          <p>Connect deliberately.</p>
-          <p>Act with permission.</p>
-          <p>Return what matters.</p>
+          <span>{{principle}}</span>
+          <p>{{connectPrinciple}}</p>
+          <p>{{actPrinciple}}</p>
+          <p>{{returnPrinciple}}</p>
         </div>
       </section>
       <section
@@ -193,48 +202,44 @@
         aria-labelledby="flow-title"
       >
         <div class="section-heading">
-          <p class="eyebrow">01 / A CLEAR PATH TO EVERY TOOL</p>
-          <h2 id="flow-title">From connection<br />to confidence.</h2>
+          <p class="eyebrow">{{flowEyebrow}}</p>
+          <h2 id="flow-title">{{flowFirst}}<br />{{flowLast}}</h2>
           <p>
-            Bring your services into a shared catalog.<br />Keep the decisions
-            that matter in your team’s hands.
+            {{flowIntro}}<br />{{flowDescription}}
           </p>
         </div>
         <div class="workflow">
           <article>
             <div class="step-number">01 <span aria-hidden="true">↗</span></div>
-            <h3>Connect &amp; review</h3>
+            <h3>{{connectTitle}}</h3>
             <p>
-              Discover remote MCP tools or register an HTTP API. Review
-              contracts and publish the versions you trust.
+              {{connectDescription}}
             </p>
             <a
               href="https://github.com/alan1-666/mcp-gateway/blob/main/docs/remote-mcp-contract.md"
-              >Explore connections <span aria-hidden="true">↗</span></a
+              >{{connectLink}} <span aria-hidden="true">↗</span></a
             >
           </article>
           <article>
             <div class="step-number">02 <span aria-hidden="true">↗</span></div>
-            <h3>Grant &amp; govern</h3>
+            <h3>{{governTitle}}</h3>
             <p>
-              Scope each client’s access. Require an independent reviewer to
-              approve writes before the gateway dispatches them.
+              {{governDescription}}
             </p>
             <a
               href="https://github.com/alan1-666/mcp-gateway/blob/main/docs/cloud-deployment.md#identity-and-access"
-              >Explore client access <span aria-hidden="true">↗</span></a
+              >{{governLink}} <span aria-hidden="true">↗</span></a
             >
           </article>
           <article>
             <div class="step-number">03 <span aria-hidden="true">↗</span></div>
-            <h3>Execute &amp; inspect</h3>
+            <h3>{{executeTitle}}</h3>
             <p>
-              Apply response policies and follow the operation to its recorded
-              outcome. Keep uncertain writes visible for review.
+              {{executeDescription}}
             </p>
             <a
               href="https://github.com/alan1-666/mcp-gateway/blob/main/docs/implementation-status.md"
-              >See what’s implemented <span aria-hidden="true">↗</span></a
+              >{{executeLink}} <span aria-hidden="true">↗</span></a
             >
           </article>
         </div>
@@ -246,25 +251,22 @@
       >
         <div class="wrap response-layout">
           <div class="response-copy">
-            <p class="eyebrow">02 / LESS NOISE. MORE SIGNAL.</p>
+            <p class="eyebrow">{{responseEyebrow}}</p>
             <h2 id="response-title">
-              The right fields.<br />A clearer context.
+              {{responseFirst}}<br />{{responseLast}}
             </h2>
             <p>
-              A tool can return more than an agent needs. Choose which
-              structured fields pass through, preserve pagination, and set a
-              final response size limit.
+              {{responseDescription}}
             </p>
             <a
               class="text-link"
               href="https://github.com/alan1-666/mcp-gateway/blob/main/docs/remote-mcp-contract.md"
-              >Read the response contract <span aria-hidden="true">↗</span></a
+              >{{responseLink}} <span aria-hidden="true">↗</span></a
             >
             <div class="policy-note">
               <span aria-hidden="true">↳</span>
               <p>
-                Policies shape the stored and returned result.<br />Upstream
-                data transfer stays unchanged.
+                {{responseNoteFirst}}<br />{{responseNoteLast}}
               </p>
             </div>
           </div>
@@ -273,35 +275,27 @@
               <span
                 ><span class="sample-dot" aria-hidden="true"></span>
                 docs.search</span
-              ><span>ILLUSTRATIVE SAMPLE</span>
+              ><span>{{illustration}}</span>
             </div>
             <div
               class="response-tabs"
               role="group"
-              aria-label="Sample response view"
+              aria-label="{{sampleViewLabel}}"
             >
               <button type="button" data-view="upstream" aria-pressed="false">
-                Upstream response</button
+                {{upstream}}</button
               ><button type="button" data-view="projected" aria-pressed="true">
-                After field selection <span aria-hidden="true">↗</span>
+                {{projected}} <span aria-hidden="true">↗</span>
               </button>
             </div>
             <pre
               class="response-code"
               tabindex="0"
-              aria-label="Sample response JSON"
-            ><code id="response-code">{
-  "results": [
-    {
-      "title": "Connect your first server",
-      "url": "https://docs.example/connect"
-    }
-  ],
-  "nextCursor": "page_2"
-}</code></pre>
+              aria-label="{{sampleCodeLabel}}"
+            ><code id="response-code" data-sample-title="{{sampleTitle}}" data-sample-content="{{sampleContent}}" data-upstream-note="{{upstreamNote}}" data-projected-note="{{projectedNote}}">{{sampleProjected}}</code></pre>
             <div class="example-footer">
               <span id="response-note" role="status"
-                >2 selected fields · Pagination retained</span
+                >{{projectedNote}}</span
               ><span aria-hidden="true">{ }</span>
             </div>
           </div>
@@ -312,69 +306,66 @@
         aria-labelledby="operate-title"
       >
         <div class="section-heading">
-          <p class="eyebrow">03 / BUILT FOR THE DAY AFTER SETUP</p>
-          <h2 id="operate-title">Your tools evolve.<br />Stay in the loop.</h2>
+          <p class="eyebrow">{{operateEyebrow}}</p>
+          <h2 id="operate-title">{{operateFirst}}<br />{{operateLast}}</h2>
           <p>
-            A shared workspace for the people<br />responsible for agent access.
+            {{operateIntro}}<br />{{operateDescription}}
           </p>
         </div>
         <div class="operations-layout">
           <div
             class="catalog-illustration"
-            aria-label="Illustration of a catalog change awaiting human review"
+            aria-label="{{catalogLabel}}"
           >
             <div class="catalog-top">
-              <span class="mono">CATALOG REVIEW</span
-              ><span class="review-badge">Review required</span>
+              <span class="mono">{{catalog}}</span
+              ><span class="review-badge">{{review}}</span>
             </div>
             <div class="catalog-title">
               <span class="catalog-glyph" aria-hidden="true">⌘</span>
               <div>
                 <strong>docs.search</strong
-                ><span>Illustrative schema change</span>
+                ><span>{{schema}}</span>
               </div>
             </div>
             <div class="schema-diff">
               <div>
-                <span>−</span><code>limit: integer</code><span>optional</span>
+                <span>−</span><code>limit: integer</code><span>{{optional}}</span>
               </div>
               <div>
-                <span>+</span><code>limit: integer</code><span>required</span>
+                <span>+</span><code>limit: integer</code><span>{{required}}</span>
               </div>
             </div>
             <div class="catalog-bottom">
               <span class="tiny-cross" aria-hidden="true">+</span
-              ><span>Changes stay unpublished until reviewed.</span>
+              ><span>{{unpublished}}</span>
             </div>
           </div>
           <div class="operations-features">
             <article>
               <span class="feature-index">01</span>
               <div>
-                <h3>Catch changes before you publish</h3>
+                <h3>{{driftTitle}}</h3>
                 <p>
-                  Schedule catalog checks. Compare schema drift, new tools and
-                  missing tools against your registered versions.
+                  {{driftDescription}}
                 </p>
               </div>
             </article>
             <article>
               <span class="feature-index">02</span>
               <div>
-                <h3>Know who did what</h3>
+                <h3>{{auditTitle}}</h3>
                 <p>
-                  Inspect client permissions, approval decisions and operation
-                  history from one workspace.
+                  {{auditDescription}}
                 </p>
               </div>
             </article>
             <article>
               <span class="feature-index">03</span>
               <div>
-                <h3>Keep uncertainty explicit</h3>
+                <h3>{{uncertaintyTitle}}</h3>
                 <p>
-                  Ambiguous writes remain UNKNOWN. Add review evidence without
-                  silently retrying a business action.
+                  {{uncertaintyDescription}}
                 </p>
               </div>
             </article>
@@ -384,41 +375,40 @@
       <section class="build-section" aria-labelledby="build-title">
         <div class="wrap build-inner">
           <div>
-            <p class="eyebrow">YOUR INFRASTRUCTURE. YOUR BOUNDARIES.</p>
-            <h2 id="build-title">A gateway you<br />can look inside.</h2>
+            <p class="eyebrow">{{buildEyebrow}}</p>
+            <h2 id="build-title">{{buildFirst}}<br />{{buildLast}}</h2>
             <p>
-              Explore the Go backend, React workspace and Pi runner.
-              <br />Follow the implementation, deployment guides and roadmap on
-              GitHub.
+              {{buildIntro}}
+              <br />{{buildDescription}}
             </p>
           </div>
           <div class="build-actions">
             <a
               class="button button-dark"
               href="https://github.com/alan1-666/mcp-gateway"
-              >Explore the repository <span aria-hidden="true">↗</span></a
+              >{{repository}} <span aria-hidden="true">↗</span></a
             ><a
               class="text-link"
               href="https://github.com/alan1-666/mcp-gateway/blob/main/docs/cloud-deployment.md"
-              >Read the deployment guide <span aria-hidden="true">↗</span></a
+              >{{deploy}} <span aria-hidden="true">↗</span></a
             ><span class="build-status"
-              >Actively developed · Current scope documented</span
+              >{{buildStatus}}</span
             >
           </div>
         </div>
       </section>
     </main>
     <footer class="wrap site-footer">
-      <a class="wordmark" href="/"
+      <a class="wordmark" href="{{homePath}}"
         >Rillgate<span class="footer-dot" aria-hidden="true">.</span></a
       >
-      <p>Give agents access. Keep control.</p>
-      <nav aria-label="Footer navigation">
+      <p>{{tagline}}</p>
+      <nav aria-label="{{footerLabel}}">
         <a href="https://github.com/alan1-666/mcp-gateway">GitHub ↗</a
         ><a
           href="https://github.com/alan1-666/mcp-gateway/blob/main/docs/implementation-status.md"
-          >Project status ↗</a
-        ><a href="/console/">Workspace ↗</a>
+          >{{status}} ↗</a
+        ><a href="/console/">{{footerWorkspace}} ↗</a>
       </nav>
     </footer>
     <script type="module" src="/src/website.ts"></script>
