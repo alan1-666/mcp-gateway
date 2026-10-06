@@ -4,7 +4,7 @@ The [product design](product-design.md) and [system architecture](architecture.m
 
 ## Current core release
 
-Gateway core is deployed as `20261006-cloud.23` from `623b46d4dff1242acd8334cc8ed30bc737d293e1`. Six exact-source GitHub checks passed. Cloud SDK/browser acceptance used the authorized Sport test integration; key revocation and artifact access denial passed and temporary registrations were disabled. Public Cloudflare compatibility passed independently through an ephemeral local Gateway, without a production egress change. See [release evidence](evidence/gateway-core-release-2026-10-06.json). Documentation and additional compatibility regressions may follow the deployed runtime source.
+Gateway core and the bilingual console are deployed as `20261006-cloud.25` from `7f840b201e7ddf191edddbe1b281f8c2696f8414`. The previous core acceptance was release `20261006-cloud.23`; the language update does not change backend contracts or policy. Six exact-source GitHub checks passed. Cloud SDK/browser acceptance used the authorized Sport test integration; key revocation and artifact access denial passed and temporary registrations were disabled. Public Cloudflare compatibility passed independently through an ephemeral local Gateway, without a production egress change. See [release evidence](evidence/gateway-core-release-2026-10-06.json). Documentation and additional compatibility regressions may follow the deployed runtime source.
 
 Microsoft Learn's currently observed per-session schema constraints remain incompatible with the fresh-session adapter; real OAuth consent, HA and independently commissioned off-host recovery/alerts remain outside this acceptance.
 
