@@ -260,7 +260,14 @@ func TestDiscoveryCursorContextAndBounds(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, change := range []func(map[string]any){
-		func(c map[string]any) { c["v"] = 2 },
+		func(c map[string]any) { c["v"] = 3 },
+		func(c map[string]any) { c["v"] = 1 },
+		func(c map[string]any) { c["after_score"] = -1 },
+		func(c map[string]any) { c["after_score"] = 501 },
+		func(c map[string]any) { c["after_score"] = 123 },
+		func(c map[string]any) { c["after_score"] = 0 },
+		func(c map[string]any) { c["client_id"] = "other" },
+		func(c map[string]any) { c["client_key_id"] = "other" },
 		func(c map[string]any) { c["after_id"] = "" },
 		func(c map[string]any) { c["after_time"] = "2099-01-01T00:00:00Z" },
 		func(c map[string]any) { c["upper"] = "2099-01-01T00:00:00Z" },

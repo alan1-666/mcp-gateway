@@ -43,6 +43,8 @@ func (a *API) Handler(auth *identity.Auth) http.Handler {
 	a.registerUpstreams(mux)
 	a.registerUpstreamOAuth(mux)
 	a.registerResponsePolicies(mux)
+	a.registerApprovalPolicies(mux)
+	a.registerResultReads(mux)
 	a.registerCredentials(mux)
 	a.registerDiagnostics(mux)
 	a.registerClients(mux)
@@ -90,6 +92,15 @@ func (a *API) Handler(auth *identity.Auth) http.Handler {
 			respond(w, map[string]any{"items": result}, err)
 		})
 	}
+	mux.HandleFunc("POST /api/v1/call", func(w http.ResponseWriter, r *http.Request) {
+		var input core.PrepareInput
+		if err := decode(w, r, &input); err != nil {
+			respond(w, nil, err)
+			return
+		}
+		op, err := a.Executor.Call(r.Context(), identity.Actor(r.Context()), input)
+		respond(w, op, err)
+	})
 	mux.HandleFunc("POST /api/v1/operations", func(w http.ResponseWriter, r *http.Request) {
 		var input core.PrepareInput
 		if err := decode(w, r, &input); err != nil {

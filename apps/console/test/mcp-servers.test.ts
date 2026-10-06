@@ -252,3 +252,19 @@ test("API discovery accepts complete responses above ordinary tool result size",
     assert.equal(result.items[119].description.length, 4000);
   } finally { globalThis.fetch = originalFetch; }
 });
+
+test("import preserves explicit artifact policy and validates it before sending", async () => {
+  const requests: unknown[] = [];
+  const controller = new MCPDiscoveryController(api(async (path, options) => {
+    if (path.endsWith("/discover")) return discovery();
+    requests.push(options?.body);
+    return imported;
+  }), { role: "admin" });
+  controller.select(server);
+  await controller.discover();
+  const policy = { max_bytes: 65536, artifact: { max_bytes: 262144, ttl_seconds: 600 } };
+  assert.equal(await controller.importTool(remote, "read", { ...policy, artifact: { ...policy.artifact, ttl_seconds: 59 } }), null);
+  assert.equal(requests.length, 0);
+  await controller.importTool(remote, "read", policy);
+  assert.deepEqual(requests, [{ tool_name: remote.name, schema_hash: remote.schema_hash, risk: "read", response_policy: policy }]);
+});

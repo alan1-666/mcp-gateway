@@ -1,3 +1,5 @@
+import { ResultReader } from "./ResultReader";
+import { ApprovalPolicy } from "./ApprovalPolicy";
 import { SectionTabs } from "./SectionTabs";
 import { Clients } from "./Clients";
 import { Credentials } from "./Credentials";
@@ -9,6 +11,7 @@ import {
   AdminLoading,
   MoreRecords,
   useRecordPages,
+  useResource,
 } from "./AdminUI";
 import { filterPath, isoDate } from "./admin-state";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -29,6 +32,7 @@ import { validateToolPage } from "./tool-search";
 import type { ToolSearchController, ToolSearchState } from "./tool-search";
 import type {
   Identity,
+  MCPServer,
   Operation,
   OperationEvent,
   OperationState,
@@ -61,7 +65,7 @@ const navigation: { id: Page; label: string; icon: string }[] = [
   { id: "tools", label: "Tool registry", icon: "tools" },
   { id: "mcp", label: "MCP Servers", icon: "agent" },
   { id: "credentials", label: "Credentials", icon: "approvals" },
-  { id: "clients", label: "Clients", icon: "agent" },
+  { id: "clients", label: "Access keys", icon: "agent" },
   { id: "audit", label: "Audit trail", icon: "search" },
   { id: "capacity", label: "Capacity", icon: "operations" },
   { id: "invoke", label: "New invocation", icon: "invoke" },
@@ -75,9 +79,9 @@ const pageCopy: Record<Page, { title: string; description: string }> = {
       "Manage encrypted authentication references for your integrations.",
   },
   clients: {
-    title: "Client access",
+    title: "Access keys",
     description:
-      "Grant independent application identities exactly the tools they need.",
+      "Connect existing MCP applications with a key scoped to their tools.",
   },
   audit: {
     title: "Audit trail",
@@ -699,12 +703,7 @@ function Workspace({
             },
             {
               label: "Activity",
-              pages: [
-                "operations",
-                "approvals",
-                ...(cloud ? ["runs"] : []),
-                "audit",
-              ],
+              pages: ["operations", "approvals", "audit"],
             },
             {
               label: "Manage",
@@ -834,8 +833,8 @@ function Workspace({
               {loaded ? " The view may show previously loaded data." : ""}
             </Notice>
           ) : null}
-          {cloud ? (
-            <div hidden={page !== "runs"}>
+          {cloud && page === "runs" ? (
+            <div>
               <AgentTasks
                 api={api}
                 identity={identity}
@@ -1259,7 +1258,13 @@ function Registry({
   const [selectedId, setSelectedId] = useState<string | null>(
     initialSelectedId || null,
   );
-  const search = useToolSearch<Tool>(api, "registry", refreshVersion);
+  const [serverFilter, setServerFilter] = useState("");
+  const search = useToolSearch<Tool>(
+    api,
+    "registry",
+    refreshVersion,
+    serverFilter,
+  );
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const details = useToolDetails(api, selectedId, false, refreshVersion);
@@ -1301,6 +1306,13 @@ function Registry({
             }}
           />
         </div>
+        {canManage ? (
+          <ServerFilter
+            api={api}
+            value={serverFilter}
+            onChange={setServerFilter}
+          />
+        ) : null}
         {canManage ? (
           <button
             className="button primary"
@@ -1552,7 +1564,7 @@ function Registry({
                             className="button primary"
                             onClick={() => onInvoke(selected.id)}
                           >
-                            Prepare invocation
+                            Call tool
                             <Icon name="arrow" />
                           </button>
                         ) : null}
@@ -1563,6 +1575,24 @@ function Registry({
               },
               ...(canManage
                 ? [
+                    {
+                      id: "policy",
+                      label: "Invocation policy",
+                      content: (
+                        <ApprovalPolicy
+                          key={`${selected.id}:${selected.version}`}
+                          api={api}
+                          tool={selected}
+                          onChanged={async () => {
+                            details.reload();
+                            await Promise.all([
+                              search.controller.reload(),
+                              onRefresh(),
+                            ]);
+                          }}
+                        />
+                      ),
+                    },
                     {
                       id: "versions",
                       label: "Versions & changes",
@@ -1877,7 +1907,7 @@ function Invocation({
     setBusy(true);
     try {
       const args = parseObject(argumentsText, "Arguments");
-      const operation = await api.request<Operation>("/operations", {
+      const operation = await api.request<Operation>("/call", {
         method: "POST",
         body: { tool_id: tool.id, arguments: args, idempotency_key: key },
       });
@@ -1971,8 +2001,8 @@ function Invocation({
       <div className="invocation-layout">
         <form className="panel" onSubmit={submit}>
           <div className="panel-heading">
-            <h2>Prepare the request</h2>
-            <span className="step-label">01 / 02</span>
+            <h2>Call the selected tool</h2>
+            <span className="step-label">REQUEST</span>
           </div>
           <div className="panel-body">
             {error ? (
@@ -2581,7 +2611,18 @@ function OperationDetail({
               </div>
             ) : null}
             {operation.result !== undefined ? (
-              <JsonBlock label="Recorded result" value={operation.result} />
+              <>
+                <JsonBlock label="Recorded result" value={operation.result} />
+                {operation.result &&
+                typeof operation.result === "object" &&
+                "gateway_result_ref" in operation.result ? (
+                  <ResultReader
+                    key={operation.id}
+                    api={api}
+                    operationID={operation.id}
+                  />
+                ) : null}
+              </>
             ) : null}
             {operation.state === "UNKNOWN" ? (
               <Reconciliations
@@ -2635,5 +2676,35 @@ function OperationDetail({
         )}
       </div>
     </section>
+  );
+}
+
+function ServerFilter({
+  api,
+  value,
+  onChange,
+}: {
+  api: APIClient;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const servers = useResource<{ items: MCPServer[] }>(api, "/mcp/servers");
+  return (
+    <label className="server-filter">
+      Service
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        disabled={servers.loading}
+      >
+        <option value="">All services</option>
+        {servers.data?.items.map((server) => (
+          <option key={server.id} value={server.id}>
+            {server.name}
+          </option>
+        ))}
+      </select>
+      <AdminError error={servers.error} onRetry={() => void servers.reload()} />
+    </label>
   );
 }

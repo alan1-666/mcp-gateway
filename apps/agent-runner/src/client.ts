@@ -1,7 +1,7 @@
 export type JsonObject = Record<string, unknown>;
-export type ToolSummary = { id: string; name: string; description: string; risk: "read" | "write"; version: number };
+export type ToolSummary = { id: string; name: string; description: string; risk: "read" | "write"; version: number; server_id?: string; match?: { score: number; reason: string } };
 export type ToolDiscoveryPage = { items: ToolSummary[]; next_cursor?: string; total: number };
-export type ToolSearchOptions = { cursor?: string; limit?: number };
+export type ToolSearchOptions = { cursor?: string; limit?: number; server_id?: string };
 export type Tool = {
   id: string; name: string; description: string; risk: "read" | "write";
   input_schema: JsonObject; output_schema?: JsonObject; enabled: boolean; status: string; version: number;
@@ -20,13 +20,15 @@ export class GatewayError extends Error {
 export class ToolSearchInputError extends GatewayError {}
 export function toolSearchParams(query: string, options?: ToolSearchOptions): { parameters: string; limit: number } {
   if (typeof query !== "string" || Buffer.byteLength(query.trim(), "utf8") > 200) throw new ToolSearchInputError("INVALID_TOOL_SEARCH_QUERY");
-  if (options !== undefined && (!isObject(options) || Object.keys(options).some(key => !["cursor", "limit"].includes(key)))) throw new ToolSearchInputError("INVALID_TOOL_SEARCH_OPTIONS");
+  if (options !== undefined && (!isObject(options) || Object.keys(options).some(key => !["cursor", "limit", "server_id"].includes(key)))) throw new ToolSearchInputError("INVALID_TOOL_SEARCH_OPTIONS");
   const limit = options?.limit ?? 25;
   if ((options?.limit !== undefined && typeof options.limit !== "number") || !Number.isInteger(limit) || limit < 1 || limit > 50) throw new ToolSearchInputError("INVALID_TOOL_SEARCH_LIMIT");
   if (options?.cursor !== undefined && (typeof options.cursor !== "string" || Buffer.byteLength(options.cursor, "utf8") > 2048)) throw new ToolSearchInputError("INVALID_TOOL_SEARCH_CURSOR");
+  if (options?.server_id !== undefined && (typeof options.server_id !== "string" || Buffer.byteLength(options.server_id.trim(), "utf8") > 128 || /[\0\r\n]/.test(options.server_id))) throw new ToolSearchInputError("INVALID_TOOL_SEARCH_SERVER");
   const parameters = new URLSearchParams({ query: query.trim() });
   if (options?.limit !== undefined) parameters.set("limit", String(limit));
   if (options?.cursor !== undefined) parameters.set("cursor", options.cursor);
+  if (options?.server_id !== undefined) parameters.set("server_id", options.server_id.trim());
   return { parameters: parameters.toString(), limit };
 }
 
@@ -36,7 +38,12 @@ export function validateToolDiscoveryPage(value: unknown, limit: number, invalid
   if (value.next_cursor !== undefined && (typeof value.next_cursor !== "string" || Buffer.byteLength(value.next_cursor, "utf8") > 2048)) throw invalid();
   const ids = new Set<string>();
   for (const tool of value.items) {
-    if (!isObject(tool) || Object.keys(tool).some(key => !["id", "name", "description", "risk", "version"].includes(key)) || typeof tool.id !== "string" || !tool.id || typeof tool.name !== "string" || !tool.name || typeof tool.description !== "string" || !["read", "write"].includes(tool.risk as string) || typeof tool.version !== "number" || !Number.isSafeInteger(tool.version) || tool.version < 1 || ids.has(tool.id)) throw invalid();
+    if (!isObject(tool) || Object.keys(tool).some(key => !["id", "name", "description", "risk", "version", "server_id", "match"].includes(key)) || typeof tool.id !== "string" || !tool.id || typeof tool.name !== "string" || !tool.name || typeof tool.description !== "string" || !["read", "write"].includes(tool.risk as string) || typeof tool.version !== "number" || !Number.isSafeInteger(tool.version) || tool.version < 1 || ids.has(tool.id)) throw invalid();
+    if (tool.server_id !== undefined && (typeof tool.server_id !== "string" || !tool.server_id || Buffer.byteLength(tool.server_id, "utf8") > 128 || /[\0\r\n]/.test(tool.server_id))) throw invalid();
+    if (tool.match !== undefined) {
+      const reasons: Record<string, number> = { exact_name: 500, name_prefix: 400, name_fragment: 300, phrase: 200, all_terms: 100 };
+      if (!isObject(tool.match) || Object.keys(tool.match).length !== 2 || typeof tool.match.reason !== "string" || !Object.hasOwn(reasons, tool.match.reason) || tool.match.score !== reasons[tool.match.reason]) throw invalid();
+    }
     ids.add(tool.id);
   }
   return value as ToolDiscoveryPage;

@@ -1,0 +1,72 @@
+{
+  "arch": "arm64",
+  "fixture": "isolated loopback HTTP; 2ms injected server delay; Retry-After: 0; 20 sequential operations per scenario; 1s overall timeout",
+  "go": "go1.26.8",
+  "logical_cpus": 10,
+  "measurements": [
+    {
+      "scenario": "healthy_read",
+      "operations": 20,
+      "upstream_attempts": 20,
+      "succeeded": 20,
+      "failed": 0,
+      "unknown": 0,
+      "circuit_rejected": 0,
+      "p50_ms": 2.726,
+      "p95_ms": 2.854,
+      "error_rate": 0
+    },
+    {
+      "scenario": "transient_read",
+      "operations": 20,
+      "upstream_attempts": 40,
+      "succeeded": 20,
+      "failed": 0,
+      "unknown": 0,
+      "circuit_rejected": 0,
+      "p50_ms": 5.392,
+      "p95_ms": 5.48,
+      "error_rate": 0
+    },
+    {
+      "scenario": "unavailable_read",
+      "operations": 20,
+      "upstream_attempts": 6,
+      "succeeded": 0,
+      "failed": 20,
+      "unknown": 0,
+      "circuit_rejected": 17,
+      "p50_ms": 0.001,
+      "p95_ms": 5.383,
+      "error_rate": 1
+    },
+    {
+      "scenario": "unauthorized_read",
+      "operations": 20,
+      "upstream_attempts": 20,
+      "succeeded": 0,
+      "failed": 20,
+      "unknown": 0,
+      "circuit_rejected": 0,
+      "p50_ms": 2.706,
+      "p95_ms": 2.792,
+      "error_rate": 1
+    },
+    {
+      "scenario": "unavailable_write",
+      "operations": 20,
+      "upstream_attempts": 20,
+      "succeeded": 0,
+      "failed": 0,
+      "unknown": 20,
+      "circuit_rejected": 0,
+      "p50_ms": 2.717,
+      "p95_ms": 2.77,
+      "error_rate": 1
+    }
+  ],
+  "os": "darwin",
+  "schema_version": 1,
+  "measured_on": "2026-10-06",
+  "scope": "Synthetic local adapter evaluation; not cloud capacity or production SLO"
+}

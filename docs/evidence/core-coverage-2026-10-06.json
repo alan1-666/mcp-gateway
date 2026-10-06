@@ -1,0 +1,95 @@
+{
+  "files": [
+    {
+      "file": "internal/core/approval_policy.go",
+      "covered": 21,
+      "statements": 21,
+      "percent": 100.0,
+      "minimum": 90
+    },
+    {
+      "file": "internal/execution/call.go",
+      "covered": 4,
+      "statements": 4,
+      "percent": 100.0,
+      "minimum": 90
+    },
+    {
+      "file": "internal/store/postgres/approval_policy.go",
+      "covered": 18,
+      "statements": 18,
+      "percent": 100.0,
+      "minimum": 90
+    },
+    {
+      "file": "internal/transport/httpapi/approval_policy.go",
+      "covered": 7,
+      "statements": 7,
+      "percent": 100.0,
+      "minimum": 90
+    },
+    {
+      "file": "internal/core/result_artifact.go",
+      "covered": 42,
+      "statements": 42,
+      "percent": 100.0,
+      "minimum": 90
+    },
+    {
+      "file": "internal/store/postgres/result_artifact.go",
+      "covered": 37,
+      "statements": 38,
+      "percent": 97.37,
+      "minimum": 90
+    },
+    {
+      "file": "internal/transport/httpapi/result_reads.go",
+      "covered": 21,
+      "statements": 21,
+      "percent": 100.0,
+      "minimum": 90
+    },
+    {
+      "file": "internal/core/discovery.go",
+      "covered": 47,
+      "statements": 47,
+      "percent": 100.0,
+      "minimum": 90
+    },
+    {
+      "file": "internal/store/postgres/discovery.go",
+      "covered": 59,
+      "statements": 62,
+      "percent": 95.16,
+      "minimum": 90
+    },
+    {
+      "file": "internal/transport/httpapi/tool_search.go",
+      "covered": 17,
+      "statements": 17,
+      "percent": 100.0,
+      "minimum": 90
+    },
+    {
+      "file": "internal/adapters/httpadapter/reliability.go",
+      "covered": 114,
+      "statements": 114,
+      "percent": 100.0,
+      "minimum": 90
+    }
+  ],
+  "failures": [],
+  "scope": "Combined unit and PostgreSQL/SDK integration statement coverage; gated files only, not whole-repository coverage.",
+  "command": "RUN_CLOUD_WORKER_INTEGRATION=1 TEST_DATABASE_URL=<test database> go test -race -coverpkg=./... -coverprofile=coverage/go.out ./...",
+  "frontend": {
+    "scope": "Loaded console .ts logic only; TSX rendering excluded",
+    "lines": 97.87,
+    "branches": 92.12,
+    "functions": 94.85,
+    "thresholds": {
+      "lines": 95,
+      "branches": 90,
+      "functions": 90
+    }
+  }
+}

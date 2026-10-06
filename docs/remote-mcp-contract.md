@@ -4,7 +4,7 @@ This document describes the implemented remote MCP adapter and its management co
 
 ## Connection and execution model
 
-An administrator registers an upstream server, discovers its tools and imports selected contracts as disabled drafts. Publishing makes an imported tool available through the existing Gateway discovery and execution interfaces. External agents and Pi use the same five governed Gateway tools; importing a server does not expose its full API directly to a model.
+An administrator registers an upstream server, discovers its tools and imports selected contracts as disabled drafts. Publishing makes an imported tool available through the existing Gateway discovery and execution interfaces. External MCP clients use seven governed Gateway tools: `search_tools`, `get_tool_schema`, `call_tool`, `get_operation`, `read_result`, `prepare_action` and `invoke_tool`. The optional Pi runner retains its existing five-tool preparation/execution interface. Importing a server does not expose its full API directly to a model.
 
 ```mermaid
 flowchart LR
@@ -12,7 +12,7 @@ flowchart LR
   Admin[Administrator console] --> Registry[Server registry and reviewed imports]
   Registry --> DB[(Tools and operation snapshots)]
   Gateway --> DB
-  Gateway --> Policy[Permissions, independent approval and response policy]
+  Gateway --> Policy[Permissions, tool approval policy and response policy]
   Policy --> Adapter[Isolated MCP session]
   Adapter --> Upstream[Remote MCP Server]
 ```
@@ -73,7 +73,7 @@ Import requires an explicit risk decision:
 }
 ```
 
-The console starts risk selection at `write`. The remote read-only annotation is a hint, not an authorization rule. An administrator can explicitly select `read` after reviewing the tool. Every write operation continues to require approval by a different person.
+The console starts risk selection at `write`. The remote read-only annotation is a hint, not an authorization rule. An administrator can explicitly select `read` after reviewing the tool. Legacy and newly imported writes default to approval by a different person. An administrator can explicitly publish an approval exemption using the versioned policy endpoint; risk remains `write`. A read tool can also require approval. No calling client or model can choose its approval policy.
 
 Import repeats live discovery before saving the tool. A new import is `draft`, `enabled:false`, `version:1`. Publish it separately with the existing `POST /api/v1/tools/{id}/publish` action. Direct HTTP tool registration cannot be used to inject an MCP configuration and bypass the import check.
 
@@ -115,14 +115,15 @@ Re-enabling the server restores only tools whose own state remains published and
 
 For an imported MCP tool, `output_schema` validates the original upstream **`structuredContent`**, before redaction and projection. It does not describe the stored result envelope or the selected object. A response missing required structured content or failing that schema cannot become `SUCCEEDED`.
 
-Successful results are stored as an MCP envelope with `isError:false`, `content` and optional `structuredContent`. A configured selection also adds `gateway_projection` metadata. The management Tool response exposes `mcp` and `response_policy`; its `http` field is an unused empty serialization placeholder. The MCP platform's `get_tool_schema` additionally reports `result_format: mcp_call_tool_result` to explain this envelope.
+Inline successful results are stored as an MCP envelope with `isError:false`, `content` and optional `structuredContent`. A configured selection also adds `gateway_projection` metadata. The management Tool response exposes `mcp` and `response_policy`; its `http` field is an unused empty serialization placeholder. The MCP platform's `get_tool_schema` additionally reports `result_format: mcp_call_tool_result` to explain this envelope.
 
-A response policy has two independent limits:
+A response policy defines selection, inline size and optional artifact retention:
 
 | Field | Contract |
 | --- | --- |
 | `include` | Up to 32 JSON Pointer-style selectors with an array traversal extension; absent/empty includes all structured fields after common-secret redaction |
-| `max_bytes` | Final serialized UTF-8 envelope size; default 65536, accepted range 1024–131072; omitted or zero normalizes to the default |
+| `max_bytes` | Inline serialized UTF-8 envelope limit; default 65536, accepted range 1024–131072; omitted or zero normalizes to the default |
+| `artifact` | Optional explicit `{max_bytes, ttl_seconds}`; requires object structuredContent. Complete projected envelope limit defaults to 524288 and must be between the inline limit and 1048576. TTL defaults to 3600, accepted range 60–86400 seconds |
 
 Selectors are at most 256 UTF-8 bytes each and use JSON Pointer `~0` and `~1` escapes. A full `*` segment traverses every element of an array: `/results/*/title` and `/results/*/url` retain those two fields in each result. This wildcard is a Gateway extension, not part of RFC 6901. `/order/id` selects a nested field and `/items` selects an entire array. Numeric object keys are allowed; `/items/0/id` cannot index an array.
 
@@ -130,7 +131,36 @@ Array projection merges selected fields within each element, preserving order an
 
 Common secret-named structured fields are redacted recursively before selection. Root `nextCursor` and `next_cursor` are preserved during selection only when their values are strings or null; other types fail rather than allowing an unselected object through the cursor exception. When structured content exists, text is regenerated from the resulting object. Original text cannot bypass field selection or structured-field redaction. Text-only results support the size limit, but reject nonempty `include`.
 
-The final byte limit includes the envelope, regenerated text and projection metadata. Oversized data is rejected, never truncated into invalid JSON. Projection reduces what is stored and sent to the model; it does not reduce the upstream response or network transfer. There is no large-result artifact store or deferred result-fetch API yet. Secret-name filtering is a baseline safeguard, not comprehensive sensitive-data detection; arbitrary text is not guaranteed to be secret-free.
+The final byte limit includes the envelope, regenerated text and projection metadata. Without artifact opt-in, an oversized envelope is rejected. With opt-in, an envelope above the inline limit but within the artifact limit is stored as a bounded reference and separately retained structured JSON; above the artifact limit it is rejected. Data is never truncated into invalid JSON. Projection reduces what is stored and sent to the model; it does not reduce the upstream response or network transfer. Secret-name filtering is a baseline safeguard, not comprehensive sensitive-data detection; arbitrary text is not guaranteed to be secret-free.
+
+## Large structured-result references
+
+Artifact retention is opt-in per MCP tool response policy and is copied into each operation snapshot. Only projected/redacted `structuredContent` is retained separately; duplicated text is not stored in the operation or event. The operation result becomes:
+
+```json
+{
+  "gateway_result_ref": {
+    "operation_id": "operation-id",
+    "bytes": 12000,
+    "sha256": "64-lowercase-hex-characters",
+    "expires_at": "2030-01-01T01:00:00Z",
+    "format": "json_utf8"
+  },
+  "message": "Read the projected structured JSON with read_result using operation_id; concatenate chunks before parsing. The reference is not the tool output schema."
+}
+```
+
+The reference object is gateway metadata, not an MCP `CallToolResult` envelope or an instance of the upstream output schema. Fetch chunks with MCP `read_result` or `GET /api/v1/operations/{id}/result`, supplying optional `cursor` and `limit_bytes`. The chunk budget is 1024–16384 bytes (default 8192); the last chunk may be shorter and multibyte UTF-8 characters are not split. A response contains `operation_id`, `bytes`, `sha256`, `expires_at`, `format`, `offset`, `chunk` and optional `next_cursor`. Concatenate in byte-offset order before JSON parsing to retain exact numeric representations.
+
+Each read independently checks workspace/operation ownership, current client grants/key, published/enabled tool, current and snapshot server/Connector availability, and expiry. An unsigned position cursor binds operation ID, digest and byte offset; it grants no access. Expired/denied artifacts are unavailable even before background cleanup deletes their payloads.
+
+Quota is 100 MiB and 1000 retained artifacts per workspace, serialized transactionally. Retention shares the operation completion transaction. Quota exhaustion records FAILED for a read or UNKNOWN for a write whose business call already occurred, without storing a partial result; metrics use that durable outcome. Maintenance removes bounded batches of expired payloads. This is a PostgreSQL JSON store, not arbitrary file uploads, general HTTP-result compaction, model-generated summaries or external object storage.
+
+## Invocation and approval policy
+
+`call_tool` (REST `POST /api/v1/call`) accepts `tool_id`, object `arguments` and an 8–128-byte stable `idempotency_key`. It persists the intent and executes only if READY. It returns a WAITING_APPROVAL or recorded terminal/UNKNOWN operation unchanged. Repeating the same intent after approval can proceed; changing arguments or tool under the same key is a conflict. `prepare_action` and `invoke_tool` remain compatible explicit steps. `get_operation` inspects the recorded state.
+
+Administrators use `POST /api/v1/tools/{id}/approval-policy` with `expected_version` and `approval_policy: required | none`. Changes increment the immutable tool version and append an audit record. Read/write risk classification is preserved. Legacy missing policies default to none for reads and required for writes; invalid nonempty values fail closed. Previously pending operations keep their approval requirement even if policy is relaxed. Dispatch checks both the operation snapshot and latest policy; a changed write version invalidates an unapproved exemption. Existing parameter/version-bound approvals and their 30-minute expiry remain enforced. Definition revisions preserve current policy, and risk reclassification restores the default; rolling back a definition does not silently reintroduce an old exemption.
 
 ## Policy editing and sample preview
 
@@ -171,13 +201,15 @@ Preview returns `{tool_version,original_bytes,projected_bytes,result}`. Byte cou
 | Remote tool name / description | 128 / 4000 UTF-8 bytes |
 | Input and output schema | 64 KiB each, locally compilable; input root must be an object; external references are disabled |
 | Gateway catalog | Separate database keyset pages, maximum 50 summaries or definitions; upstream discovery is not automatically inserted into model context |
-| Governed result envelope | Default 64 KiB, configurable from 1 to 128 KiB |
+| Governed inline result envelope | Default 64 KiB, configurable from 1 to 128 KiB |
+| Opt-in structured artifact | Complete projected envelope up to 1 MiB, TTL 60–86400 seconds, workspace quota 100 MiB / 1000 records |
+| Deferred read | UTF-8 chunk budget 1–16 KiB, cursor at most 512 bytes, live authorization and expiry |
 
 Duplicate tool names, invalid definitions, repeated cursors, unsupported schemas and excess bounds fail the complete discovery attempt. Management discovery JSON can be larger than the raw upstream budget after normalized metadata and JSON encoding are added, but it remains bounded by the table above. One unsupported definition rejects the whole normal discovery; there is no partial-import quarantine flow. Connection diagnostics can report each incompatible definition without weakening discovery or import.
 
 Before `tools/call`, a configuration, connection or schema-validation failure is `FAILED`. Once the call is attempted, timeout, malformed response, upstream tool error, unsupported interaction/content, output-schema failure or response-policy failure becomes `UNKNOWN` for writes and `FAILED` for reads. `UNKNOWN` requires checking the business outcome before any new action. A returned tool error does not prove that a write made no changes.
 
-The transport prevents a second `tools/call` within the same execution session and disables SDK resumption/retry paths. The database claim prevents another dispatch of the recorded operation. This is not an exactly-once guarantee in the upstream business system, and no generic upstream idempotency support is claimed. New sessions repeat initialization and discovery on each execution; caching, connection pooling and background schema synchronization remain future work.
+The transport prevents a second `tools/call` within the same execution session and disables SDK resumption/retry paths. The database claim prevents another dispatch of the recorded operation. This is not an exactly-once guarantee in the upstream business system, and no generic upstream idempotency support is claimed. New sessions repeat initialization and discovery on each execution; caching, connection pooling and background schema synchronization remain future work. The separate HTTP adapter can retry only eligible read-only GET calls (selected transient connection failures and 502/503/504, at most two attempts within one deadline) and has process-local circuit breaking; this does not add MCP or Connector replay.
 
 ## Network and credential controls
 
@@ -279,3 +311,15 @@ Network/discovery happens before the transaction. The server lock fences disable
 The console shows counts, a changes filter, missing-tool registry links and retained history. Selecting a changed tool can create a candidate through the existing releases API, with `expected_version`, a human reason, and optional `expected_schema_hash`. The last field is a precondition against a new live discovery, not a caller-supplied replacement contract; a mismatch returns 409. Risk and response policy initially remain those of the registered tool. A saved candidate still needs explicit diff/risk/projection review and publication in the registry. Publication rechecks the live contract, preserves prepared operation snapshots and creates a new immutable version.
 
 Migration 011 adds only the catalog-review table/index. Earlier binaries can ignore it; application rollback still requires the release tool's explicit migration-compatibility declaration. There is no periodic synchronization, automatic publication/retirement or business invocation in this feature.
+
+## Source and release acceptance
+
+The call facade, approval policies, ranked service filters and artifact retrieval described here are implemented in source. Publication requires exact-source CI and bounded external-client/cloud checks, recorded independently in [verification](verification.md). Local OAuth/refresh fixtures validate the supported profile but do not claim real third-party vendor consent acceptance. A single-host deployment is not high availability or independent disaster recovery.
+
+## Observed supplier compatibility: Microsoft Learn
+
+On 2026-10-06, cloud.23 discovery of Microsoft Learn returned a different `properties.SessionId.const` and matching `.default` in each of five fresh connections. The schema description instructed callers to use that connection's default value. Two tool-description variants were also observed. The input schema's contract hash consequently changed between discovery and import; the gateway rejected import with `upstream schema changed; discover and review again`.
+
+This is genuine session-bound schema variation, not serialization order or a hash canonicalization failure. The current adapter deliberately pins reviewed schemas and creates a fresh upstream session for each execution. It does not implement supplier-specific session-argument binding. This observed Microsoft Learn profile is therefore incompatible with the current reviewed import/execution path. Removing `const`/`default` from hashing or silently rewriting reviewed arguments would weaken the drift check and is not implemented.
+
+A focused SDK fixture (`TestSessionBoundSchemaConstRemainsPartOfReviewedContract`) reproduces the changing const/default and verifies that execution fails before any business tool call. Earlier dated Microsoft Learn successes remain historical evidence for the then-observed contract; they are not a guarantee of compatibility with this changed supplier behavior. See the dated [verification record](verification.md).

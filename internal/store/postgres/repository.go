@@ -63,12 +63,21 @@ func scanTool(row scanner) (core.Tool, error) {
 	if err := row.Scan(&tool.ID, &tool.WorkspaceID, &tool.Name, &tool.Risk, &tool.Status, &tool.Enabled, &tool.Version, &raw, &tool.CreatedAt); err != nil {
 		return tool, dbError(err)
 	}
-	var input core.ToolInput
+	var input struct {
+		core.ToolInput
+		ApprovalPolicy core.ApprovalPolicy `json:"approval_policy"`
+	}
 	if err := json.Unmarshal(raw, &input); err != nil {
 		return tool, fmt.Errorf("decode stored tool: %w", err)
 	}
 	tool.Description, tool.InputSchema, tool.OutputSchema, tool.HTTP = input.Description, input.InputSchema, input.OutputSchema, input.HTTP
 	tool.MCP, tool.ResponsePolicy = input.MCP, input.ResponsePolicy
+	tool.ApprovalPolicy = input.ApprovalPolicy
+	effective, err := core.EffectiveApprovalPolicy(tool)
+	if err != nil {
+		return tool, err
+	}
+	tool.ApprovalPolicy = effective
 	return tool, nil
 }
 func scanOperation(row scanner) (core.Operation, core.Tool, error) {
@@ -251,8 +260,12 @@ func (r *Repository) Prepare(ctx context.Context, actor core.Actor, in core.Prep
 		if err := core.ValidateArguments(tool.InputSchema, canonical); err != nil {
 			return core.Operation{}, err
 		}
+		policy, err := core.EffectiveApprovalPolicy(tool)
+		if err != nil {
+			return core.Operation{}, err
+		}
 		state := core.StateReady
-		if tool.Risk == core.RiskWrite {
+		if policy == core.ApprovalRequired {
 			state = core.StateWaitingApproval
 		}
 		snapshot, err := json.Marshal(tool)
@@ -414,7 +427,18 @@ func (r *Repository) Claim(ctx context.Context, actor core.Actor, id string) (co
 		if !current.Enabled {
 			return result, fmt.Errorf("%w: tool is disabled", core.ErrConflict)
 		}
-		if op.Risk == core.RiskWrite {
+		requiresApproval, err := core.RequiresOperationApproval(tool, current)
+		if err != nil {
+			return result, err
+		}
+		if requiresApproval && op.ApprovedBy == "" {
+			result.op, _, err = scanOperation(tx.QueryRow(ctx, `UPDATE operations SET state='WAITING_APPROVAL',updated_at=clock_timestamp() WHERE workspace_id=$1 AND id=$2 RETURNING `+operationColumns, actor.WorkspaceID, id))
+			if err != nil {
+				return result, err
+			}
+			return result, appendEvent(ctx, tx, result.op, "APPROVAL_POLICY_RECHECK_REQUIRED", "system", map[string]any{"snapshot_version": tool.Version, "current_version": current.Version})
+		}
+		if requiresApproval || op.ApprovedBy != "" {
 			var approvalValid bool
 			if err := tx.QueryRow(ctx, `SELECT approved_by<>'' AND approved_by<>actor_id AND approval_expires_at>clock_timestamp() FROM operations WHERE workspace_id=$1 AND id=$2`, actor.WorkspaceID, id).Scan(&approvalValid); err != nil {
 				return result, err
@@ -443,7 +467,7 @@ func (r *Repository) Claim(ctx context.Context, actor core.Actor, id string) (co
 
 func (r *Repository) Finish(ctx context.Context, actor core.Actor, id string, in core.FinishInput) (core.Operation, error) {
 	return transaction(ctx, r.pool, func(tx pgx.Tx) (core.Operation, error) {
-		op, _, err := scanOperation(tx.QueryRow(ctx, `SELECT `+operationColumns+` FROM operations WHERE workspace_id=$1 AND id=$2 FOR UPDATE`, actor.WorkspaceID, id))
+		op, snapshot, err := scanOperation(tx.QueryRow(ctx, `SELECT `+operationColumns+` FROM operations WHERE workspace_id=$1 AND id=$2 FOR UPDATE`, actor.WorkspaceID, id))
 		if err != nil {
 			return op, err
 		}
@@ -452,6 +476,19 @@ func (r *Repository) Finish(ctx context.Context, actor core.Actor, id string, in
 		}
 		if op.State != core.StateDispatching {
 			return core.Operation{}, fmt.Errorf("%w: operation is not dispatching", core.ErrConflict)
+		}
+		stored, artifactErr := persistResultArtifact(ctx, tx, op, snapshot, in)
+		if artifactErr != nil {
+			if !errors.Is(artifactErr, errArtifactQuota) {
+				return op, artifactErr
+			}
+			in.State, in.Error = core.StateFailed, "result artifact workspace quota exceeded; narrow response projection"
+			if op.Risk == core.RiskWrite {
+				in.State = core.StateUnknown
+			}
+			in.Result = nil
+		} else {
+			in.Result = stored
 		}
 		var result any
 		if len(in.Result) > 0 {

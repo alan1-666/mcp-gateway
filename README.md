@@ -1,18 +1,76 @@
 # Rillgate
 
-**The MCP gateway for governed agent access.**
+**One MCP endpoint for your APIs and tools.**
 
-[Website — EN](https://rillgate.cn/en/) · [官网 — 中文](https://rillgate.cn/zh/) · [Team workspace](https://rillgate.cn/console/) · [Documentation](docs/architecture.md)
+[Website — EN](https://rillgate.cn/en/) · [官网 — 中文](https://rillgate.cn/zh/) · [Workspace](https://rillgate.cn/console/) · [Architecture](docs/architecture.md)
 
-Rillgate connects AI agents to existing HTTP APIs and remote MCP servers through a governed tool discovery and execution layer. Its Go backend manages upstream connections, reviewed tool contracts, permissions, approvals and bounded responses. A web console provides administration and execution history; Pi is a client for model-assisted tasks. Private MCP services can connect through outbound HTTPS Connectors; OpenAPI import and gRPC integration remain planned.
+Rillgate connects existing MCP clients and agents to remote MCP services, HTTP APIs and private tools. Register a service, publish selected tools, grant an access key, then let your existing client search and call them through one endpoint.
 
-> **Project status:** Active development. The core cloud gateway, invitation-only workspace, Pi task worker and scheduled catalog checks are implemented and cloud-verified within the acceptance journeys recorded in [verification](docs/verification.md). The public product website is at `/`; the team workspace is at `/console/`. Upstream OAuth and private Connectors have bounded supported profiles; live provider interoperability, high availability and independently commissioned recovery remain open. See [implementation status](docs/implementation-status.md) for current delivery and remaining production work.
+The Go gateway handles discovery, credentials, permissions, execution records and bounded results. The React console manages services, access keys and call history. No Pi task, model account or separate Rillgate agent application is required.
 
-## Cloud Delivery
+> **Delivery status:** The gateway core is deployed as `20261006-cloud.23` from source `623b46d4dff1242acd8334cc8ed30bc737d293e1`. Exact-source CI, official MCP SDK calls against the authorized cloud test integration, browser checks and temporary-key revocation passed. Public Cloudflare compatibility passed separately through an ephemeral local gateway; it is not enabled in production. See the [release evidence](docs/evidence/gateway-core-release-2026-10-06.json) and [implementation status](docs/implementation-status.md) for the supported boundary.
 
-The product is an invitation-only cloud workspace. Team members sign in with individual accounts, administrators issue invitations, and external clients use revocable API keys. See the [cloud deployment guide](docs/cloud-deployment.md) for HTTPS, identity policy, deployment, backups and operational limits.
+## How it works
 
-## Developer Setup
+```mermaid
+flowchart LR
+    Client[Your MCP client or agent] --> Gateway[Rillgate MCP Gateway]
+    Console[Management console] --> Gateway
+    Gateway --> HTTP[Existing HTTP APIs]
+    Gateway --> MCP[Remote MCP services]
+    Connector[Private Connector] -->|Outbound HTTPS| Gateway
+    Connector --> Private[Internal HTTP / isolated stdio MCP]
+    Gateway --> DB[(PostgreSQL)]
+```
+
+1. **Connect:** register a remote MCP service, define a fixed HTTP JSON tool, or configure an outbound private Connector
+2. **Publish:** review tool contracts, risk classification and response policy; enable selected tools
+3. **Grant:** create a machine access key scoped to explicit tools or services
+4. **Use:** configure the gateway MCP URL and Bearer key in an existing client, then search, inspect schemas and call tools
+5. **Inspect:** review recorded outcomes, latency totals, errors and any required approvals
+
+## Core capabilities
+
+| Area | Implemented behavior |
+| --- | --- |
+| Service access | Remote Streamable HTTP MCP, bounded HTTP JSON APIs, encrypted header credentials, a pre-registered upstream OAuth profile, outbound Connector HTTP and isolated rootless Podman stdio |
+| Tool discovery | Service filtering, explainable lexical ranking, permission filtering before count/limit, bounded cursor pages and schemas fetched only when selected |
+| Access keys | Explicit discovery/invocation scopes, tool/service grants, one-time key display, expiry, rotation and live revocation |
+| Invocation | One `call_tool` request handles preparation and execution; stable idempotency keys preserve the operation ledger and suppress duplicate dispatch |
+| Approval policy | Administrator-managed `required` / `none`, version checks and audit; legacy writes retain independent approval until explicitly changed |
+| Results | Output-schema checks, structured field selection, cursor preservation, secret-name redaction, byte limits and opt-in expiring large-result references |
+| Reliability | Bounded retry and process-local circuit breaking for eligible HTTP read-only GET calls; unknown writes are never automatically replayed |
+| Operations | Durable state/events, filtered history, independent UNKNOWN evidence, admission limits and outcome/duration aggregates |
+| Management | Connection diagnostics, immutable tool versions, reviewed changes, scheduled catalog checks and response-policy preview |
+| Delivery | Committed-source packaging, checked migrations, encrypted local backups, isolated restore verification and configurable host health collection |
+
+### Client-facing MCP tools
+
+| Tool | Purpose |
+| --- | --- |
+| `search_tools` | Find authorized summaries, optionally narrowed by `server_id` |
+| `get_tool_schema` | Read one selected tool's contracts and policy |
+| `call_tool` | Prepare and execute one authorized intent, or return pending/recorded state |
+| `get_operation` | Inspect the durable outcome |
+| `read_result` | Read a bounded chunk of an authorized, unexpired large result |
+| `prepare_action` | Existing explicit preparation interface |
+| `invoke_tool` | Existing execution-by-operation-ID interface |
+
+Use the same idempotency key for the same intent. A pending approval is not success; `UNKNOWN` is not proof of failure. The gateway never promises exactly-once business effects in arbitrary upstream systems.
+
+## Supported boundaries
+
+- Remote MCP uses Streamable HTTP, including bounded JSON/SSE responses to the original POST. Legacy SSE transport, standalone streams/resumption and generic MCP replay are unsupported.
+- `server_id` filtering applies to imported MCP tools. Search is lexical, with literal punctuation and whitespace-separated terms; it is not semantic search or automatic Chinese segmentation. [Measured discovery fixture](docs/discovery-evaluation.md).
+- Large-result storage requires an explicit MCP response policy and object `structuredContent`. The projected envelope is limited to 1 MiB; only projected structured JSON is stored separately. Default retention is one hour, configurable from 60 seconds to 24 hours, with 100 MiB / 1,000 retained artifacts per workspace. Reads check live permission and expiry. This is not arbitrary file storage or automatic summarization.
+- Automatic retry applies only to HTTP tools classified `read` using GET, with at most two attempts within the original deadline. It excludes writes, MCP/Connector calls, HTTP 429, validation failures and uncertain business effects. Circuit state is local to one gateway process.
+- Microsoft Learn currently embeds a changing session identifier in its input-schema constraints. This supplier profile is not supported by the fresh-session adapter; genuine schema changes remain blocked. [Compatibility observation](docs/remote-mcp-contract.md).
+- OAuth has automated protocol/refresh tests for the [documented registration profile](docs/upstream-oauth.md). Real third-party provider consent acceptance is tracked separately and is not claimed from local fixtures.
+- The current deployment topology is a single host. High availability, an independently commissioned off-host backup destination and external alert delivery are not established.
+
+See the [remote MCP contract](docs/remote-mcp-contract.md), [discovery contract](docs/tool-discovery-contract.md), [Connector guide](docs/private-connectors.md) and [cloud deployment guide](docs/cloud-deployment.md).
+
+## Developer setup
 
 With Node.js and Docker Compose installed:
 
@@ -21,143 +79,17 @@ node scripts/bootstrap.mjs
 docker compose --env-file .local/compose.env -f deploy/compose/compose.yaml up --build
 ```
 
-Open the website at `http://127.0.0.1:4782/` and the console at `http://127.0.0.1:4782/console/`. Use the private identities created in `.local/identities.json`; keep administrator, operator and approver identities separate. Downstream origins must be explicitly allowed before tools can be registered.
+Open `http://127.0.0.1:4782/console/`. Private development identities are created in `.local/identities.json`; keep requester and approver identities separate when testing approval. Downstream origins must be explicitly allowed. The cloud product uses individual invitation-only accounts and revocable machine keys.
 
-For the delivery workflow, source development, downstream configuration and verification, see the [development guide](docs/development.md). The [work package status](docs/implementation-status.md#development-order) separates implemented behavior from remaining release and acceptance gates. The [Pi runner guide](apps/agent-runner/README.md) explains how to use an existing local subscription login without sending model credentials to the gateway.
+For source development, tests and release gates, see [development](docs/development.md). CI checks the declared Go files' statement coverage and frontend TypeScript logic coverage; these scoped checks do not claim whole-repository or React component coverage of 90%.
 
-### Working Capabilities
+## Scope and next work
 
-- Sign in, invite teammates, manage member access, revoke API keys and inspect account activity.
-- Issue separate machine-client keys with explicit tool/server grants, one-time key display, rotation and live revocation.
-- Register and publish HTTP tools with validated JSON Schemas.
-- Connect remote Streamable HTTP MCP servers, discover paginated upstream catalogs and import selected tools as disabled drafts with explicit risk.
-- Manage AES-GCM-encrypted downstream header credentials, rotate or disable them without restarting services, and inspect connection/definition check history.
-- Route namespaced MCP tools through the operation ledger, recheck upstream contracts and immediately gate new admissions when a server is disabled.
-- Review contract-change candidates, publish immutable tool versions, retire tools and restore a compatible prior definition through a newly reviewed version.
-- Compare discovered tools with registered versions, inspect schema/description changes and missing tools, and retain catalog review history before creating a refresh candidate.
-- Schedule per-server catalog checks with durable leases, failure backoff and retained outcomes; review changes in the console before explicit publication.
-- Select object and array-element result fields, retain valid pagination cursors and enforce response byte limits before returning data to agents.
-- Preview response policies against supplied samples and revise them with version checks while preserving prepared operation snapshots.
-- Search the complete authorized tool catalog with bounded cursor pages; load schemas on demand and invoke tools through an authenticated MCP endpoint.
-- Prepare fixed actions, approve writes independently and reject duplicate dispatches.
-- Search paginated operation and audit history; inspect durable PostgreSQL records and events in the console.
-- Preserve ambiguous writes as `UNKNOWN`; independent reviewers can append outcome evidence without changing the recorded state or replaying the action.
-- Enforce workspace/client/upstream admission limits and report execution/rejection aggregates.
-- Package committed releases, check migrations and image provenance, create encrypted recovery snapshots and verify restores in an isolated database.
-- Collect health/backup signals and deliver deduplicated alerts when a host operator configures a webhook; verified off-host backup requires an explicit second destination.
-- Submit cloud Agent tasks, inspect event/output history, cancel work and resume after approval.
-- Run a restricted Pi agent with durable task leases, server-side sessions and intent persistence.
+The [gateway roadmap](docs/gateway-roadmap.md) prioritizes a complete connection → discovery → invocation → result workflow using existing MCP clients. Agent workbench expansion, multi-agent orchestration, standalone client products, model-account management and enterprise account expansion are outside this delivery.
 
-Remote MCP currently supports static-file and encrypted managed header credentials, text/structured results and bounded POST responses (JSON or SSE), plus [pre-registered upstream OAuth](docs/upstream-oauth.md) with PKCE, issuer-bound callbacks, encrypted grants and fenced refresh. Private HTTP and isolated stdio targets use [outbound Connectors](docs/private-connectors.md). Legacy SSE transport and automatic replay remain unsupported. See the [remote MCP contract](docs/remote-mcp-contract.md) for onboarding, projection rules and compatibility limits.
+The existing [Pi runner](apps/agent-runner/README.md) remains an optional integration client with its original five-tool interface. It is maintained for compatibility and does not yet expose the new large-result reader. Future needs can drive OpenAPI/Protobuf import, additional OAuth providers, semantic retrieval, distributed telemetry and high availability.
 
-The sections below describe the target production system. Follow [implementation status](docs/implementation-status.md) for current limitations and [the OpenAPI contract](api/openapi.yaml) for implemented management endpoints.
-
-## Why Rillgate
-
-Giving an agent access to a business system creates several engineering responsibilities: finding the right tool, enforcing the caller's permissions, managing configuration changes, handling uncertain outcomes, and explaining what happened.
-
-Rillgate is designed to make those responsibilities explicit and reusable across teams. Existing services can become governed agent tools, while service owners retain control over access, versions, and execution policies.
-
-The platform serves two types of users:
-
-- **Agent developers** connect external MCP clients or coding agents to an authorized tool catalog.
-- **Business and engineering teams** use the web console to run Pi-powered tasks, inspect evidence, and approve actions.
-
-## Planned Capabilities
-
-| Area | Scope |
-| --- | --- |
-| Tool integration | Import OpenAPI definitions and Protobuf descriptors; extend existing remote MCP and Connector support with additional OAuth registration profiles. |
-| Tool discovery | Add semantic ranking and service/environment filters to the existing paginated lexical catalog. |
-| Access governance | Extend existing workspace/role/client tool grants with organization, environment, resource and field policies. |
-| Configuration lifecycle | Extend reviewed immutable versions and compatible rollback with signed releases, instance acknowledgements and staged rollout. |
-| Reliable execution | Add adapter-specific outcome queries, compensation and downstream idempotency to the existing ledger and human evidence workflow. |
-| Human approval | Extend existing exact-parameter, version-bound and expiring independent approvals with environment/resource policies. |
-| Agent workbench | Extend existing task/event/cancellation/resume controls with structured user input and multi-host scheduling. |
-| Private connectivity | Reach internal services through an outbound-connected Connector with scoped credentials. |
-| Evaluation and observability | Compare agent configurations, replay isolated test cases, and trace tasks through tool execution. |
-
-## Target Architecture
-
-```mermaid
-flowchart TD
-    UI[Web Console] --> API[Go API Server]
-    EXT[External Agents and CLI] --> GW[Go Gateway]
-    PI[TypeScript Pi Runner] -->|Task control| API
-    PI -->|Scoped tool calls| GW
-    API --> DB[(PostgreSQL)]
-    WORKER[Go Worker] --> DB
-    GW --> DB
-    GW --> SERVICES[HTTP and gRPC Services]
-    GW --> MCP[Remote MCP Servers]
-    CONNECTOR[Go Connector] -->|Outbound connection| GW
-    CONNECTOR --> INTERNAL[Internal APIs and Isolated stdio Servers]
-    API --> OBJECTS[(S3-Compatible Storage)]
-    GW --> OBJECTS
-    GW --> CACHE[(Redis)]
-```
-
-| Component | Responsibility |
-| --- | --- |
-| **Web Console** | Tool onboarding, configuration, tasks, approvals, evidence, and audit views. |
-| **API Server** | Identity, administration, task management, approvals, and resumable event streams. |
-| **Gateway** | MCP endpoints, tool authorization, execution admission, protocol adapters, and operation records. |
-| **Worker** | Discovery synchronization, scheduling, reconciliation, event delivery, and evaluation jobs. |
-| **Pi Runner** | Model access, agent sessions, context management, and controlled tool selection. |
-| **Connector** | Scoped execution against internal services and isolated local MCP processes. |
-
-The Go services share domain modules and a transactional PostgreSQL database, with separate deployment and access boundaries. Runners and Connectors communicate through authenticated interfaces and do not access the database directly.
-
-## Target Execution Model
-
-A tool request follows a common execution path:
-
-1. Authenticate the caller and resolve the tool version.
-2. Validate arguments, permissions, environment, and resource scope.
-3. Check approval requirements and reserve the execution budget.
-4. Persist the operation intent before contacting the downstream service.
-5. Execute through the appropriate adapter or Connector.
-6. Validate, redact, and persist the result before reporting completion.
-
-Write operations have a stable business operation ID. A timeout can mean that the downstream action succeeded but its response was lost. In that case, the platform must reconcile the outcome before retrying; it must not assume that a failed connection means nothing happened.
-
-Agent tasks, model sessions, and external operations have separate state. Restoring a conversation does not establish whether a business action has already run. Task recovery therefore combines Pi checkpoints with the operation ledger and recorded evidence.
-
-## Pi Integration
-
-[Pi](https://pi.dev/docs/latest/sdk) provides the agent session and model interaction layer. The host application controls task state, authorization, approvals, execution budgets, and persistence.
-
-The cloud worker consumes PostgreSQL-backed task leases through a private authenticated control API. Browser users can follow task events, cancel work and explicitly resume after approval or credential configuration. An operator configures the server subscription in its dedicated Pi volume; credentials are not uploaded as part of Gateway deployment. The local Pi CLI remains available for development and integration. See [cloud deployment](docs/cloud-deployment.md#cloud-agent-worker) and the [task contract](docs/cloud-run-contract.md).
-
-Tool permissions are enforced by the platform on every invocation. Repository content, tool responses, and model output cannot grant additional access.
-
-## Example Workflow
-
-A data operations team asks why a scheduled job failed:
-
-- The agent discovers the authorized job, log, and deployment tools.
-- It gathers evidence and produces a diagnosis with explicit uncertainties.
-- It prepares a retry action for a specific job and environment.
-- An authorized user reviews and approves the action.
-- The platform executes it, checks the actual job status, and records the outcome.
-
-The same tool governance and execution model can support service investigations, business reporting, and cross-system status checks.
-
-## Target Technology and Deployment
-
-- **Backend:** Go, the official MCP Go SDK, gRPC, and pgx.
-- **Agent runtime:** TypeScript, Node.js, and the Pi SDK.
-- **Web console:** React, TypeScript, and Vite.
-- **System of record:** PostgreSQL.
-- **Search:** PostgreSQL full-text search and pgvector.
-- **Artifacts:** S3-compatible object storage.
-- **Caching and rate limits:** Redis remains a target; current admission limits use PostgreSQL.
-- **Observability:** current audit, aggregates and host alert collector; OpenTelemetry and Prometheus-compatible telemetry remain targets.
-- **Deployment targets:** Docker Compose for dedicated environments and Kubernetes for high-availability deployments.
-
-Production acceptance includes tenant isolation, protocol interoperability, approval replay protection, failure injection, recovery of uncertain operations, load testing, and backup restoration.
-
-## Design References
+## Design references
 
 - [Uber Engineering: Designing MCP Gateway](https://www.uber.com/jp/en/blog/designing-mcp-gateway/)
 - [Model Context Protocol](https://modelcontextprotocol.io/)

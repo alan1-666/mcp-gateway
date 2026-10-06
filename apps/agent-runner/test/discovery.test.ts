@@ -4,7 +4,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { GatewayClient, GatewayError, type ToolDiscoveryPage } from "../src/client.js";
+import { GatewayClient, GatewayError, type ToolDiscoveryPage, toolSearchParams, validateToolDiscoveryPage } from "../src/client.js";
 import { IntentJournal } from "../src/journal.js";
 import { createGatewayTools } from "../src/tools.js";
 import { WorkerClient, type Lease } from "../src/worker-client.js";
@@ -46,6 +46,8 @@ for (const kind of ["local", "leased"] as const) {
       assert.equal(requests[2].searchParams.get("limit"), "50");
       await server.client.search("");
       assert.deepEqual([...requests[3].searchParams], [["query", ""]], "omitted limits use the server default");
+      await server.client.search("status", undefined, { server_id: " remote service ", limit: 1 });
+      assert.equal(requests[4].searchParams.get("server_id"), "remote service");
     } finally { await server.close(); }
   });
 
@@ -61,6 +63,9 @@ for (const kind of ["local", "leased"] as const) {
       }
       for (const cursor of ["x".repeat(2049), "中".repeat(683), null, 1]) {
         await assert.rejects(server.client.search("", undefined, { cursor: cursor as string }), /INVALID_TOOL_SEARCH_CURSOR/);
+      }
+      for (const server_id of ["x".repeat(129), "中".repeat(43), "a\0b", "a\rb", "a\nb", null, 1]) {
+        await assert.rejects(server.client.search("", undefined, { server_id: server_id as string }), /INVALID_TOOL_SEARCH_SERVER/);
       }
       await assert.rejects(server.client.search("", undefined, { unknown: true } as never), /INVALID_TOOL_SEARCH_OPTIONS/);
       assert.equal(requests, 0);
@@ -110,9 +115,26 @@ for (const kind of ["local", "leased"] as const) {
       const invalid = await invoke({ query: "中".repeat(67) });
       assert.equal(invalid.error, "INVALID_TOOL_SEARCH_QUERY"); assert.match(invalid.instruction, /UTF-8/);
       assert.equal(requests.length, 2);
-      await invoke({});
+      await invoke({ server_id: "known-service" });
       assert.equal(requests[2].searchParams.get("query"), "");
+      assert.equal(requests[2].searchParams.get("server_id"), "known-service");
       assert.equal(requests[2].searchParams.has("limit"), false);
     } finally { journal.close(); rmSync(directory, { recursive: true, force: true }); await server.close(); }
   });
 }
+
+test("discovery accepts only bounded server IDs and documented rank explanations", () => {
+  for (const [reason, score] of Object.entries({ exact_name: 500, name_prefix: 400, name_fragment: 300, phrase: 200, all_terms: 100 })) {
+    const page = { items: [{ ...summary, server_id: "service", match: { reason, score } }], total: 1 };
+    assert.deepEqual(validateToolDiscoveryPage(page, 1), page);
+  }
+  for (const extra of [
+    {server_id: ""}, {server_id: null}, {server_id: 123}, {server_id: "中".repeat(43)}, {server_id: "a\0b"},
+    {match: null}, {match: []}, {match: {score:500}}, {match: {score:500,reason:"bad"}},
+    {match: {score:100,reason:"exact_name"}}, {match: {score:500,reason:"exact_name",private:"secret"}},
+    {match: {score:500,reason:"__proto__"}}, {match: {score:"500",reason:"exact_name"}},
+  ]) {
+    assert.throws(() => validateToolDiscoveryPage({items:[{...summary,...extra}], total:1}, 1), /INVALID_GATEWAY_RESPONSE/);
+  }
+  assert.equal(new URLSearchParams(toolSearchParams("", {server_id:"中".repeat(42)+"ab"}).parameters).get("server_id"), "中".repeat(42)+"ab");
+});

@@ -316,3 +316,14 @@ test("invocation refuses a selected tool that became disabled or draft", async (
     /different tool/,
   );
 });
+
+
+test("server filters are encoded independently from queries and cursors", () => {
+  const path = toolSearchPath("discovery", "task", "cursor", 5, "server-1");
+  const params = new URL(path, "https://gateway.example").searchParams;
+  assert.equal(params.get("server_id"), "server-1");
+  assert.equal(params.get("query"), "task");
+  assert.equal(params.get("cursor"), "cursor");
+  assert.throws(() => toolSearchPath("discovery", "", "", 5, "bad server"));
+  assert.throws(() => toolSearchPath("discovery", "", "", 5, "a".repeat(129)));
+});

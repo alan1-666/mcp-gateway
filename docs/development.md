@@ -2,6 +2,10 @@
 
 The repository contains executable Go services, a React console and a Pi integration client. This page describes local source development; use the [cloud deployment guide](cloud-deployment.md) for the hosted product. See [implementation status](implementation-status.md) for the boundary between working software and the complete target architecture.
 
+## Product priorities
+
+Follow the [Gateway roadmap](gateway-roadmap.md): onboarding and first call → on-demand discovery → simplified invocation and tool approval policies → bounded result handling and retrieval → measured reliability and business evidence. Keep authorization and failure tests inside every package. The core source implements ranked service discovery, a call facade, administrator-managed approval policies and bounded result retrieval; deployed behavior changes only through an accepted release. The first complete release covers the Gateway core only: existing MCP clients consume it without Pi tasks. Standalone clients, Agent workbench expansion, multi-agent orchestration and model-account features are out of scope. Product/architecture documents retain the long-term scope.
+
 ## Delivery workflow
 
 Delivery prioritizes the Gateway: connect an upstream, review its tools, grant a client access, discover the required schema, execute through policy, return a bounded result and inspect the outcome. Pi remains a client and a regression path through those same controls.
@@ -46,7 +50,7 @@ A functional package is complete when the user journey works through actual APIs
 
 For implementation changes, the integrator runs `make check` and `RUN_CLOUD_WORKER_INTEGRATION=1 TEST_DATABASE_URL=... make test` with a dedicated database. A run that skips database tests is not an integration pass. CI additionally performs the pinned vulnerability scan and npm audit; inspect the remote result, rather than inferring it from local checks. Use meaningful tests for changed behavior; documentation-only changes need link/contract consistency checks rather than a new application regression suite.
 
-Exercise relevant failures: wrong identity/workspace, stale version, malformed/oversized data, repeated request, concurrent action, upstream rejection/timeout and interruption after dispatch. For write tools, demonstrate independent approval and preservation of an uncertain outcome without automatic replay. Tests use isolated fixtures; a real-service check has a named target and permitted operation. Never substitute a synthetic result for evidence of actual compatibility.
+Exercise relevant failures: wrong identity/workspace, stale version, malformed/oversized data, repeated request, concurrent action, upstream rejection/timeout and interruption after dispatch. For write tools, demonstrate required approval, explicit administrator-published exemption, live policy tightening, and preservation of an uncertain outcome without automatic replay. Tests use isolated fixtures; a real-service check has a named target and permitted operation. Never substitute a synthetic result for evidence of actual compatibility.
 
 Each PR links the evidence in [verification](verification.md). Update delivered behavior in [implementation status](implementation-status.md), implementation details in the appropriate contract, and setup/operations steps only when changed. SLOs, model quality and token savings require their own fixed workloads and measurements.
 
@@ -190,7 +194,7 @@ A machine-client key authenticates an agent **to the Gateway**; a managed downst
 
 ## Execution and recovery
 
-- `POST /operations` reserves a workspace-scoped idempotency key and fixed arguments. Reusing that key with a different tool or payload returns `409`.
+- `POST /call` (MCP `call_tool`) reserves the same intent and executes it when READY; pending approval and terminal/UNKNOWN states are returned without another dispatch. `POST /operations` remains the explicit preparation interface and reserves a workspace-scoped idempotency key and fixed arguments. Reusing that key with a different tool or payload returns `409`.
 - `POST /operations/{id}/execute` atomically changes `READY` to `DISPATCHING`. Concurrent calls return the recorded operation and cannot independently send it again.
 - Each request carries the gateway operation ID in `Idempotency-Key`. This does not imply that every downstream service honors the header.
 - A confirmed valid result is stored with its event in one database transaction.
@@ -203,11 +207,20 @@ Operation/audit history now has server-side filters, live totals and keyset page
 
 This provides single dispatch of a recorded operation and conservative uncertainty handling. It does not promise exactly-once business effects in arbitrary external systems.
 
+
+## Gateway-core contracts
+
+- Discovery accepts optional `server_id`; only imported MCP tools have that identity. Literal name/description fragments remain compatible, with all whitespace-separated terms as additional matches. Results rank exact names, prefixes, name fragments, phrases and all-term matches. Permission filtering precedes count and limit. Cursor v2 binds rank and service; old v1 cursors require restarting the search. See [discovery contract](tool-discovery-contract.md) and [fixed evaluation](discovery-evaluation.md).
+- Approval policy is separate from risk: `POST /tools/{id}/approval-policy` accepts `expected_version` and `approval_policy: required | none`, only for administrators. Legacy writes default to required approval; old snapshots retain their decision, invalid policy values fail closed, and live restrictions are rechecked before dispatch. A risk change restores the conservative default; definition rollback does not restore an old exemption.
+- MCP response policy can opt into `artifact: {max_bytes, ttl_seconds}`. The complete projected envelope is bounded by at most 1 MiB; the database stores only the resulting object `structuredContent`. Default TTL is 3600 seconds, configurable 60–86400. Workspace quota is 100 MiB / 1000 artifacts. `GET /operations/{id}/result` or MCP `read_result` returns UTF-8 chunks with a requested budget of 1024–16384 bytes (default 8192; the last chunk may be shorter), checking current access and expiry on every read. Concatenate before parsing to preserve exact JSON numbers. Text-only, arbitrary file and generic HTTP result artifacts are unsupported.
+- Only HTTP tools classified read and using GET receive automatic retry. Eligible failures are selected transient connection errors and 502/503/504; maximum two attempts, within the original deadline. Retry-After is never shortened; malformed/long hints or insufficient time suppress retry. HTTP 429, non-GET calls, writes, MCP and Connector calls are not retried. The circuit opens after three failed eligible operations for 15 seconds, allows one recovery probe, and is process-local rather than a distributed availability guarantee.
+- Artifact quota can turn an otherwise successful adapter response into FAILED for reads or UNKNOWN for writes. Outcome metrics use the persisted terminal state; repeating the same operation never adds another dispatch metric.
+
 ## Pi integration
 
 See [the runner guide](../apps/agent-runner/README.md) for login, selection, execution and resume commands. `--check` verifies the gateway identity and local Pi configuration without sending a model request. It does not guarantee that the provider will accept a future login refresh.
 
-Only `search_tools`, `get_tool_schema`, `prepare_action`, `invoke_tool` and `get_operation` are available to the model. Built-in shell/file tools, repository resources and arbitrary extensions are disabled. The host writes an intent journal before preparing or dispatching actions. Pending approval and uncertain execution pause the runner.
+The optional Pi runner retains `search_tools`, `get_tool_schema`, `prepare_action`, `invoke_tool` and `get_operation` as its five model tools. The external MCP gateway exposes seven tools, additionally `call_tool` and `read_result`; gateway-core acceptance uses a standard MCP client and does not require Pi. The Pi runner has not been expanded with a large-result reader. Built-in shell/file tools, repository resources and arbitrary extensions are disabled. The host writes an intent journal before preparing or dispatching actions. Pending approval and uncertain execution pause the runner.
 
 The CLI is user-hosted. The separate cloud worker uses server-side subscriptions, durable platform Runs and fenced leases; see the [cloud task contract](cloud-run-contract.md). Distributed multi-host scheduling and organization-wide model budgets remain architecture work.
 
@@ -225,3 +238,22 @@ Use a dedicated empty test database. Integration tests apply migrations and crea
 Coverage includes independent approval, workspace/client/snapshot isolation, encrypted credential rotation/revocation, candidate concurrency, paginated audit/operations, append-only UNKNOWN evidence, scoped admission budgets, schema/projection bounds, duplicate preparation/dispatch, interrupted writes, actual MCP SDK calls and the Node worker boundary. Python tests cover release manifests/rollback/metadata transitions, encrypted bundles and monitoring/backup failure handling. Controlled fixtures do not establish a working external destination. No automated test sends a real model request.
 
 Architecture SLOs, throughput, full MCP client compatibility, backup restoration and container deployment are separate acceptance gates, not results inferred from unit tests.
+
+### Coverage gates and interpretation
+
+CI runs `go test -race -coverpkg=./... -coverprofile=coverage/go.out ./...`, then `python3 scripts/check-go-coverage.py coverage/go.out`. The declared Go files each need at least 90% statement coverage, combining unit and integration execution. A missing coverage target fails the gate. Go's coverage profile does not measure independent branch coverage; unlisted legacy files are not certified at this threshold.
+
+The console's `test:coverage` enforces aggregate TypeScript-logic thresholds of 95% lines and 90% branches/functions. Its focused gateway helper gate requires 90% on its declared subset. `.tsx` components are excluded; use browser interaction checks for their selection, cancellation and permission flows. Report these scopes, not a whole-application coverage percentage.
+
+Upstream OAuth unit/local integration fixtures do not establish real vendor login/consent interoperability. Cloud release, named upstream checks, rollback, disaster recovery and production load remain distinct acceptance evidence.
+
+### Opt-in public MCP compatibility check
+
+The fixed Cloudflare public documentation check runs one read-only query through an ephemeral local Gateway and an isolated loopback PostgreSQL schema. It uses no user account, does not edit production egress configuration, and is skipped in normal CI. Review a changed upstream contract before changing its pinned query/tool assumptions.
+
+```sh
+RUN_EXTERNAL_MCP_TEST=1 TEST_DATABASE_URL='<loopback test database URL>' \
+  go test -race ./tests/integration -run '^TestExternalCloudflareDocs$' -count=1 -v
+```
+
+It reports only public compatibility metrics and removes the test schema afterwards. The original observation is in `docs/evidence/cloudflare-public-mcp-2026-10-06.json`; a single external request is not a performance benchmark or OAuth-provider acceptance.

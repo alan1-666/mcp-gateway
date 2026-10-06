@@ -1,3 +1,4 @@
+import { ClientConnection } from "./ClientConnection";
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { APIClient, messageOf } from "./api";
@@ -80,7 +81,8 @@ export function Clients({
     <div className="admin-workspace">
       <div className="toolbar">
         <p className="muted">
-          Independent machine identities. Empty grants deny every tool.
+          Create a scoped key for your existing MCP application. Empty grants
+          deny every tool.
         </p>
         <button
           className="button primary"
@@ -141,7 +143,7 @@ export function Clients({
       <div className="panel">
         <div className="panel-heading">
           <h2>
-            Clients{" "}
+            Access keys{" "}
             <span className="count-label">
               {resource.data?.items.length ?? "—"}
             </span>
@@ -211,6 +213,12 @@ export function Clients({
           </AdminEmpty>
         ) : null}
       </div>
+      {current && !creating ? (
+        <ClientConnection
+          key={`${current.id}:${current.version}`}
+          client={current}
+        />
+      ) : null}
       {creating || current ? (
         <ClientForm
           key={current ? `${current.id}:${current.version}` : "new"}
@@ -221,7 +229,10 @@ export function Clients({
             setSelected(null);
           }}
           onSaved={async (value) => {
-            if ("api_key" in value) setSecret(value.api_key);
+            if ("api_key" in value) {
+              setSecret(value.api_key);
+              setSelected(value.client.id);
+            }
             setCreating(false);
             await resource.reload();
           }}

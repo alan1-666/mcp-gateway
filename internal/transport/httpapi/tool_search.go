@@ -23,6 +23,8 @@ func ParseToolSearch(raw string) (core.ToolSearchInput, error) {
 		switch name {
 		case "query":
 			input.Query = entries[0]
+		case "server_id":
+			input.ServerID = entries[0]
 		case "cursor":
 			input.Cursor = entries[0]
 		case "limit":

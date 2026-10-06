@@ -165,7 +165,7 @@ func TestDurableHTTPAndMCPWorkflow(t *testing.T) {
 	}
 	defer session.Close()
 	listed, err := session.ListTools(ctx, nil)
-	if err != nil || len(listed.Tools) != 5 {
+	if err != nil || len(listed.Tools) != 7 {
 		t.Fatalf("MCP tools: %v %v", listed, err)
 	}
 	r, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "prepare_action", Arguments: map[string]any{"tool_id": readTool.ID, "arguments": map[string]string{"id": "job-3"}, "idempotency_key": "mcp-read-request"}})

@@ -148,6 +148,10 @@ func Run(mode string) error {
 				retentionCtx, retentionCancel := context.WithTimeout(ctx, 10*time.Second)
 				_, retentionErr := budgets.Retain(retentionCtx, capacity.DefaultRetentionConfig())
 				_, connectorCleanupErr := connectorService.Cleanup(retentionCtx)
+				_, resultCleanupErr := postgres.New(pool).CleanupResultArtifacts(retentionCtx)
+				if resultCleanupErr != nil && ctx.Err() == nil {
+					slog.Error("result artifact retention batch failed")
+				}
 				if connectorCleanupErr != nil && ctx.Err() == nil {
 					slog.Error("Connector retention batch failed")
 				}

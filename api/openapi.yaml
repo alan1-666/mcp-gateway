@@ -1002,6 +1002,45 @@ paths:
           $ref: '#/components/responses/Unavailable'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /api/v1/tools/{id}/approval-policy:
+    parameters:
+      - $ref: '#/components/parameters/ResourceID'
+    post:
+      operationId: updateToolApprovalPolicy
+      tags: [Tools]
+      summary: Publish an explicit per-tool approval policy
+      description: |
+        Admin only. Requires the current expected_version, including for no-op updates.
+        Changing required/none increments the tool version and records an audit event.
+        Legacy writes remain required; read tools default to none. Policy does not
+        change side-effect classification or access grants. Clients cannot request
+        exemptions in call arguments. Pending approvals remain pending on loosening.
+        Before dispatch, the snapshot and current policy are checked under a tool lock;
+        an outdated unapproved write exemption becomes WAITING_APPROVAL. Already
+        dispatched operations cannot be recalled. Definition rollbacks preserve the
+        current approval policy; risk reclassification restores conservative defaults.
+      x-required-roles: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApprovalPolicyUpdateInput'
+      responses:
+        '200':
+          $ref: '#/components/responses/Tool'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/Unavailable'
   /api/v1/tools/{id}/response-policy:
     parameters:
       - $ref: '#/components/parameters/ResourceID'
@@ -1145,7 +1184,8 @@ paths:
         Requires admin or operator. The tool must be published and enabled in the
         authenticated workspace. Arguments must match its input schema. The operation
         records fixed arguments, their hash and the tool version/configuration snapshot.
-        Read tools enter READY; write tools enter WAITING_APPROVAL.
+        Tools with approval_policy=required enter WAITING_APPROVAL; others enter READY.
+        Legacy writes default to required and reads to none.
 
         Idempotency keys are unique within a workspace. Repeating a key for the same
         actor, tool and canonical argument hash returns the existing operation,
@@ -1180,6 +1220,85 @@ paths:
           $ref: '#/components/responses/Unavailable'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /api/v1/call:
+    post:
+      operationId: callTool
+      tags: [Operations]
+      summary: Prepare and execute an authorized tool in one request
+      description: |
+        Requires admin or operator. Accepts the same stable intent as prepareOperation.
+        READY operations are executed through the ordinary capacity, authorization,
+        policy and durable-claim checks. Other states are returned without execution.
+        A 200 response is an operation, not a guarantee of successful business outcome;
+        inspect state. After independent approval, repeat the exact same intent/key to
+        continue. UNKNOWN, completed, rejected or dispatching operations are never
+        replayed. Reusing a key for another intent returns 409. Legacy prepare/execute
+        endpoints remain available. This endpoint does not create an Agent task.
+      x-required-roles: [admin, operator]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PrepareInput'
+      responses:
+        '200':
+          $ref: '#/components/responses/Operation'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/operations/{id}/result:
+    parameters:
+      - $ref: '#/components/parameters/ResourceID'
+    get:
+      operationId: readOperationResult
+      tags: [Operations]
+      summary: Read a bounded chunk of a projected large result
+      description: |
+        Requires current permission to read the associated operation, including
+        machine-client grants and key validity. Missing, unauthorized and expired
+        artifacts return 404. Cursors are bound to operation and digest, never grant
+        access, and cannot address another artifact. Chunks split at UTF-8 boundaries;
+        concatenate in offset order before parsing JSON to preserve exact numbers.
+        Only opt-in projected MCP structuredContent exceeding its inline limit is
+        retained as an artifact. Upstream transfer is still fully bounded and unchanged.
+      parameters:
+        - in: query
+          name: cursor
+          schema: {type: string, maxLength: 512}
+        - in: query
+          name: limit_bytes
+          schema: {type: integer, minimum: 1024, maximum: 16384, default: 8192}
+      responses:
+        '200':
+          description: Immutable UTF-8 JSON chunk and optional continuation cursor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '503':
+          $ref: '#/components/responses/Unavailable'
   /api/v1/operations/{id}:
     parameters:
       - $ref: '#/components/parameters/ResourceID'
@@ -3042,10 +3161,14 @@ components:
         are rejected during selection. A successful structured result's text
         content is rebuilt from the projected object, so the original text cannot
         bypass selection. Text-only results support byte limits, but cannot use
-        include paths. Oversized results are rejected, never sliced into invalid
-        JSON. A post-call projection/limit failure is FAILED for read operations
+        include paths. By default oversized results are rejected. Explicit artifact
+        policy permits bounded structured results to be stored with an expiring
+        reference; text-only results remain subject to the inline limit. Results
+        are never sliced into invalid JSON. A post-call projection/limit failure is FAILED for read operations
         and UNKNOWN for writes, which require outcome verification before retry.
       properties:
+        artifact:
+          $ref: '#/components/schemas/ResultArtifactPolicy'
         include:
           type: array
           maxItems: 32
@@ -3066,6 +3189,53 @@ components:
             - minimum: 1024
               maximum: 131072
           description: Maximum serialized UTF-8 bytes of the final MCP result envelope, including regenerated text and projection metadata. Omitted or zero becomes 65536; stored values are 1024-131072.
+    ApprovalPolicy:
+      type: string
+      enum: [required, none]
+      description: Server-managed approval requirement, independent of read/write risk. Exempt writes require an explicit administrator policy revision.
+    ApprovalPolicyUpdateInput:
+      type: object
+      additionalProperties: false
+      required: [expected_version, approval_policy]
+      properties:
+        expected_version: {type: integer, minimum: 1}
+        approval_policy:
+          $ref: '#/components/schemas/ApprovalPolicy'
+    ResultArtifactPolicy:
+      type: object
+      additionalProperties: false
+      properties:
+        max_bytes:
+          type: integer
+          default: 524288
+          anyOf:
+            - const: 0
+            - minimum: 1024
+              maximum: 1048576
+          description: Maximum complete projected MCP envelope bytes; must be at least the inline response_policy.max_bytes. Zero uses the default.
+        ttl_seconds:
+          type: integer
+          default: 3600
+          anyOf:
+            - const: 0
+            - minimum: 60
+              maximum: 86400
+          description: Artifact lifetime. Zero uses the default.
+    ResultPage:
+      type: object
+      additionalProperties: false
+      required: [operation_id, bytes, sha256, expires_at, format, offset, chunk]
+      properties:
+        operation_id: {type: string}
+        bytes: {type: integer, minimum: 1, maximum: 1048576}
+        sha256: {type: string, pattern: '^[a-f0-9]{64}$'}
+        expires_at: {type: string, format: date-time}
+        format: {type: string, const: json_utf8}
+        offset: {type: integer, minimum: 0}
+        chunk:
+          type: string
+          description: At most limit_bytes UTF-8 bytes from the immutable projected structuredContent JSON; concatenate before parsing.
+        next_cursor: {type: string, maxLength: 512}
     ResponsePolicyUpdateInput:
       type: object
       additionalProperties: false
@@ -3224,7 +3394,7 @@ components:
     Tool:
       type: object
       additionalProperties: false
-      required: [id, workspace_id, name, description, risk, input_schema, http, enabled, status, version, created_at]
+      required: [id, workspace_id, name, description, risk, approval_policy, input_schema, http, enabled, status, version, created_at]
       description: HTTP tools contain an active http definition. Imported MCP tools contain mcp and response_policy, with an empty http placeholder. This management representation does not contain the MCP platform get_tool_schema result_format hint.
       allOf:
         - if:
@@ -3251,6 +3421,8 @@ components:
           type: string
         risk:
           $ref: '#/components/schemas/Risk'
+        approval_policy:
+          $ref: '#/components/schemas/ApprovalPolicy'
         input_schema:
           $ref: '#/components/schemas/InputSchema'
         output_schema:
@@ -3930,8 +4102,11 @@ components:
       required:
       - version
       - definition
+      - approval_policy
       - created_at
       properties:
+        approval_policy:
+          $ref: '#/components/schemas/ApprovalPolicy'
         version:
           type: integer
           minimum: 1

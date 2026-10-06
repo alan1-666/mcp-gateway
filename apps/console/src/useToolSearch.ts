@@ -9,15 +9,16 @@ export function useToolSearch<T extends { id: string }>(
   api: APIClient,
   scope: ToolSearchScope,
   refreshVersion: string,
+  serverID = "",
 ) {
   const controller = useMemo(
     () =>
       new ToolSearchController<T>((query, cursor, signal) =>
-        api.request<ToolPage<T>>(toolSearchPath(scope, query, cursor), {
+        api.request<ToolPage<T>>(toolSearchPath(scope, query, cursor, undefined, serverID), {
           signal,
         }),
       ),
-    [api, scope],
+    [api, scope, serverID],
   );
   const state = useSyncExternalStore(
     controller.subscribe,

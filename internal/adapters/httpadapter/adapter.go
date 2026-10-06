@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -31,6 +32,7 @@ type Adapter struct {
 	networks    []netip.Prefix
 	credentials map[string]Credential
 	resolver    CredentialResolver
+	breaker     circuitBreaker
 }
 
 func New(origins, cidrs []string, credentials []Credential) (*Adapter, error) {
@@ -129,6 +131,8 @@ func (a *Adapter) dial(ctx context.Context, network, address string) (net.Conn, 
 }
 
 func (a *Adapter) Execute(ctx context.Context, actor core.Actor, tool core.Tool, op core.Operation) core.FinishInput {
+	ctx, cancel := context.WithTimeout(ctx, time.Duration(tool.HTTP.TimeoutMS)*time.Millisecond)
+	defer cancel()
 	fail := func(message string, uncertain bool) core.FinishInput {
 		state := core.StateFailed
 		if uncertain && tool.Risk == core.RiskWrite {
@@ -136,7 +140,7 @@ func (a *Adapter) Execute(ctx context.Context, actor core.Actor, tool core.Tool,
 		}
 		return core.FinishInput{State: state, Error: message}
 	}
-	credential, err := a.resolveCredential(ctx, actor.WorkspaceID, tool.HTTP)
+	_, err := a.resolveCredential(ctx, actor.WorkspaceID, tool.HTTP)
 	if err != nil {
 		return fail("tool is blocked by the current egress or credential policy", false)
 	}
@@ -167,14 +171,14 @@ func (a *Adapter) Execute(ctx context.Context, actor core.Actor, tool core.Tool,
 	request.Header.Set("Accept", "application/json")
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("Idempotency-Key", op.ID)
-	for k, v := range credential.Headers {
-		request.Header.Set(k, v)
-	}
 	transport := a.newTransport(time.Duration(tool.HTTP.TimeoutMS) * time.Millisecond)
 	defer transport.CloseIdleConnections()
 	client := &http.Client{Transport: transport, Timeout: time.Duration(tool.HTTP.TimeoutMS) * time.Millisecond, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
-	resp, err := client.Do(request)
+	resp, err := a.doRequest(ctx, actor, tool, request, client)
 	if err != nil {
+		if errors.Is(err, errCircuitOpen) || errors.Is(err, errRequestPolicy) {
+			return fail(err.Error(), false)
+		}
 		return fail("downstream request did not produce a confirmed result", true)
 	}
 	defer resp.Body.Close()

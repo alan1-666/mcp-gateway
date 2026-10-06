@@ -56,6 +56,7 @@ type ToolInput struct {
 	ResponsePolicy *ResponsePolicy `json:"response_policy,omitempty"`
 }
 type Tool struct {
+	ApprovalPolicy ApprovalPolicy  `json:"approval_policy"`
 	ID             string          `json:"id"`
 	WorkspaceID    string          `json:"workspace_id"`
 	Name           string          `json:"name"`

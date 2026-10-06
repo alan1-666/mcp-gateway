@@ -8,15 +8,15 @@ import (
 )
 
 func TestToolSearchQueryBoundary(t *testing.T) {
-	for _, raw := range []string{"limit=0", "limit=-1", "limit=51", "limit=1.5", "limit=", "limit=1&limit=2", "query=a&query=b", "cursor=x&cursor=y", "offset=0", "query=%GG", "query=a;b"} {
+	for _, raw := range []string{"limit=0", "limit=-1", "limit=51", "limit=1.5", "limit=", "limit=1&limit=2", "query=a&query=b", "server_id=a&server_id=b", "cursor=x&cursor=y", "offset=0", "query=%GG", "query=a;b"} {
 		t.Run(raw, func(t *testing.T) {
 			if _, err := ParseToolSearch(raw); !errors.Is(err, core.ErrInvalid) {
 				t.Fatalf("expected invalid search query, got %v", err)
 			}
 		})
 	}
-	input, err := ParseToolSearch("query=100%25_%5C&limit=1&cursor=opaque-position")
-	if err != nil || input.Query != `100%_\` || input.Limit != 1 || input.Cursor != "opaque-position" {
+	input, err := ParseToolSearch("query=100%25_%5C&limit=1&cursor=opaque-position&server_id=remote-service")
+	if err != nil || input.Query != `100%_\` || input.Limit != 1 || input.Cursor != "opaque-position" || input.ServerID != "remote-service" {
 		t.Fatalf("query round trip: %+v %v", input, err)
 	}
 	if input, err = ParseToolSearch(""); err != nil || input.Limit != 0 {

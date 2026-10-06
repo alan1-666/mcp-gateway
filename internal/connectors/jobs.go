@@ -129,7 +129,9 @@ func authorizeOperation(ctx context.Context, tx pgx.Tx, a core.Actor, op core.Op
 	var enabled bool
 	var status string
 	var currentServer *string
-	err := tx.QueryRow(ctx, `SELECT enabled,status,definition->'mcp'->>'server_id' FROM tools WHERE workspace_id=$1 AND id=$2 FOR SHARE`, a.WorkspaceID, op.ToolID).Scan(&enabled, &status, &currentServer)
+	var policy string
+	var version int
+	err := tx.QueryRow(ctx, `SELECT enabled,status,definition->'mcp'->>'server_id',COALESCE(definition->>'approval_policy',''),version FROM tools WHERE workspace_id=$1 AND id=$2 FOR SHARE`, a.WorkspaceID, op.ToolID).Scan(&enabled, &status, &currentServer, &policy, &version)
 	if err != nil {
 		return mapError(err)
 	}
@@ -144,7 +146,11 @@ func authorizeOperation(ctx context.Context, tx pgx.Tx, a core.Actor, op core.Op
 			return core.ErrConflict
 		}
 	}
-	if op.Risk == core.RiskWrite {
+	requiresApproval, err := core.RequiresOperationApproval(tool, core.Tool{Risk: tool.Risk, Version: version, ApprovalPolicy: core.ApprovalPolicy(policy)})
+	if err != nil {
+		return err
+	}
+	if requiresApproval || op.ApprovedBy != "" {
 		var valid bool
 		if err = tx.QueryRow(ctx, `SELECT approved_by<>'' AND approved_by<>actor_id AND approval_expires_at>clock_timestamp() FROM operations WHERE workspace_id=$1 AND id=$2`, a.WorkspaceID, op.ID).Scan(&valid); err != nil {
 			return err
