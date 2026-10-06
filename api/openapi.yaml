@@ -1,6 +1,6 @@
 openapi: 3.1.0
 info:
-  title: MCP Gateway Management and Execution API
+  title: Rillgate Management and Execution API
   version: 0.1.0
   description: |
     HTTP contract for the implemented tool registry, remote MCP server management,

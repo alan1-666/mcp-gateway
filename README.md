@@ -1,8 +1,8 @@
-# MCP Gateway
+# Rillgate
 
-**Governed access to enterprise tools for AI agents.**
+**The MCP gateway for governed agent access.**
 
-MCP Gateway connects AI agents to existing HTTP APIs and remote MCP servers through a governed tool discovery and execution layer. Its Go backend manages upstream connections, reviewed tool contracts, permissions, approvals and bounded responses. A web console provides administration and execution history; Pi is a client for model-assisted tasks. OpenAPI import, gRPC integration and private-network Connectors remain planned.
+Rillgate connects AI agents to existing HTTP APIs and remote MCP servers through a governed tool discovery and execution layer. Its Go backend manages upstream connections, reviewed tool contracts, permissions, approvals and bounded responses. A web console provides administration and execution history; Pi is a client for model-assisted tasks. OpenAPI import, gRPC integration and private-network Connectors remain planned.
 
 > **Project status:** Active development. The core cloud gateway, invitation-only workspace, Pi task worker and scheduled catalog checks are implemented and cloud-verified within the acceptance journeys recorded in [verification](docs/verification.md). The public product website is at `/`; the team workspace is at `/console/`. Upstream OAuth, private Connectors, high availability and independently commissioned recovery remain open. See [implementation status](docs/implementation-status.md) for current delivery and remaining production work.
 
@@ -50,11 +50,11 @@ Remote MCP currently supports static-file and encrypted managed header credentia
 
 The sections below describe the target production system. Follow [implementation status](docs/implementation-status.md) for current limitations and [the OpenAPI contract](api/openapi.yaml) for implemented management endpoints.
 
-## Why MCP Gateway
+## Why Rillgate
 
 Giving an agent access to a business system creates several engineering responsibilities: finding the right tool, enforcing the caller's permissions, managing configuration changes, handling uncertain outcomes, and explaining what happened.
 
-MCP Gateway is designed to make those responsibilities explicit and reusable across teams. Existing services can become governed agent tools, while service owners retain control over access, versions, and execution policies.
+Rillgate is designed to make those responsibilities explicit and reusable across teams. Existing services can become governed agent tools, while service owners retain control over access, versions, and execution policies.
 
 The platform serves two types of users:
 

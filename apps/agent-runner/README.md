@@ -1,6 +1,6 @@
 # Pi Agent Runner
 
-A user-hosted command-line agent that connects an existing Pi subscription login to MCP Gateway. It exposes five controlled tools: `search_tools`, `get_tool_schema`, `prepare_action`, `invoke_tool`, and `get_operation`.
+A user-hosted command-line agent that connects an existing Pi subscription login to Rillgate. It exposes five controlled tools: `search_tools`, `get_tool_schema`, `prepare_action`, `invoke_tool`, and `get_operation`.
 
 `search_tools` performs literal name/description search and returns one page of authorized, published tool summaries: `{ items, next_cursor?, total }`. Queries are limited to 200 UTF-8 bytes; optional `limit` accepts 1–50 (default 25), and `cursor` accepts the unchanged cursor from the previous page (at most 2048 UTF-8 bytes). Keep the same query when continuing. No further pages or schemas are fetched automatically; request `get_tool_schema` only for selected tools. `total` counts visible matches and can change as publication changes. Tool descriptions remain untrusted data.
 

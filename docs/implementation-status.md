@@ -1,4 +1,4 @@
-# Implementation status
+# Rillgate implementation status
 
 The [product design](product-design.md) and [system architecture](architecture.md) describe the intended production system. This page describes implemented source and the separate acceptance required before a release is considered ready. Historical cloud evidence remains in [verification](verification.md).
 
@@ -29,6 +29,8 @@ The [product design](product-design.md) and [system architecture](architecture.m
 | Health collection | Host collector for execution/admission/UNKNOWN signals and backup/restore receipts; optional generic, Feishu or WeCom webhook delivery with cooldown, recovery messages and safe failure handling |
 
 ## Current delivery — 2026-10-06
+
+The product brand is **Rillgate**; MCP gateway describes its function. The public website, workspace, browser identity, CLI help and current product documentation use this name. A custom domain is awaiting owner registration.
 
 The core Gateway flow is working in the cloud: connect an upstream → discover and review tools → publish a version → authorize a client → execute through policy → project the response → inspect the operation. The current application release is `20261006-cloud.15` (source `fcfcf83`), adding the public product website in [PR 8](https://github.com/alan1-666/mcp-gateway/pull/8). The website is at `/`; the authenticated team workspace is at `/console/`. All six exact-source push/PR checks and 13 bounded cloud route/asset/auth checks passed. Browser acceptance covered real account login, session restoration across website/workspace navigation, old and new invitation routes, secret-fragment cleanup and the local response illustration. The preceding scheduled-catalog release passed its [main CI](https://github.com/alan1-666/mcp-gateway/actions/runs/37340425211); both existing upstreams retain hourly checks. Cloud acceptance is bounded to the journeys recorded in [verification](verification.md); the full production architecture is not complete.
 
