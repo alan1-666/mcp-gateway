@@ -1298,3 +1298,64 @@ h2 {
     transition: none !important;
   }
 }
+
+.language-switch {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.language-switch > span { color: #b6b9ac; }
+.language-switch a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  min-height: 36px;
+  padding: 6px 4px;
+  color: var(--muted);
+  border-bottom: 2px solid transparent;
+  transition: color 0.2s, border-color 0.2s;
+}
+.language-switch a:hover { color: #292b27; }
+.language-switch a[aria-current="page"] {
+  color: #292b27;
+  font-weight: 600;
+  border-bottom-color: #c6a536;
+}
+:root:lang(zh-CN) {
+  font-family: "DM Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --mono: "IBM Plex Mono", "PingFang SC", "Microsoft YaHei", monospace;
+}
+:lang(zh-CN) .hero-copy h1 {
+  font-size: clamp(40px, 5vw, 68px);
+  letter-spacing: -1.5px;
+  line-height: 1.22;
+}
+:lang(zh-CN) h2 {
+  letter-spacing: -1px;
+  line-height: 1.3;
+}
+:lang(zh-CN) h3 { letter-spacing: 0; }
+:lang(zh-CN) .hero-copy .eyebrow { letter-spacing: 1px; font-size: 11px; }
+:lang(zh-CN) .hero-description { line-height: 1.9; }
+:lang(zh-CN) .map-heading,
+:lang(zh-CN) .gateway-caption,
+:lang(zh-CN) .example-toolbar,
+:lang(zh-CN) .example-footer,
+:lang(zh-CN) .catalog-top .mono { font-size: 10px; letter-spacing: 0.5px; }
+:lang(zh-CN) .build-inner h2 { font-size: 40px; }
+@media (max-width: 760px) {
+  .language-switch { margin-left: auto; }
+  :lang(zh-CN) .hero-copy h1 { font-size: clamp(40px, 10vw, 64px); }
+  :lang(zh-CN) .section-heading h2,
+  :lang(zh-CN) .response-copy h2,
+  :lang(zh-CN) .build-inner h2 { font-size: clamp(28px, 7.4vw, 40px); }
+}
+@media (max-width: 480px) {
+  .header-cta { display: none; }
+  .header-inner { gap: 10px; }
+  .language-switch a { min-height: 40px; }
+}
