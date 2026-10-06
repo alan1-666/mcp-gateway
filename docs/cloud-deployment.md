@@ -2,7 +2,7 @@
 
 ## Product decision
 
-MCP Gateway is delivered as an invitation-only cloud workspace for an owner and their team. The browser console, API, MCP endpoint and operation ledger run on the server. Local Compose and static identities are development facilities.
+Rillgate is delivered as an invitation-only cloud workspace for an owner and their team. The browser console, API, MCP endpoint and operation ledger run on the server. Local Compose and static identities are development facilities.
 
 The deployment recipe uses one Linux host with Docker Compose, host nginx and PostgreSQL. This is a deliberately single-host topology: it supports a small team but does not provide high availability. Cloud hosting does not change the remaining product scope listed in [implementation status](implementation-status.md). This guide describes the current source and operator procedure. The governance/recovery packages were deployed as `20261005-cloud.8` from feature commit `05d1706780ce7f5c8a085a8801eb144be15c9631`; the dated [verification record](verification.md) separates confirmed deployment/API/browser/restore checks from remaining cloud mutation, rollback and external-destination coverage.
 

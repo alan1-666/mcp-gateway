@@ -6,7 +6,7 @@ import { WorkerClient, WorkerError } from "./worker-client.js";
 import { acquireWorkerState } from "./worker-state.js";
 import { CloudWorker, safeWorkerCode } from "./worker.js";
 
-const usage = `MCP Gateway cloud Pi worker
+const usage = `Rillgate cloud Pi worker
 
 Usage: npm run worker --workspace @mcp-gateway/agent-runner -- [--once | --check]
 

@@ -1,4 +1,4 @@
-# MCP Gateway 系统架构设计
+# Rillgate（MCP Gateway）系统架构设计
 
 更新日期：2026-10-04
 

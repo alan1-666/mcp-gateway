@@ -2,7 +2,7 @@ import { resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { runAgent, safeError } from "./runtime.js";
 
-const HELP = `MCP Gateway Pi Runner
+const HELP = `Rillgate Pi Runner
 
 Usage:
   npm run run --workspace @mcp-gateway/agent-runner -- --check

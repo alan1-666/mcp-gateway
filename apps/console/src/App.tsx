@@ -223,14 +223,14 @@ function Brand() {
       <span className="brand-mark" aria-hidden="true">
         <svg viewBox="0 0 32 32" fill="none">
           <path
-            d="M5 25V7h8v18m6 0V7h8v18"
+            d="M8 26V6h8a7 7 0 0 1 0 14H8m9 0 8 6"
             stroke="currentColor"
             strokeWidth="2.5"
           />
         </svg>
       </span>
       <div>
-        MCP Gateway<span>Team workspace</span>
+        Rillgate<span>Team workspace</span>
       </div>
     </div>
   );
@@ -482,7 +482,7 @@ function Connect({ onConnect }: { onConnect: (session: Session) => void }) {
           </div>
         </form>
         <span className="connect-caption">
-          MCP Gateway · Enterprise tool governance
+          Rillgate · Enterprise tool governance
         </span>
       </section>
     </main>

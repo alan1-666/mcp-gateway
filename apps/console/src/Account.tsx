@@ -59,12 +59,18 @@ export function CloudLogin({
   return (
     <main className="connect-layout">
       <section className="connect-story">
-        <a className="brand" href="/" aria-label="MCP Gateway home">
+        <a className="brand" href="/" aria-label="Rillgate home">
           <span className="brand-mark" aria-hidden="true">
-            M
+            <svg viewBox="0 0 32 32" fill="none">
+              <path
+                d="M8 26V6h8a7 7 0 0 1 0 14H8m9 0 8 6"
+                stroke="currentColor"
+                strokeWidth="2.5"
+              />
+            </svg>
           </span>
           <div>
-            MCP Gateway<span>Team workspace</span>
+            Rillgate<span>Team workspace</span>
           </div>
         </a>
         <div className="connect-story-body">
@@ -146,7 +152,7 @@ export function CloudLogin({
           </div>
         </form>
         <span className="connect-caption">
-          MCP Gateway · Enterprise tool governance
+          Rillgate · Enterprise tool governance
         </span>
       </section>
     </main>
