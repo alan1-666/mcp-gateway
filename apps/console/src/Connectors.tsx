@@ -1,3 +1,4 @@
+import { useI18n } from "./i18n";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import type { FormEvent } from "react";
 import { APIClient } from "./api";
@@ -11,6 +12,7 @@ export function Connectors({
   api: APIClient;
   active: boolean;
 }) {
+  const { t, locale } = useI18n();
   const controller = useMemo(() => new ConnectorController(api), [api]);
   const state = useSyncExternalStore(
     controller.subscribe,
@@ -44,7 +46,7 @@ export function Connectors({
     <div className="connector-workspace">
       <div className="toolbar">
         <p className="muted mcp-toolbar-copy">
-          Private connections · Outbound only
+          {t("Private connections · Outbound only")}
         </p>
         <div className="action-row">
           <button
@@ -52,37 +54,38 @@ export function Connectors({
             disabled={state.loading || !!state.busy}
             onClick={() => void controller.load()}
           >
-            {state.loading ? "Refreshing…" : "Refresh status"}
+            {state.loading ? t("Refreshing…") : t("Refresh status")}
           </button>
           <button
             className="button primary"
             disabled={!!state.busy || !!state.secret || state.requiresReload}
             onClick={() => setShowForm((value) => !value)}
           >
-            {showForm ? "Close form" : "Register connector"}
+            {showForm ? t("Close form") : t("Register connector")}
           </button>
         </div>
       </div>
       <p className="field-help">
-        Run a connector inside your network to expose locally configured HTTP or
-        stdio MCP targets.{" "}
+        {t(
+          "Run a connector inside your network to expose locally configured HTTP or stdio MCP targets.",
+        )}{" "}
         <a
           href="https://github.com/alan1-666/mcp-gateway/blob/main/docs/private-connectors.md"
           target="_blank"
           rel="noreferrer"
         >
-          Setup guide ↗
+          {t("Setup guide ↗")}
         </a>
       </p>
-      <AdminError error={state.error} />
+      <AdminError error={t(state.error)} />
       {showForm ? (
         <form className="panel tool-form" onSubmit={create}>
           <div className="panel-heading">
-            <h2>Register a connector</h2>
+            <h2>{t("Register a connector")}</h2>
           </div>
           <div className="panel-body">
             <label>
-              Connector name
+              {t("Connector name")}
               <input
                 required
                 maxLength={120}
@@ -90,18 +93,21 @@ export function Connectors({
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 disabled={!!state.busy || state.requiresReload}
-                placeholder="Staging network"
+                placeholder={t("Staging network")}
               />
             </label>
             <p className="field-help">
-              Registration creates a dedicated credential. The connector
-              advertises its targets when it first connects.
+              {t(
+                "Registration creates a dedicated credential. The connector advertises its targets when it first connects.",
+              )}
             </p>
             <button
               className="button primary"
               disabled={!!state.busy || state.requiresReload}
             >
-              {state.busy === "create" ? "Registering…" : "Create registration"}
+              {state.busy === "create"
+                ? t("Registering…")
+                : t("Create registration")}
             </button>
           </div>
         </form>
@@ -114,9 +120,9 @@ export function Connectors({
           onDiscard={controller.discardSecret}
         />
       ) : null}
-      <section className="panel" aria-label="Private connectors">
+      <section className="panel" aria-label={t("Private connectors")}>
         <div className="panel-heading">
-          <h2>Connectors</h2>
+          <h2>{t("Connectors")}</h2>
           <span className="muted">
             {state.loaded ? state.items.length : "—"}
           </span>
@@ -124,15 +130,16 @@ export function Connectors({
         {!state.loaded ? (
           <div className="panel-body" role="status">
             {state.loading
-              ? "Loading connectors…"
-              : "Refresh to load connector registrations."}
+              ? t("Loading connectors…")
+              : t("Refresh to load connector registrations.")}
           </div>
         ) : !state.items.length ? (
           <div className="panel-body">
-            <h3>No private connectors</h3>
+            <h3>{t("No private connectors")}</h3>
             <p>
-              Register one, install it on your private host, then add its
-              advertised targets from Connections.
+              {t(
+                "Register one, install it on your private host, then add its advertised targets from Connections.",
+              )}
             </p>
           </div>
         ) : (
@@ -151,15 +158,15 @@ export function Connectors({
                     className={`status status-${presence === "Online" ? "published" : "disabled"}`}
                   >
                     <span />
-                    {presence}
+                    {t(presence)}
                   </span>
                 </div>
                 <p className="field-help">
-                  Last contact:{" "}
+                  {t("Last contact:")}{" "}
                   {connector.last_seen_at
-                    ? dateLabel(connector.last_seen_at)
-                    : "Not connected yet"}{" "}
-                  · Status from the last refresh
+                    ? dateLabel(connector.last_seen_at, locale)
+                    : t("Not connected yet")}{" "}
+                  {t("· Status from the last refresh")}
                 </p>
                 {connector.targets.length ? (
                   <div className="connector-targets">
@@ -170,7 +177,7 @@ export function Connectors({
                         </strong>
                         <span className="method-tag">{target.transport}</span>
                         <details>
-                          <summary>Target fingerprint</summary>
+                          <summary>{t("Target fingerprint")}</summary>
                           <code className="break-word">
                             {target.fingerprint}
                           </code>
@@ -180,7 +187,9 @@ export function Connectors({
                   </div>
                 ) : (
                   <p className="field-help">
-                    Start the connector to register its configured targets
+                    {t(
+                      "Start the connector to register its configured targets",
+                    )}
                   </p>
                 )}
                 {connector.enabled ? (
@@ -188,8 +197,9 @@ export function Connectors({
                     {confirm === connector.id ? (
                       <>
                         <span className="field-help">
-                          Permanently revoke this connector and block its
-                          targets?
+                          {t(
+                            "Permanently revoke this connector and block its targets?",
+                          )}
                         </span>
                         <button
                           className="button danger"
@@ -201,15 +211,15 @@ export function Connectors({
                           }
                         >
                           {state.busy === connector.id
-                            ? "Revoking…"
-                            : "Confirm revocation"}
+                            ? t("Revoking…")
+                            : t("Confirm revocation")}
                         </button>
                         <button
                           className="button secondary"
                           disabled={!!state.busy || state.requiresReload}
                           onClick={() => setConfirm("")}
                         >
-                          Cancel
+                          {t("Cancel")}
                         </button>
                       </>
                     ) : (
@@ -218,14 +228,15 @@ export function Connectors({
                         disabled={!!state.busy || state.requiresReload}
                         onClick={() => setConfirm(connector.id)}
                       >
-                        Revoke connector
+                        {t("Revoke connector")}
                       </button>
                     )}
                   </div>
                 ) : (
                   <p className="field-help">
-                    Revoked credentials cannot be re-enabled. Register a new
-                    connector to reconnect.
+                    {t(
+                      "Revoked credentials cannot be re-enabled. Register a new connector to reconnect.",
+                    )}
                   </p>
                 )}
               </article>
@@ -246,29 +257,31 @@ function RegistrationToken({
   connectorID: string;
   onDiscard: () => void;
 }) {
+  const { t } = useI18n();
   const [visible, setVisible] = useState(false);
   const [copy, setCopy] = useState("");
   return (
     <section
       className="panel secret-reveal"
-      aria-label="Connector registration token"
+      aria-label={t("Connector registration token")}
     >
       <div className="panel-heading">
-        <h2>Save the registration token</h2>
+        <h2>{t("Save the registration token")}</h2>
         <button className="button secondary" onClick={onDiscard}>
-          Close and discard
+          {t("Close and discard")}
         </button>
       </div>
       <div className="panel-body">
         <p>
-          This token is shown once. Leaving this tab removes it from the
-          console. Store it in the connector’s protected token file.
+          {t(
+            "This token is shown once. Leaving this tab removes it from the console. Store it in the connector’s protected token file.",
+          )}
         </p>
         <p className="field-help">
-          Connector ID: <code>{connectorID}</code>
+          {t("Connector ID:")} <code>{connectorID}</code>
         </p>
         <label>
-          Registration token
+          {t("Registration token")}
           <input
             type={visible ? "text" : "password"}
             readOnly
@@ -282,7 +295,7 @@ function RegistrationToken({
             className="button secondary"
             onClick={() => setVisible((value) => !value)}
           >
-            {visible ? "Hide token" : "Show token"}
+            {visible ? t("Hide token") : t("Show token")}
           </button>
           <button
             className="button secondary"
@@ -302,10 +315,10 @@ function RegistrationToken({
               );
             }}
           >
-            Copy token
+            {t("Copy token")}
           </button>
           <span className="field-help" role="status">
-            {copy}
+            {t(copy)}
           </span>
         </div>
       </div>

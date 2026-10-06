@@ -1030,3 +1030,18 @@
   border: 1px solid var(--line);
   border-radius: 8px;
 }
+
+/* Language is a view preference; switching never remounts the workspace. */
+.console-language { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.console-language > span { color: var(--text-muted, #77766f); font-size: 11px; }
+.console-language button { border: 0; background: transparent; color: var(--text-muted, #66665f); font: inherit; font-size: 12px; line-height: 1.4; padding: 8px 7px; border-radius: 5px; cursor: pointer; min-height: 36px; }
+.console-language button[aria-pressed="true"] { color: var(--text, #242720); background: rgba(110, 125, 92, .12); font-weight: 600; }
+.console-language button:hover { background: rgba(110, 125, 92, .08); }
+.console-language button:focus-visible { outline: 2px solid #536745; outline-offset: 2px; }
+.login-language { position: absolute; top: 18px; right: 24px; z-index: 2; }
+@media (max-width: 640px) {
+  .topbar-end { gap: 8px; }
+  .topbar-end .role-tag { display: none; }
+  .login-language { top: 10px; right: 12px; }
+  .connect-form-wrap { padding-top: 60px; }
+}

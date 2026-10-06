@@ -1,3 +1,4 @@
+import { useI18n } from "./i18n";
 import { Connectors } from "./Connectors";
 import { ConnectorController, connectorPresence } from "./connector-state";
 import { CatalogSchedule } from "./CatalogSchedule";
@@ -26,9 +27,10 @@ import type { MCPServerDraft } from "./mcp-servers";
 import type { Identity, MCPServer, RemoteTool, Tool } from "./types";
 
 function ErrorNotice({ error }: { error: string }) {
+  const { t } = useI18n();
   return error ? (
     <div className="notice notice-error" role="alert">
-      {error}
+      {t(error)}
     </div>
   ) : null;
 }
@@ -41,22 +43,23 @@ export function MCPServers(props: {
   onRegistry: (toolID: string, section?: "contract" | "versions") => void;
   onImported: () => void;
 }) {
+  const { t } = useI18n();
   const [section, setSection] = useState("connections");
   if (!canManageMCPServers(props.identity)) return null;
   return (
     <SectionTabs
-      label="MCP connections"
+      label={t("MCP connections")}
       value={section}
       onChange={setSection}
       tabs={[
         {
           id: "connections",
-          label: "Connections",
+          label: t("Connections"),
           content: <MCPConnections {...props} />,
         },
         {
           id: "connectors",
-          label: "Connectors",
+          label: t("Connectors"),
           content: (
             <Connectors api={props.api} active={section === "connectors"} />
           ),
@@ -81,6 +84,7 @@ function MCPConnections({
   onRegistry: (toolID: string, section?: "contract" | "versions") => void;
   onImported: () => void;
 }) {
+  const { t, locale } = useI18n();
   const [servers, setServers] = useState<MCPServer[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -244,16 +248,21 @@ function MCPConnections({
       <div className="toolbar">
         <p className="muted mcp-toolbar-copy">
           {loaded
-            ? `${servers.length} ${servers.length === 1 ? "connection" : "connections"}`
-            : "Connections"}{" "}
-          · HTTP and private targets
+            ? t(
+                servers.length === 1
+                  ? "{count} connection"
+                  : "{count} connections",
+                { count: servers.length },
+              )
+            : t("Connections")}{" "}
+          {t("· HTTP and private targets")}
         </p>
         <button
           className="button primary"
           onClick={() => setShowForm((current) => !current)}
           disabled={locked}
         >
-          {showForm ? "Close form" : "Add MCP server"}
+          {showForm ? t("Close form") : t("Add MCP server")}
         </button>
       </div>
       <ErrorNotice error={error} />
@@ -263,7 +272,7 @@ function MCPConnections({
           disabled={loading || locked}
           onClick={() => void load()}
         >
-          Reload servers
+          {t("Reload servers")}
         </button>
       ) : null}
       {showForm ? (
@@ -285,10 +294,13 @@ function MCPConnections({
         />
       ) : null}
       <div className="mcp-layout">
-        <section className="panel mcp-server-list" aria-label="MCP servers">
+        <section
+          className="panel mcp-server-list"
+          aria-label={t("MCP servers")}
+        >
           <div className="panel-heading">
             <h2>
-              Servers{" "}
+              {t("Servers")}{" "}
               <span className="count-label">
                 {loaded ? servers.length : "—"}
               </span>
@@ -297,15 +309,16 @@ function MCPConnections({
           {!loaded ? (
             <div className="panel-body" role="status">
               {loading
-                ? "Loading MCP servers…"
-                : "Reload servers to load your connections."}
+                ? t("Loading MCP servers…")
+                : t("Reload servers to load your connections.")}
             </div>
           ) : !servers.length ? (
             <div className="panel-body">
-              <h3>No servers connected</h3>
+              <h3>{t("No servers connected")}</h3>
               <p>
-                Connect a Streamable HTTP endpoint or a private connector target
-                to discover its tools.
+                {t(
+                  "Connect a Streamable HTTP endpoint or a private connector target to discover its tools.",
+                )}
               </p>
             </div>
           ) : (
@@ -329,7 +342,7 @@ function MCPConnections({
                       className={`status status-${server.enabled ? "published" : "disabled"}`}
                     >
                       <span />
-                      {server.enabled ? "enabled" : "disabled"}
+                      {server.enabled ? t("enabled") : t("disabled")}
                     </span>
                   </div>
                 </div>
@@ -339,7 +352,7 @@ function MCPConnections({
         </section>
         <section
           className="panel mcp-discovery"
-          aria-label="MCP tool discovery"
+          aria-label={t("MCP tool discovery")}
         >
           {selected ? (
             <>
@@ -353,18 +366,18 @@ function MCPConnections({
                   disabled={!selected.enabled || locked || discovery.loading}
                   onClick={discover}
                 >
-                  {discovery.loading ? "Discovering…" : "Discover tools"}
+                  {discovery.loading ? t("Discovering…") : t("Discover tools")}
                 </button>
               </div>
               <SectionTabs
                 key={selected.id}
-                label="Server details"
+                label={t("Server details")}
                 value={tab}
                 onChange={setTab}
                 tabs={[
                   {
                     id: "tools",
-                    label: "Tools",
+                    label: t("Tools"),
                     content: (
                       <>
                         <div className="panel-body">
@@ -373,8 +386,9 @@ function MCPConnections({
                               className="notice notice-warning"
                               role="status"
                             >
-                              This server is disabled. Enable it to discover,
-                              import, or execute its tools.
+                              {t(
+                                "This server is disabled. Enable it to discover, import, or execute its tools.",
+                              )}
                             </div>
                           ) : null}
                           <ErrorNotice error={discovery.error} />
@@ -386,12 +400,12 @@ function MCPConnections({
                               }
                               onClick={discover}
                             >
-                              Retry discovery
+                              {t("Retry discovery")}
                             </button>
                           ) : null}
                           {discovery.loading ? (
                             <p role="status">
-                              Reading the server’s tool contracts…
+                              {t("Reading the server’s tool contracts…")}
                             </p>
                           ) : discovery.loaded ? (
                             <>
@@ -406,7 +420,7 @@ function MCPConnections({
                                         setChangesOnly(event.target.checked)
                                       }
                                     />
-                                    Only tools needing review
+                                    {t("Only tools needing review")}
                                   </label>
                                 </>
                               ) : null}
@@ -414,13 +428,15 @@ function MCPConnections({
                                 className="mcp-discovery-summary"
                                 role="status"
                               >
-                                {discovery.total} tools discovered · Select one
-                                to review before importing.
+                                {t(
+                                  "{count} tools discovered · Select one to review before importing.",
+                                  { count: discovery.total },
+                                )}
                               </p>
                               {visibleTools.length ? (
                                 <div
                                   className="mcp-remote-list"
-                                  aria-label="Discovered tools"
+                                  aria-label={t("Discovered tools")}
                                 >
                                   {visibleTools.map((tool) => (
                                     <button
@@ -438,12 +454,15 @@ function MCPConnections({
                                       </span>
                                       <span className="mcp-remote-state">
                                         {comparison.has(tool.name)
-                                          ? catalogLabels[
-                                              comparison.get(tool.name)!.status
-                                            ]
+                                          ? t(
+                                              catalogLabels[
+                                                comparison.get(tool.name)!
+                                                  .status
+                                              ],
+                                            )
                                           : tool.imported_tool_id
-                                            ? "Imported"
-                                            : "Review →"}
+                                            ? t("Imported")
+                                            : t("Review →")}
                                       </span>
                                     </button>
                                   ))}
@@ -451,18 +470,21 @@ function MCPConnections({
                               ) : (
                                 <p>
                                   {discovery.items.length
-                                    ? "No available tools need review."
-                                    : "This server currently exposes no tools."}
+                                    ? t("No available tools need review.")
+                                    : t(
+                                        "This server currently exposes no tools.",
+                                      )}
                                 </p>
                               )}
                               {discovery.review?.counts.missing ? (
                                 <section className="catalog-missing">
-                                  <h3>Missing from the upstream catalog</h3>
+                                  <h3>
+                                    {t("Missing from the upstream catalog")}
+                                  </h3>
                                   <p className="field-help">
-                                    These registered tools were absent from this
-                                    complete discovery. Review their
-                                    dependencies and retire them in the registry
-                                    if appropriate.
+                                    {t(
+                                      "These registered tools were absent from this complete discovery. Review their dependencies and retire them in the registry if appropriate.",
+                                    )}
                                   </p>
                                   {discovery.review.items
                                     .filter(
@@ -481,7 +503,7 @@ function MCPConnections({
                                           {entry.imported_status}
                                           {entry.imported_enabled
                                             ? ""
-                                            : " · disabled"}
+                                            : t(" · disabled")}
                                         </span>
                                         <button
                                           type="button"
@@ -490,7 +512,7 @@ function MCPConnections({
                                             onRegistry(entry.imported_tool_id!)
                                           }
                                         >
-                                          Review registered tool
+                                          {t("Review registered tool")}
                                         </button>
                                       </div>
                                     ))}
@@ -499,8 +521,9 @@ function MCPConnections({
                             </>
                           ) : !discovery.error && !discovery.loading ? (
                             <p className="muted">
-                              Discover the available tools, then review each
-                              contract and its risk classification.
+                              {t(
+                                "Discover the available tools, then review each contract and its risk classification.",
+                              )}
                             </p>
                           ) : null}
                         </div>
@@ -547,7 +570,7 @@ function MCPConnections({
                   },
                   {
                     id: "activity",
-                    label: "Activity",
+                    label: t("Activity"),
                     content: (
                       <div className="panel-body">
                         {" "}
@@ -569,24 +592,27 @@ function MCPConnections({
                   },
                   {
                     id: "settings",
-                    label: "Settings",
+                    label: t("Settings"),
                     content: (
                       <div className="panel-body">
                         {" "}
                         <dl className="metadata-grid mcp-server-metadata">
                           <div>
-                            <dt>Namespace</dt>
+                            <dt>{t("Namespace")}</dt>
                             <dd className="mono">{selected.namespace}</dd>
                           </div>
                           <div>
-                            <dt>Timeout</dt>
-                            <dd>{selected.timeout_ms.toLocaleString()} ms</dd>
+                            <dt>{t("Timeout")}</dt>
+                            <dd>
+                              {selected.timeout_ms.toLocaleString(locale)}{" "}
+                              {t("ms")}
+                            </dd>
                           </div>
                           <div>
                             <dt>
                               {selected.connector_id
-                                ? "Private target"
-                                : "Server URL"}
+                                ? t("Private target")
+                                : t("Server URL")}
                             </dt>
                             <dd className="mono break-word">
                               {selected.target_name || selected.url}
@@ -595,21 +621,21 @@ function MCPConnections({
                           <div>
                             <dt>
                               {selected.connector_id
-                                ? "Connector ID"
-                                : "Credential reference"}
+                                ? t("Connector ID")
+                                : t("Credential reference")}
                             </dt>
                             <dd className="mono break-word">
                               {selected.connector_id ||
                                 selected.credential_ref ||
-                                "None configured"}
+                                t("None configured")}
                             </dd>
                           </div>
                         </dl>
                         {selected.connector_id ? (
                           <p className="field-help">
-                            This target and its credentials are configured on
-                            the private connector host. Manage its connection
-                            from the Connectors tab.
+                            {t(
+                              "This target and its credentials are configured on the private connector host. Manage its connection from the Connectors tab.",
+                            )}
                           </p>
                         ) : (
                           <MCPOAuth api={api} server={selected} cloud={cloud} />
@@ -622,10 +648,11 @@ function MCPConnections({
                         />
                         <div className="server-control">
                           <div>
-                            <h3>Server access</h3>
+                            <h3>{t("Server access")}</h3>
                             <p className="field-help">
-                              Disabling blocks discovery, imports and calls to
-                              this server.
+                              {t(
+                                "Disabling blocks discovery, imports and calls to this server.",
+                              )}
                             </p>
                           </div>
                           <button
@@ -634,10 +661,10 @@ function MCPConnections({
                             onClick={() => void toggle(selected)}
                           >
                             {busy === selected.id
-                              ? "Updating…"
+                              ? t("Updating…")
                               : selected.enabled
-                                ? "Disable server"
-                                : "Enable server"}
+                                ? t("Disable server")
+                                : t("Enable server")}
                           </button>
                         </div>
                       </div>
@@ -648,10 +675,11 @@ function MCPConnections({
             </>
           ) : (
             <div className="empty">
-              <h3>Review what a server exposes</h3>
+              <h3>{t("Review what a server exposes")}</h3>
               <p>
-                Select a connection to discover its tool names, schemas, and
-                import status.
+                {t(
+                  "Select a connection to discover its tool names, schemas, and import status.",
+                )}
               </p>
             </div>
           )}
@@ -670,6 +698,7 @@ function ServerForm({
   onCreated: (server: MCPServer) => void;
   onCancel: () => void;
 }) {
+  const { t } = useI18n();
   const [draft, setDraft] = useState<MCPServerDraft>({
     name: "",
     namespace: "",
@@ -726,8 +755,8 @@ function ServerForm({
     <form className="panel tool-form" onSubmit={submit}>
       <div className="panel-heading">
         <div>
-          <span className="eyebrow">NEW CONNECTION</span>
-          <h2>Add an MCP server</h2>
+          <span className="eyebrow">{t("NEW CONNECTION")}</span>
+          <h2>{t("Add an MCP server")}</h2>
         </div>
         <span className="method-tag">MCP</span>
       </div>
@@ -736,18 +765,18 @@ function ServerForm({
         <fieldset disabled={busy}>
           <div className="form-grid">
             <label>
-              Server name
+              {t("Server name")}
               <input
                 required
                 maxLength={120}
                 autoComplete="off"
                 value={draft.name}
                 onChange={(event) => field("name", event.target.value)}
-                placeholder="Order operations"
+                placeholder={t("Order operations")}
               />
             </label>
             <label>
-              Namespace
+              {t("Namespace")}
               <input
                 required
                 maxLength={24}
@@ -759,26 +788,27 @@ function ServerForm({
                 placeholder="orders"
               />
               <span className="field-help">
-                Unique in this workspace. Used in every imported tool’s gateway
-                name.
+                {t(
+                  "Unique in this workspace. Used in every imported tool’s gateway name.",
+                )}
               </span>
             </label>
             <label className="span-two">
-              Connection type
+              {t("Connection type")}
               <select
                 value={draft.transport}
                 onChange={(event) =>
                   field("transport", event.target.value as "http" | "connector")
                 }
               >
-                <option value="http">Direct HTTP</option>
-                <option value="connector">Private connector</option>
+                <option value="http">{t("Direct HTTP")}</option>
+                <option value="connector">{t("Private connector")}</option>
               </select>
             </label>
             {draft.transport === "connector" ? (
               <>
                 <label>
-                  Connector
+                  {t("Connector")}
                   <select
                     required
                     value={draft.connectorID}
@@ -793,20 +823,20 @@ function ServerForm({
                   >
                     <option value="">
                       {connectors.loading
-                        ? "Loading connectors…"
-                        : "Choose a connector"}
+                        ? t("Loading connectors…")
+                        : t("Choose a connector")}
                     </option>
                     {connectors.items
                       .filter((item) => item.enabled)
                       .map((item) => (
                         <option key={item.id} value={item.id}>
-                          {item.name} · {connectorPresence(item)}
+                          {item.name} · {t(connectorPresence(item))}
                         </option>
                       ))}
                   </select>
                 </label>
                 <label>
-                  Target
+                  {t("Target")}
                   <select
                     required
                     value={draft.targetName}
@@ -815,7 +845,7 @@ function ServerForm({
                     }
                     disabled={!connector?.enabled}
                   >
-                    <option value="">Choose an advertised target</option>
+                    <option value="">{t("Choose an advertised target")}</option>
                     {connector?.targets.map((target) => (
                       <option key={target.name} value={target.name}>
                         {target.name} · {target.transport}
@@ -826,9 +856,9 @@ function ServerForm({
                 <div className="span-two">
                   <ErrorNotice error={connectors.error} />
                   <p className="field-help">
-                    Register and start a connector from the Connectors tab
-                    first. The connector controls its local endpoint,
-                    credentials and process settings.
+                    {t(
+                      "Register and start a connector from the Connectors tab first. The connector controls its local endpoint, credentials and process settings.",
+                    )}
                   </p>
                   <button
                     type="button"
@@ -836,14 +866,14 @@ function ServerForm({
                     disabled={connectors.loading}
                     onClick={() => void connectorController.load()}
                   >
-                    Refresh connectors
+                    {t("Refresh connectors")}
                   </button>
                 </div>
               </>
             ) : (
               <>
                 <label className="span-two">
-                  Server URL
+                  {t("Server URL")}
                   <input
                     required
                     type="url"
@@ -853,13 +883,14 @@ function ServerForm({
                     placeholder="https://tools.example.com/mcp"
                   />
                   <span className="field-help">
-                    Use the server’s Streamable HTTP endpoint. No query string
-                    or credentials.
+                    {t(
+                      "Use the server’s Streamable HTTP endpoint. No query string or credentials.",
+                    )}
                   </span>
                 </label>
                 <label>
-                  Credential reference{" "}
-                  <span className="optional">optional</span>
+                  {t("Credential reference")}{" "}
+                  <span className="optional">{t("optional")}</span>
                   <input
                     autoComplete="off"
                     spellCheck={false}
@@ -870,14 +901,15 @@ function ServerForm({
                     placeholder="ORDERS_ACCESS_TOKEN"
                   />
                   <span className="field-help">
-                    Reference an operator-configured credential. Never paste a
-                    secret. Leave empty to configure OAuth in server Settings.
+                    {t(
+                      "Reference an operator-configured credential. Never paste a secret. Leave empty to configure OAuth in server Settings.",
+                    )}
                   </span>
                 </label>
               </>
             )}
             <label>
-              Timeout (milliseconds)
+              {t("Timeout (milliseconds)")}
               <input
                 required
                 type="number"
@@ -892,7 +924,7 @@ function ServerForm({
         </fieldset>
         <div className="action-row">
           <button className="button primary" disabled={busy}>
-            {busy ? "Adding server…" : "Add server"}
+            {busy ? t("Adding server…") : t("Add server")}
           </button>
           <button
             type="button"
@@ -900,7 +932,7 @@ function ServerForm({
             disabled={busy}
             onClick={onCancel}
           >
-            Cancel
+            {t("Cancel")}
           </button>
         </div>
       </div>
@@ -929,6 +961,7 @@ function ToolReview({
   ) => Promise<void>;
   onRegistry: (toolID: string) => void;
 }) {
+  const { t } = useI18n();
   // Remote annotations are untrusted hints. Every fresh review starts as write.
   const [risk, setRisk] = useState<Tool["risk"]>("write");
   const [include, setInclude] = useState("");
@@ -958,39 +991,42 @@ function ToolReview({
     <form className="mcp-tool-review" onSubmit={submit}>
       <div className="panel-heading">
         <div>
-          <span className="eyebrow">REVIEW TOOL CONTRACT</span>
+          <span className="eyebrow">{t("REVIEW TOOL CONTRACT")}</span>
           <h2>{remote.name}</h2>
         </div>
         <span className="method-tag">MCP</span>
       </div>
       <div className="panel-body">
         <p className="break-word">
-          {remote.description || "No description provided by this server."}
+          {remote.description || t("No description provided by this server.")}
         </p>
         <div className="mcp-alias">
-          <span>Gateway name</span>
+          <span>{t("Gateway name")}</span>
           <strong className="mono">{remote.gateway_name}</strong>
         </div>
         <div className="mcp-schema-grid">
-          <Schema value={remote.input_schema} label="Input schema" />
+          <Schema value={remote.input_schema} label={t("Input schema")} />
           {remote.output_schema ? (
-            <Schema value={remote.output_schema} label="Output schema" />
+            <Schema value={remote.output_schema} label={t("Output schema")} />
           ) : null}
         </div>
         <p className="field-help">
-          Server annotation:{" "}
+          {t("Server annotation:")}{" "}
           {remote.read_only_hint === true
-            ? "read-only"
+            ? t("read-only")
             : remote.read_only_hint === false
-              ? "may change external state"
-              : "not provided"}
-          . Review the tool’s behavior before choosing its risk classification.
+              ? t("may change external state")
+              : t("not provided")}
+          {t(
+            ". Review the tool’s behavior before choosing its risk classification.",
+          )}
         </p>
         {remote.imported_tool_id ? (
           <div className="notice notice-info" role="status">
             <span>
-              Already imported into the tool registry. Review its draft or
-              publication status there.
+              {t(
+                "Already imported into the tool registry. Review its draft or publication status there.",
+              )}
             </span>
             <div className="action-row">
               <button
@@ -998,7 +1034,7 @@ function ToolReview({
                 className="button secondary"
                 onClick={() => onRegistry(remote.imported_tool_id!)}
               >
-                Open tool registry
+                {t("Open tool registry")}
               </button>
             </div>
           </div>
@@ -1008,7 +1044,7 @@ function ToolReview({
             <fieldset disabled={disabled || mustRediscover}>
               <div className="form-grid">
                 <label className="span-two">
-                  Risk classification
+                  {t("Risk classification")}
                   <select
                     value={risk}
                     onChange={(event) =>
@@ -1016,16 +1052,16 @@ function ToolReview({
                     }
                   >
                     <option value="write">
-                      Write — requires independent approval
+                      {t("Write — requires independent approval")}
                     </option>
                     <option value="read">
-                      Read — I confirm no external state changes
+                      {t("Read — I confirm no external state changes")}
                     </option>
                   </select>
                 </label>
                 <label className="span-two">
-                  Response fields to keep{" "}
-                  <span className="optional">optional</span>
+                  {t("Response fields to keep")}{" "}
+                  <span className="optional">{t("optional")}</span>
                   <textarea
                     className="code-input"
                     rows={4}
@@ -1037,14 +1073,13 @@ function ToolReview({
                     }
                   />
                   <span className="field-help">
-                    One field path per line, up to 32. Leave blank to keep all
-                    fields. Use /results/*/title to retain title from every
-                    array element, or /results to keep the whole array. Numeric
-                    segments refer to object keys, never array indices.
+                    {t(
+                      "One field path per line, up to 32. Leave blank to keep all fields. Use /results/*/title to retain title from every array element, or /results to keep the whole array. Numeric segments refer to object keys, never array indices.",
+                    )}
                   </span>
                 </label>
                 <label className="span-two">
-                  Maximum response size (bytes)
+                  {t("Maximum response size (bytes)")}
                   <input
                     required
                     type="number"
@@ -1055,17 +1090,16 @@ function ToolReview({
                     onChange={(event) => setMaxBytes(event.target.value)}
                   />
                   <span className="field-help">
-                    Default 65,536 bytes. Responses beyond this limit are
-                    rejected.
+                    {t(
+                      "Default 65,536 bytes. Responses beyond this limit are rejected.",
+                    )}
                   </span>
                 </label>
               </div>
               <p className="field-help">
-                Array selection preserves order and element count. If any
-                element lacks a selected field, the result is rejected.
-                Top-level nextCursor and next_cursor are preserved when present;
-                include other pagination fields explicitly. Text is rebuilt from
-                the retained result.
+                {t(
+                  "Array selection preserves order and element count. If any element lacks a selected field, the result is rejected. Top-level nextCursor and next_cursor are preserved when present; include other pagination fields explicitly. Text is rebuilt from the retained result.",
+                )}
               </p>
             </fieldset>
             <div className="action-row">
@@ -1073,12 +1107,12 @@ function ToolReview({
                 className="button primary"
                 disabled={disabled || mustRediscover}
               >
-                {importing ? "Importing…" : "Import draft tool"}
+                {importing ? t("Importing…") : t("Import draft tool")}
               </button>
               <span className="field-help">
                 {mustRediscover
-                  ? "Discover tools again to check the previous import."
-                  : "Review and publish the draft in the tool registry."}
+                  ? t("Discover tools again to check the previous import.")
+                  : t("Review and publish the draft in the tool registry.")}
               </span>
             </div>
           </>
@@ -1089,10 +1123,11 @@ function ToolReview({
 }
 
 function Schema({ value, label }: { value: unknown; label: string }) {
+  const { t } = useI18n();
   return (
     <details className="mcp-schema">
-      <summary>{label}</summary>
-      <pre tabIndex={0} aria-label={label}>
+      <summary>{t(label)}</summary>
+      <pre tabIndex={0} aria-label={t(label)}>
         {JSON.stringify(value, null, 2)}
       </pre>
     </details>

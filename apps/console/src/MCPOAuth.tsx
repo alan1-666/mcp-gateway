@@ -1,3 +1,4 @@
+import { useI18n } from "./i18n";
 import {
   useEffect,
   useMemo,
@@ -31,14 +32,19 @@ export function MCPOAuth({
   server: MCPServer;
   cloud: boolean;
 }) {
+  const { t } = useI18n();
   if (server.credential_ref || !cloud)
     return (
-      <section className="admin-subsection" aria-label="Upstream OAuth">
-        <h3>OAuth connection</h3>
+      <section className="admin-subsection" aria-label={t("Upstream OAuth")}>
+        <h3>{t("OAuth connection")}</h3>
         <p className="field-help">
           {server.credential_ref
-            ? "This server uses a credential reference. OAuth and static credentials cannot be combined. Add a connection without a credential reference to use OAuth."
-            : "OAuth connections require a cloud browser session. Sign in to the cloud workspace to authorize a provider."}
+            ? t(
+                "This server uses a credential reference. OAuth and static credentials cannot be combined. Add a connection without a credential reference to use OAuth.",
+              )
+            : t(
+                "OAuth connections require a cloud browser session. Sign in to the cloud workspace to authorize a provider.",
+              )}
         </p>
       </section>
     );
@@ -52,6 +58,7 @@ export function MCPOAuth({
 }
 
 function OAuthSettings({ api, server }: { api: APIClient; server: MCPServer }) {
+  const { t, locale } = useI18n();
   const controller = useMemo(
     () => new MCPOAuthController(api, server.id),
     [api, server.id],
@@ -136,106 +143,116 @@ function OAuthSettings({ api, server }: { api: APIClient; server: MCPServer }) {
     }
   }
   return (
-    <section className="admin-subsection mcp-oauth" aria-label="Upstream OAuth">
+    <section
+      className="admin-subsection mcp-oauth"
+      aria-label={t("Upstream OAuth")}
+    >
       <div className="schedule-heading">
-        <h3>OAuth connection</h3>
+        <h3>{t("OAuth connection")}</h3>
         <button
           className="text-button"
           type="button"
           disabled={!!busy}
           onClick={() => void refresh()}
         >
-          {busy === "load" ? "Refreshing…" : "Refresh status"}
+          {busy === "load" ? t("Refreshing…") : t("Refresh status")}
         </button>
       </div>
       <p className="field-help">
-        Authorize this MCP server with its provider. Imported tools share this
-        connection within the workspace.
+        {t(
+          "Authorize this MCP server with its provider. Imported tools share this connection within the workspace.",
+        )}
       </p>
       {state.error ? (
         <p className="notice notice-error" role="alert">
-          {state.error}
+          {t(state.error)}
         </p>
       ) : null}
       {state.notice ? (
         <p className="notice notice-info" role="status">
-          {state.notice}
+          {t(state.notice)}
         </p>
       ) : null}
       {!saved ? (
         <p className="field-help" role="status">
           {busy === "load"
-            ? "Loading OAuth status…"
-            : "Refresh status to load this connection."}
+            ? t("Loading OAuth status…")
+            : t("Refresh status to load this connection.")}
         </p>
       ) : (
         <>
           <dl className="metadata-grid schedule-status">
             <div>
-              <dt>Status</dt>
-              <dd>{labels[saved.status]}</dd>
+              <dt>{t("Status")}</dt>
+              <dd>{t(labels[saved.status])}</dd>
             </div>
             {saved.expires_at ? (
               <div>
-                <dt>Token expires</dt>
-                <dd>{dateLabel(saved.expires_at)}</dd>
+                <dt>{t("Token expires")}</dt>
+                <dd>{dateLabel(saved.expires_at, locale)}</dd>
               </div>
             ) : null}
             {saved.configuration ? (
               <>
                 <div>
-                  <dt>Provider</dt>
+                  <dt>{t("Provider")}</dt>
                   <dd className="mono break-word">
                     {saved.configuration.issuer}
                   </dd>
                 </div>
                 <div>
-                  <dt>Client ID</dt>
+                  <dt>{t("Client ID")}</dt>
                   <dd className="mono break-word">
                     {saved.configuration.client_id}
                   </dd>
                 </div>
                 <div>
-                  <dt>Requested scopes</dt>
+                  <dt>{t("Requested scopes")}</dt>
                   <dd className="mono break-word">
-                    {saved.configuration.scopes.join(" ") || "Provider default"}
+                    {saved.configuration.scopes.join(" ") ||
+                      t("Provider default")}
                   </dd>
                 </div>
               </>
             ) : null}
             <div className="oauth-callback">
-              <dt>Registered callback URL</dt>
+              <dt>{t("Registered callback URL")}</dt>
               <dd className="mono break-word">{saved.redirect_uri}</dd>
             </div>
           </dl>
           {!server.enabled ? (
             <p className="notice notice-warning" role="status">
-              This server is disabled. Enable it before connecting. Its previous
-              grant has been invalidated.
+              {t(
+                "This server is disabled. Enable it before connecting. Its previous grant has been invalidated.",
+              )}
             </p>
           ) : null}
           {saved.status === "reconnect_required" ? (
             <p className="notice notice-warning" role="status">
-              Authorize the provider again to resume tool calls. Failed calls
-              are not replayed automatically.
+              {t(
+                "Authorize the provider again to resume tool calls. Failed calls are not replayed automatically.",
+              )}
             </p>
           ) : null}
           {saved.status === "pending" ? (
             <p className="field-help">
-              An authorization attempt is pending. Connecting again replaces
-              that attempt.
+              {t(
+                "An authorization attempt is pending. Connecting again replaces that attempt.",
+              )}
             </p>
           ) : null}
           {saved.status === "connected" ? (
             <p className="field-help">
-              Reconnecting replaces the current grant. Tool calls pause until
-              authorization is complete.
+              {t(
+                "Reconnecting replaces the current grant. Tool calls pause until authorization is complete.",
+              )}
             </p>
           ) : null}
           {working ? (
             <p className="field-help" role="status">
-              An exchange is in progress. Refresh status to check its result
-              before connecting again.
+              {t(
+                "An exchange is in progress. Refresh status to check its result before connecting again.",
+              )}
             </p>
           ) : null}
           <div className="action-row">
@@ -247,10 +264,10 @@ function OAuthSettings({ api, server }: { api: APIClient; server: MCPServer }) {
                 onClick={() => void connect()}
               >
                 {busy === "connect"
-                  ? "Opening provider…"
+                  ? t("Opening provider…")
                   : saved.status === "connected"
-                    ? "Reconnect provider"
-                    : "Connect provider"}
+                    ? t("Reconnect provider")
+                    : t("Connect provider")}
               </button>
             ) : null}
             <button
@@ -260,10 +277,10 @@ function OAuthSettings({ api, server }: { api: APIClient; server: MCPServer }) {
               onClick={() => void configure()}
             >
               {busy === "discover"
-                ? "Discovering provider…"
+                ? t("Discovering provider…")
                 : saved.configuration
-                  ? "Edit configuration"
-                  : "Configure OAuth"}
+                  ? t("Edit configuration")
+                  : t("Configure OAuth")}
             </button>
             {saved.configuration && saved.status !== "disconnected" ? (
               <button
@@ -272,16 +289,16 @@ function OAuthSettings({ api, server }: { api: APIClient; server: MCPServer }) {
                 disabled={locked}
                 onClick={() => setConfirmDisconnect((current) => !current)}
               >
-                Disconnect
+                {t("Disconnect")}
               </button>
             ) : null}
           </div>
           {confirmDisconnect ? (
             <div className="oauth-confirm">
               <p>
-                Clear the stored tokens and pending authorization for this
-                server? Tool calls will require a new connection. Consent at the
-                provider is unchanged.
+                {t(
+                  "Clear the stored tokens and pending authorization for this server? Tool calls will require a new connection. Consent at the provider is unchanged.",
+                )}
               </p>
               <div className="action-row">
                 <button
@@ -291,8 +308,8 @@ function OAuthSettings({ api, server }: { api: APIClient; server: MCPServer }) {
                   onClick={() => void disconnect()}
                 >
                   {busy === "disconnect"
-                    ? "Disconnecting…"
-                    : "Confirm disconnect"}
+                    ? t("Disconnecting…")
+                    : t("Confirm disconnect")}
                 </button>
                 <button
                   className="button secondary"
@@ -300,7 +317,7 @@ function OAuthSettings({ api, server }: { api: APIClient; server: MCPServer }) {
                   disabled={!!busy}
                   onClick={() => setConfirmDisconnect(false)}
                 >
-                  Cancel
+                  {t("Cancel")}
                 </button>
               </div>
             </div>
@@ -309,14 +326,14 @@ function OAuthSettings({ api, server }: { api: APIClient; server: MCPServer }) {
       )}
       {editing && metadata ? (
         <form className="oauth-form" onSubmit={(event) => void save(event)}>
-          <h4>Provider configuration</h4>
+          <h4>{t("Provider configuration")}</h4>
           <p className="field-help">
-            Register the callback URL above with the provider, then enter its
-            client credentials. Saving replaces any previous grant and requires
-            authorization again.
+            {t(
+              "Register the callback URL above with the provider, then enter its client credentials. Saving replaces any previous grant and requires authorization again.",
+            )}
           </p>
           <label>
-            Authorization provider
+            {t("Authorization provider")}
             <select
               value={metadata.issuer}
               disabled={locked}
@@ -345,7 +362,7 @@ function OAuthSettings({ api, server }: { api: APIClient; server: MCPServer }) {
             </select>
           </label>
           <label>
-            Client ID
+            {t("Client ID")}
             <input
               autoComplete="off"
               spellCheck={false}
@@ -359,7 +376,7 @@ function OAuthSettings({ api, server }: { api: APIClient; server: MCPServer }) {
             />
           </label>
           <label>
-            Client authentication
+            {t("Client authentication")}
             <select
               value={draft.authMethod}
               disabled={locked}
@@ -372,18 +389,18 @@ function OAuthSettings({ api, server }: { api: APIClient; server: MCPServer }) {
               }}
             >
               {metadata.auth_methods.includes("none") ? (
-                <option value="none">Public client · PKCE</option>
+                <option value="none">{t("Public client · PKCE")}</option>
               ) : null}
               {metadata.auth_methods.includes("client_secret_basic") ? (
                 <option value="client_secret_basic">
-                  Client secret · HTTP Basic + PKCE
+                  {t("Client secret · HTTP Basic + PKCE")}
                 </option>
               ) : null}
             </select>
           </label>
           {draft.authMethod === "client_secret_basic" ? (
             <label>
-              Client secret
+              {t("Client secret")}
               <input
                 ref={secret}
                 type="password"
@@ -393,47 +410,49 @@ function OAuthSettings({ api, server }: { api: APIClient; server: MCPServer }) {
                 required
               />
               <span className="field-help">
-                Enter it again when saving configuration. Stored secrets are
-                never returned.
+                {t(
+                  "Enter it again when saving configuration. Stored secrets are never returned.",
+                )}
               </span>
             </label>
           ) : null}
           <label>
-            Requested scopes
+            {t("Requested scopes")}
             <input
               value={draft.scopes}
               maxLength={16447}
               autoComplete="off"
               spellCheck={false}
-              placeholder="Space-separated scopes"
+              placeholder={t("Space-separated scopes")}
               disabled={locked}
               onChange={(event) =>
                 setDraft({ ...draft, scopes: event.target.value })
               }
             />
             <span className="field-help">
-              Request only the permissions these tools need. Leave empty to use
-              the provider default.
+              {t(
+                "Request only the permissions these tools need. Leave empty to use the provider default.",
+              )}
             </span>
           </label>
           {metadata.scopes_supported.length ? (
             <p className="field-help break-word">
-              Advertised scopes:{" "}
+              {t("Advertised scopes:")}{" "}
               <span className="mono">
                 {metadata.scopes_supported.join(" ")}
               </span>
             </p>
           ) : null}
           <details className="request-details">
-            <summary>Provider endpoints</summary>
+            <summary>{t("Provider endpoints")}</summary>
             <dl>
-              <dt>Resource</dt>
+              <dt>{t("Resource")}</dt>
               <dd className="mono break-word">{metadata.resource}</dd>
-              <dt>Authorization</dt>
+              <dt>{t("Authorization")}</dt>
               <dd className="mono break-word">
                 {metadata.authorization_endpoint}
               </dd>
-              <dt>Token exchange</dt>
+              <dt>{t("Token exchange")}</dt>
               <dd className="mono break-word">{metadata.token_endpoint}</dd>
             </dl>
           </details>
@@ -446,7 +465,7 @@ function OAuthSettings({ api, server }: { api: APIClient; server: MCPServer }) {
                 !metadata.auth_methods.includes(draft.authMethod)
               }
             >
-              {busy === "save" ? "Saving…" : "Save configuration"}
+              {busy === "save" ? t("Saving…") : t("Save configuration")}
             </button>
             <button
               className="button secondary"
@@ -457,7 +476,7 @@ function OAuthSettings({ api, server }: { api: APIClient; server: MCPServer }) {
                 setEditing(false);
               }}
             >
-              Cancel
+              {t("Cancel")}
             </button>
           </div>
         </form>

@@ -1,3 +1,4 @@
+import { useI18n } from "./i18n";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { APIClient, messageOf } from "./api";
@@ -34,6 +35,7 @@ export function CatalogSchedule({
   serverID: string;
   serverEnabled: boolean;
 }) {
+  const { t, locale } = useI18n();
   const [saved, setSaved] = useState<Schedule | null>(null);
   const [enabled, setEnabled] = useState(false);
   const [interval, setInterval] = useState("60");
@@ -137,63 +139,70 @@ export function CatalogSchedule({
   return (
     <section
       className="admin-subsection catalog-schedule"
-      aria-label="Scheduled catalog checks"
+      aria-label={t("Scheduled catalog checks")}
     >
       <div className="schedule-heading">
-        <h3>Catalog checks</h3>
+        <h3>{t("Catalog checks")}</h3>
         <button
           className="text-button"
           type="button"
           disabled={busy || loading}
           onClick={() => void load()}
         >
-          Reload schedule
+          {t("Reload schedule")}
         </button>
       </div>
       <p className="field-help">
-        Check for new, changed, or removed tools automatically. Review changes
-        in Activity before publishing a tool version.
+        {t(
+          "Check for new, changed, or removed tools automatically. Review changes in Activity before publishing a tool version.",
+        )}
       </p>
       {error ? (
         <p className="notice notice-error" role="alert">
-          {error}
+          {t(error)}
         </p>
       ) : null}
       {loading ? (
-        <p role="status">Loading schedule…</p>
+        <p role="status">{t("Loading schedule…")}</p>
       ) : saved ? (
         <>
           <dl className="metadata-grid schedule-status">
             <div>
-              <dt>Status</dt>
-              <dd>{status}</dd>
+              <dt>{t("Status")}</dt>
+              <dd>{t(status)}</dd>
             </div>
             <div>
-              <dt>Last successful check</dt>
+              <dt>{t("Last successful check")}</dt>
               <dd>
                 {saved.last_success_at
-                  ? dateLabel(saved.last_success_at)
-                  : "Not checked yet"}
+                  ? dateLabel(saved.last_success_at, locale)
+                  : t("Not checked yet")}
               </dd>
             </div>
             <div>
-              <dt>Next check</dt>
+              <dt>{t("Next check")}</dt>
               <dd>
                 {saved.enabled && serverEnabled && saved.next_check_at
                   ? saved.running
-                    ? "In progress"
-                    : dateLabel(saved.next_check_at)
+                    ? t("In progress")
+                    : dateLabel(saved.next_check_at, locale)
                   : "—"}
               </dd>
             </div>
           </dl>
           {saved.last_error_code ? (
             <p className="notice notice-warning" role="status">
-              {errors[saved.last_error_code] ??
-                "The last check did not complete."}{" "}
-              {saved.consecutive_failures} consecutive failures ·{" "}
-              {dateLabel(saved.last_finished_at ?? "")}. Previous catalog
-              history is preserved.
+              {t(
+                errors[saved.last_error_code] ??
+                  "The last check did not complete.",
+              )}{" "}
+              {t(
+                "{count} consecutive failures · {date}. Previous catalog history is preserved.",
+                {
+                  count: saved.consecutive_failures,
+                  date: dateLabel(saved.last_finished_at ?? "", locale),
+                },
+              )}
             </p>
           ) : null}
           <form onSubmit={(event) => void save(event)}>
@@ -204,11 +213,11 @@ export function CatalogSchedule({
                   checked={enabled}
                   onChange={(event) => setEnabled(event.target.checked)}
                 />
-                Enable scheduled checks
+                {t("Enable scheduled checks")}
               </label>
               <div className="schedule-controls">
                 <label>
-                  Check every (minutes)
+                  {t("Check every (minutes)")}
                   <input
                     type="number"
                     min="5"
@@ -226,20 +235,21 @@ export function CatalogSchedule({
                     Number(interval) * 60 === saved.interval_seconds
                   }
                 >
-                  {busy ? "Saving…" : "Save schedule"}
+                  {busy ? t("Saving…") : t("Save schedule")}
                 </button>
               </div>
             </fieldset>
           </form>
           <p className="field-help">
-            5 minutes to 24 hours. Repeated failures slow checks down, up to
-            once a day. Disabling server access pauses checks automatically.
+            {t(
+              "5 minutes to 24 hours. Repeated failures slow checks down, up to once a day. Disabling server access pauses checks automatically.",
+            )}
           </p>
         </>
       ) : null}
       {notice ? (
         <p className="notice notice-success" role="status">
-          {notice}
+          {t(notice)}
         </p>
       ) : null}
     </section>

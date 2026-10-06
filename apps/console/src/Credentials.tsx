@@ -1,3 +1,4 @@
+import { useI18n } from "./i18n";
 import { credentialHeaders } from "./admin-state";
 import { useState } from "react";
 import type { FormEvent } from "react";
@@ -25,6 +26,7 @@ export function Credentials({
   api: APIClient;
   refreshVersion: string;
 }) {
+  const { t, locale } = useI18n();
   const resource = useResource<{ items: Credential[]; total: number }>(
       api,
       "/credentials",
@@ -51,21 +53,23 @@ export function Credentials({
     <div className="admin-workspace">
       <div className="toolbar">
         <p className="muted">
-          Encrypted outbound authentication, scoped to an exact origin.
+          {t("Encrypted outbound authentication, scoped to an exact origin.")}
         </p>
         <button className="button primary" onClick={() => setEditing("new")}>
-          Add credential
+          {t("Add credential")}
         </button>
       </div>
       <AdminError
-        error={resource.error || action.error}
+        error={t(resource.error || action.error)}
         onRetry={() => void reload()}
       />
       <section className="panel">
         <div className="panel-heading">
           <h2>
-            Credential references{" "}
-            <span className="count-label">{resource.data?.total ?? "—"}</span>
+            {t("Credential references")}{" "}
+            <span className="count-label">
+              {resource.data?.total.toLocaleString(locale) ?? "—"}
+            </span>
           </h2>
         </div>
         {resource.loading && !resource.data ? (
@@ -75,11 +79,11 @@ export function Credentials({
             <table>
               <thead>
                 <tr>
-                  <th>Reference / origin</th>
-                  <th>Headers</th>
-                  <th>Status</th>
-                  <th>Updated</th>
-                  <th>Actions</th>
+                  <th>{t("Reference / origin")}</th>
+                  <th>{t("Headers")}</th>
+                  <th>{t("Status")}</th>
+                  <th>{t("Updated")}</th>
+                  <th>{t("Actions")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -93,8 +97,8 @@ export function Credentials({
                       {item.header_names.join(", ")}
                       <span className="table-description">v{item.version}</span>
                     </td>
-                    <td>{item.enabled ? "Enabled" : "Disabled"}</td>
-                    <td>{dateLabel(item.updated_at)}</td>
+                    <td>{item.enabled ? t("Enabled") : t("Disabled")}</td>
+                    <td>{dateLabel(item.updated_at, locale)}</td>
                     <td>
                       <div className="action-row">
                         <button
@@ -102,14 +106,14 @@ export function Credentials({
                           disabled={action.busy}
                           onClick={() => setEditing(item)}
                         >
-                          Rotate
+                          {t("Rotate")}
                         </button>
                         <button
                           className="button secondary"
                           disabled={action.busy || action.needsReload}
                           onClick={() => void toggle(item)}
                         >
-                          {item.enabled ? "Disable" : "Enable"}
+                          {item.enabled ? t("Disable") : t("Enable")}
                         </button>
                       </div>
                     </td>
@@ -120,8 +124,9 @@ export function Credentials({
           </div>
         ) : !resource.error ? (
           <AdminEmpty>
-            No stored credentials. Add a reference for authenticated
-            integrations.
+            {t(
+              "No stored credentials. Add a reference for authenticated integrations.",
+            )}
           </AdminEmpty>
         ) : null}
       </section>
@@ -151,6 +156,7 @@ function CredentialForm({
   onClose: () => void;
   onSaved: () => Promise<void>;
 }) {
+  const { t } = useI18n();
   const [ref, setRef] = useState(initial?.ref ?? ""),
     [origin, setOrigin] = useState(initial?.origin ?? ""),
     [headers, setHeaders] = useState([
@@ -182,7 +188,9 @@ function CredentialForm({
     <form className="panel" onSubmit={submit}>
       <div className="panel-heading">
         <h2>
-          {initial ? `Rotate ${initial.ref}` : "Add encrypted credential"}
+          {initial
+            ? t("Rotate {name}", { name: initial.ref })
+            : t("Add encrypted credential")}
         </h2>
         <button
           type="button"
@@ -190,21 +198,22 @@ function CredentialForm({
           disabled={action.busy}
           onClick={onClose}
         >
-          Close
+          {t("Close")}
         </button>
       </div>
       <div className="panel-body">
-        <AdminError error={validation || action.error} />
+        <AdminError error={t(validation || action.error)} />
         {action.needsReload ? (
           <p className="field-help">
-            Close this editor and reload credential metadata before another
-            change.
+            {t(
+              "Close this editor and reload credential metadata before another change.",
+            )}
           </p>
         ) : null}
         <fieldset disabled={action.busy || action.needsReload}>
           <div className="form-grid">
             <label>
-              Reference
+              {t("Reference")}
               <input
                 required
                 pattern="[A-Z][A-Z0-9_]{0,127}"
@@ -214,7 +223,7 @@ function CredentialForm({
               />
             </label>
             <label>
-              Allowed origin
+              {t("Allowed origin")}
               <input
                 required
                 type="url"
@@ -226,13 +235,14 @@ function CredentialForm({
             </label>
           </div>
           <p className="field-help">
-            Enter the complete authentication value, for example a Bearer value.
-            Stored values cannot be read back. Rotation replaces every header.
+            {t(
+              "Enter the complete authentication value, for example a Bearer value. Stored values cannot be read back. Rotation replaces every header.",
+            )}
           </p>
           {headers.map((header, index) => (
             <div className="form-grid" key={index}>
               <label>
-                Header name
+                {t("Header name")}
                 <input
                   required
                   value={header.name}
@@ -248,7 +258,7 @@ function CredentialForm({
                 />
               </label>
               <label>
-                Secret value
+                {t("Secret value")}
                 <input
                   required
                   type="password"
@@ -273,7 +283,7 @@ function CredentialForm({
                     setHeaders(headers.filter((_, i) => i !== index))
                   }
                 >
-                  Remove header
+                  {t("Remove header")}
                 </button>
               ) : null}
             </div>
@@ -285,14 +295,14 @@ function CredentialForm({
               disabled={headers.length >= 16}
               onClick={() => setHeaders([...headers, { name: "", value: "" }])}
             >
-              Add header
+              {t("Add header")}
             </button>
             <button className="button primary">
               {action.busy
-                ? "Saving…"
+                ? t("Saving…")
                 : initial
-                  ? "Replace credential values"
-                  : "Save encrypted credential"}
+                  ? t("Replace credential values")
+                  : t("Save encrypted credential")}
             </button>
           </div>
         </fieldset>

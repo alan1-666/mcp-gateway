@@ -1,3 +1,4 @@
+import { useI18n } from "./i18n";
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { AdminError } from "./AdminUI";
@@ -9,6 +10,7 @@ import {
 import type { ClientAccess, ConnectionReport } from "./client-connection";
 
 export function ClientConnection({ client }: { client: ClientAccess }) {
+  const { t, locale } = useI18n();
   const [key, setKey] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -49,33 +51,34 @@ export function ClientConnection({ client }: { client: ClientAccess }) {
   }
 
   return (
-    <section className="panel" aria-label="Connect your Agent">
+    <section className="panel" aria-label={t("Connect your Agent")}>
       <div className="panel-heading">
-        <h2>Connect your Agent</h2>
+        <h2>{t("Connect your Agent")}</h2>
         <span className="count-label">Streamable HTTP</span>
       </div>
       <div className="panel-body">
         <p>
-          Use this client's key in your MCP application. The gateway exposes
-          search, schema and execution tools.
+          {t(
+            "Use this client's key in your MCP application. The gateway exposes search, schema and execution tools.",
+          )}
         </p>
         {warnings.length > 0 ? (
           <ul className="field-help">
             {warnings.map((warning) => (
-              <li key={warning}>{warning}</li>
+              <li key={warning}>{t(warning)}</li>
             ))}
           </ul>
         ) : null}
         <label>
-          MCP endpoint
+          {t("MCP endpoint")}
           <input readOnly value={`${window.location.origin}/mcp`} />
         </label>
         <details>
-          <summary>Connection configuration</summary>
+          <summary>{t("Connection configuration")}</summary>
           <p className="field-help">
-            For clients accepting an mcpServers JSON configuration. Replace the
-            placeholder locally; other clients may ask for the URL and Bearer
-            header separately.
+            {t(
+              "For clients accepting an mcpServers JSON configuration. Replace the placeholder locally; other clients may ask for the URL and Bearer header separately.",
+            )}
           </p>
           <pre className="connection-config">{config}</pre>
           <button
@@ -94,21 +97,21 @@ export function ClientConnection({ client }: { client: ClientAccess }) {
               }
             }}
           >
-            Copy configuration
+            {t("Copy configuration")}
           </button>
           <p role="status" className="field-help">
-            {copyStatus}
+            {t(copyStatus)}
           </p>
         </details>
         <form onSubmit={(event) => void check(event)}>
-          <h3>Check this client key</h3>
+          <h3>{t("Check this client key")}</h3>
           <p className="field-help">
-            Checks identity, MCP connection and visible tools using only the
-            supplied key. No business tool runs. The key is cleared when the
-            check starts.
+            {t(
+              "Checks identity, MCP connection and visible tools using only the supplied key. No business tool runs. The key is cleared when the check starts.",
+            )}
           </p>
           <label>
-            Client key for connection check
+            {t("Client key for connection check")}
             <input
               type="password"
               autoComplete="off"
@@ -128,7 +131,7 @@ export function ClientConnection({ client }: { client: ClientAccess }) {
               className="button primary"
               disabled={busy || !key}
             >
-              {busy ? "Checking…" : "Check connection"}
+              {busy ? t("Checking…") : t("Check connection")}
             </button>
             {busy ? (
               <button
@@ -140,20 +143,23 @@ export function ClientConnection({ client }: { client: ClientAccess }) {
                   setError("Connection check cancelled.");
                 }}
               >
-                Cancel check
+                {t("Cancel check")}
               </button>
             ) : null}
           </div>
-          <AdminError error={error} />
+          <AdminError error={t(error)} />
           {report ? (
             <div role="status">
               <p>
-                Connected · {report.total} authorized published tools visible
+                {t("Connected · {total} authorized published tools visible", {
+                  total: report.total.toLocaleString(locale),
+                })}
               </p>
               {report.total === 0 ? (
                 <p className="field-help">
-                  Publish and enable tools, then grant this client access. A
-                  valid key alone does not grant tools.
+                  {t(
+                    "Publish and enable tools, then grant this client access. A valid key alone does not grant tools.",
+                  )}
                 </p>
               ) : (
                 <ul>
@@ -164,36 +170,38 @@ export function ClientConnection({ client }: { client: ClientAccess }) {
               )}
               {report.total > report.tools.length ? (
                 <p className="field-help">
-                  Showing the first {report.tools.length} tools. Your Agent can
-                  search the full authorized catalog.
+                  {t(
+                    "Showing the first {count} tools. Your Agent can search the full authorized catalog.",
+                    { count: report.tools.length.toLocaleString(locale) },
+                  )}
                 </p>
               ) : null}
             </div>
           ) : null}
         </form>
         <details>
-          <summary>Make your first tool call</summary>
+          <summary>{t("Make your first tool call")}</summary>
           <ol>
+            <li>{t("Use search_tools to find an authorized tool.")}</li>
             <li>
-              Use <code>search_tools</code> to find an authorized tool.
+              {t(
+                "Use get_tool_schema with its tool_id to read the required parameters.",
+              )}
             </li>
             <li>
-              Use <code>get_tool_schema</code> with its <code>tool_id</code> to
-              read the required parameters.
+              {t(
+                "Use call_tool with the tool ID, arguments and a stable idempotency key. The gateway handles preparation and execution.",
+              )}
             </li>
             <li>
-              Use <code>call_tool</code> with the tool ID, arguments and a
-              stable idempotency key. The gateway handles preparation and
-              execution.
+              {t(
+                "If approval is required, wait for it and repeat the same call with the same key. Read the recorded outcome with get_operation.",
+              )}
             </li>
             <li>
-              If approval is required, wait for it and repeat the same call with
-              the same key. Read the recorded outcome with{" "}
-              <code>get_operation</code>.
-            </li>
-            <li>
-              For a large-result reference, use <code>read_result</code> only as
-              needed. Do not replay an UNKNOWN write with a new key.
+              {t(
+                "For a large-result reference, use read_result only as needed. Do not replay an UNKNOWN write with a new key.",
+              )}
             </li>
           </ol>
         </details>

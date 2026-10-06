@@ -1,3 +1,4 @@
+import { useI18n } from "./i18n";
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { APIClient } from "./api";
@@ -44,20 +45,21 @@ export function Capacity({
   api: APIClient;
   refreshVersion: string;
 }) {
+  const { t, locale } = useI18n();
   const policy = useResource<Policy>(api, "/capacity", refreshVersion),
     metrics = useResource<Metrics>(api, "/capacity/metrics", refreshVersion);
   const [editing, setEditing] = useState<Limit | "new" | null>(null);
   return (
     <div className="admin-workspace">
       <AdminError
-        error={policy.error || metrics.error}
+        error={t(policy.error || metrics.error)}
         onRetry={() => void Promise.all([policy.reload(), metrics.reload()])}
       />
       <section className="panel">
         <div className="panel-heading">
-          <h2>Execution capacity</h2>
+          <h2>{t("Execution capacity")}</h2>
           <span className="muted">
-            {metrics.data ? dateLabel(metrics.data.observed_at) : ""}
+            {metrics.data ? dateLabel(metrics.data.observed_at, locale) : ""}
           </span>
         </div>
         <div className="panel-body">
@@ -67,20 +69,20 @@ export function Capacity({
             <>
               <p>
                 <strong className="capacity-number">
-                  {metrics.data.active_leases}
+                  {metrics.data.active_leases.toLocaleString(locale)}
                 </strong>{" "}
-                active execution leases
+                {t("active execution leases")}
               </p>
               <div className="admin-grants">
                 <section>
-                  <h3>Recorded calls</h3>
+                  <h3>{t("Recorded calls")}</h3>
                   {metrics.data.calls.length ? (
                     <table>
                       <thead>
                         <tr>
-                          <th>Transport / outcome</th>
-                          <th>Count</th>
-                          <th>Total duration</th>
+                          <th>{t("Transport / outcome")}</th>
+                          <th>{t("Count")}</th>
+                          <th>{t("Total duration")}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -89,24 +91,26 @@ export function Capacity({
                             <td>
                               {item.transport} · {item.state}
                             </td>
-                            <td>{item.count}</td>
-                            <td>{item.duration_ms_total} ms</td>
+                            <td>{item.count.toLocaleString(locale)}</td>
+                            <td>
+                              {item.duration_ms_total.toLocaleString(locale)} ms
+                            </td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   ) : (
-                    <p className="muted">No calls recorded.</p>
+                    <p className="muted">{t("No calls recorded.")}</p>
                   )}
                 </section>
                 <section>
-                  <h3>Admission rejections</h3>
+                  <h3>{t("Admission rejections")}</h3>
                   {metrics.data.rejections.length ? (
                     <table>
                       <thead>
                         <tr>
-                          <th>Scope / reason</th>
-                          <th>Count</th>
+                          <th>{t("Scope / reason")}</th>
+                          <th>{t("Count")}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -115,13 +119,15 @@ export function Capacity({
                             <td>
                               {item.scope} · {item.reason}
                             </td>
-                            <td>{item.count}</td>
+                            <td>{item.count.toLocaleString(locale)}</td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   ) : (
-                    <p className="muted">No capacity rejections recorded.</p>
+                    <p className="muted">
+                      {t("No capacity rejections recorded.")}
+                    </p>
                   )}
                 </section>
               </div>
@@ -131,47 +137,49 @@ export function Capacity({
       </section>
       <section className="panel">
         <div className="panel-heading">
-          <h2>Admission limits</h2>
+          <h2>{t("Admission limits")}</h2>
           <button className="button primary" onClick={() => setEditing("new")}>
-            Add override
+            {t("Add override")}
           </button>
         </div>
         <div className="panel-body">
           {policy.loading && !policy.data ? <AdminLoading /> : null}
           {policy.data ? (
             <>
-              <h3>Defaults</h3>
+              <h3>{t("Defaults")}</h3>
               <div className="table-scroll">
                 <table>
                   <thead>
                     <tr>
-                      <th>Scope</th>
-                      <th>Concurrent executions</th>
-                      <th>Requests / minute</th>
+                      <th>{t("Scope")}</th>
+                      <th>{t("Concurrent executions")}</th>
+                      <th>{t("Requests / minute")}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {policy.data.defaults.map((item) => (
                       <tr key={item.scope}>
                         <td>{item.scope}</td>
-                        <td>{item.max_concurrent}</td>
-                        <td>{item.requests_per_minute}</td>
+                        <td>{item.max_concurrent.toLocaleString(locale)}</td>
+                        <td>
+                          {item.requests_per_minute.toLocaleString(locale)}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-              <h3>Overrides</h3>
+              <h3>{t("Overrides")}</h3>
               {policy.data.items.length ? (
                 <div className="table-scroll">
                   <table>
                     <thead>
                       <tr>
-                        <th>Scope / identifier</th>
-                        <th>Concurrent</th>
-                        <th>Requests / minute</th>
-                        <th>Version</th>
-                        <th>Edit</th>
+                        <th>{t("Scope / identifier")}</th>
+                        <th>{t("Concurrent")}</th>
+                        <th>{t("Requests / minute")}</th>
+                        <th>{t("Version")}</th>
+                        <th>{t("Edit")}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -183,15 +191,17 @@ export function Capacity({
                               {item.scope_id}
                             </span>
                           </td>
-                          <td>{item.max_concurrent}</td>
-                          <td>{item.requests_per_minute}</td>
+                          <td>{item.max_concurrent.toLocaleString(locale)}</td>
+                          <td>
+                            {item.requests_per_minute.toLocaleString(locale)}
+                          </td>
                           <td>{item.version}</td>
                           <td>
                             <button
                               className="button secondary"
                               onClick={() => setEditing(item)}
                             >
-                              Edit limit
+                              {t("Edit limit")}
                             </button>
                           </td>
                         </tr>
@@ -201,7 +211,7 @@ export function Capacity({
                 </div>
               ) : (
                 <AdminEmpty>
-                  All scopes currently use their default limits.
+                  {t("All scopes currently use their default limits.")}
                 </AdminEmpty>
               )}
             </>
@@ -238,6 +248,7 @@ function LimitForm({
   onClose: () => void;
   onSaved: () => Promise<void>;
 }) {
+  const { t } = useI18n();
   const [scope, setScope] = useState<Limit["scope"]>(
       initial?.scope ?? "workspace",
     ),
@@ -260,15 +271,17 @@ function LimitForm({
   }
   return (
     <form className="panel panel-body" onSubmit={submit}>
-      <h2>{initial ? "Edit admission limit" : "Add admission override"}</h2>
-      <AdminError error={action.error} />
+      <h2>
+        {initial ? t("Edit admission limit") : t("Add admission override")}
+      </h2>
+      <AdminError error={t(action.error)} />
       {action.needsReload ? (
-        <p>Close this form and refresh limits before editing again.</p>
+        <p>{t("Close this form and refresh limits before editing again.")}</p>
       ) : null}
       <fieldset disabled={action.busy || action.needsReload}>
         <div className="form-grid">
           <label>
-            Scope
+            {t("Scope")}
             <select
               disabled={!!initial}
               value={scope}
@@ -278,13 +291,13 @@ function LimitForm({
                 setID(value === "workspace" ? "*" : "");
               }}
             >
-              <option value="workspace">Workspace</option>
-              <option value="client">Client</option>
-              <option value="upstream">Upstream</option>
+              <option value="workspace">{t("Workspace")}</option>
+              <option value="client">{t("Client")}</option>
+              <option value="upstream">{t("Upstream")}</option>
             </select>
           </label>
           <label>
-            Scope identifier
+            {t("Scope identifier")}
             <input
               required
               disabled={!!initial || scope === "workspace"}
@@ -293,12 +306,12 @@ function LimitForm({
               placeholder={
                 scope === "client"
                   ? "client_…"
-                  : "mcp:server-id or http:https://api.example.com"
+                  : t("mcp:server-id or http:https://api.example.com")
               }
             />
           </label>
           <label>
-            Maximum concurrent executions
+            {t("Maximum concurrent executions")}
             <input
               required
               type="number"
@@ -310,7 +323,7 @@ function LimitForm({
             />
           </label>
           <label>
-            Requests per minute
+            {t("Requests per minute")}
             <input
               required
               type="number"
@@ -323,7 +336,7 @@ function LimitForm({
           </label>
         </div>
         <button className="button primary">
-          {action.busy ? "Saving…" : "Save limit"}
+          {action.busy ? t("Saving…") : t("Save limit")}
         </button>
       </fieldset>
       <button
@@ -332,7 +345,7 @@ function LimitForm({
         disabled={action.busy}
         onClick={onClose}
       >
-        Close
+        {t("Close")}
       </button>
     </form>
   );

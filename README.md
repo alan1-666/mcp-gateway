@@ -6,7 +6,7 @@
 
 Rillgate connects existing MCP clients and agents to remote MCP services, HTTP APIs and private tools. Register a service, publish selected tools, grant an access key, then let your existing client search and call them through one endpoint.
 
-The Go gateway handles discovery, credentials, permissions, execution records and bounded results. The React console manages services, access keys and call history. No Pi task, model account or separate Rillgate agent application is required.
+The Go gateway handles discovery, credentials, permissions, execution records and bounded results. The React console manages services, access keys and call history in English or Simplified Chinese, with a language preference shared with the website. No Pi task, model account or separate Rillgate agent application is required.
 
 > **Delivery status:** The gateway core is deployed as `20261006-cloud.23` from source `623b46d4dff1242acd8334cc8ed30bc737d293e1`. Exact-source CI, official MCP SDK calls against the authorized cloud test integration, browser checks and temporary-key revocation passed. Public Cloudflare compatibility passed separately through an ephemeral local gateway; it is not enabled in production. See the [release evidence](docs/evidence/gateway-core-release-2026-10-06.json) and [implementation status](docs/implementation-status.md) for the supported boundary.
 
