@@ -1045,3 +1045,6 @@
   .login-language { top: 10px; right: 12px; }
   .connect-form-wrap { padding-top: 60px; }
 }
+
+/* Keep absolutely positioned accessible labels inside horizontally scrolling tables. */
+.table-scroll { position: relative; min-width: 0; }

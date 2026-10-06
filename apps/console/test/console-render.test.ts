@@ -13,6 +13,7 @@ import {
   SecretReveal,
   dateLabel,
 } from "../src/AdminUI";
+import { Account } from "../src/Account";
 import { ApprovalPolicy } from "../src/ApprovalPolicy";
 import { ToolConnection, ToolResponsePolicy } from "../src/ToolConnection";
 import type { Tool } from "../src/types";
@@ -177,4 +178,20 @@ test("approval policy SSR retains API enum values and uses a stable server snaps
     );
     assert.match(html, /<option value="required" selected=""/);
   }
+});
+
+test("team role labels translate while invitations retain canonical role values", () => {
+  const html = render(
+    "zh",
+    h(Account, {
+      api: new APIClient(),
+      identity: { id: "owner-fixture", workspace_id: "team", role: "admin" },
+      onSignedOut() {},
+      refreshVersion: "1",
+    }),
+  );
+  assert.match(html, /<option value="operator" selected="">操作员<\/option>/);
+  assert.match(html, /<option value="admin">管理员<\/option>/);
+  assert.match(html, /<option value="viewer">查看者<\/option>/);
+  assert.match(html, /<option value="approver">审批人<\/option>/);
 });

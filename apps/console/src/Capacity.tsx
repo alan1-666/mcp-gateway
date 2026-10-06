@@ -89,7 +89,8 @@ export function Capacity({
                         {metrics.data.calls.map((item) => (
                           <tr key={`${item.transport}:${item.state}`}>
                             <td>
-                              {item.transport} · {item.state}
+                              {item.transport} ·{" "}
+                              {t(item.state.toLowerCase().replaceAll("_", " "))}
                             </td>
                             <td>{item.count.toLocaleString(locale)}</td>
                             <td>
@@ -117,7 +118,7 @@ export function Capacity({
                         {metrics.data.rejections.map((item) => (
                           <tr key={`${item.scope}:${item.reason}`}>
                             <td>
-                              {item.scope} · {item.reason}
+                              {t(item.scope)} · {item.reason}
                             </td>
                             <td>{item.count.toLocaleString(locale)}</td>
                           </tr>
@@ -159,7 +160,7 @@ export function Capacity({
                   <tbody>
                     {policy.data.defaults.map((item) => (
                       <tr key={item.scope}>
-                        <td>{item.scope}</td>
+                        <td>{t(item.scope)}</td>
                         <td>{item.max_concurrent.toLocaleString(locale)}</td>
                         <td>
                           {item.requests_per_minute.toLocaleString(locale)}
@@ -186,7 +187,7 @@ export function Capacity({
                       {policy.data.items.map((item) => (
                         <tr key={`${item.scope}:${item.scope_id}`}>
                           <td>
-                            {item.scope}
+                            {t(item.scope)}
                             <span className="table-description mono">
                               {item.scope_id}
                             </span>

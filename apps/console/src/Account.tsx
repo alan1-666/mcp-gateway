@@ -338,7 +338,9 @@ export function Account({
                   }
                 >
                   {roles.map((r) => (
-                    <option key={r}>{r}</option>
+                    <option key={r} value={r}>
+                      {t(r)}
+                    </option>
                   ))}
                 </select>
                 <button
@@ -373,7 +375,9 @@ export function Account({
                 onChange={(e) => setRole(e.target.value)}
               >
                 {roles.map((r) => (
-                  <option key={r}>{r}</option>
+                  <option key={r} value={r}>
+                    {t(r)}
+                  </option>
                 ))}
               </select>
               <button className="button primary" disabled={busy}>
@@ -383,7 +387,7 @@ export function Account({
             {invites.map((i) => (
               <div className="account-row" key={i.id}>
                 <div>
-                  <strong>{t("{role} invitation", { role: i.role })}</strong>
+                  <strong>{t("{role} invitation", { role: t(i.role) })}</strong>
                   <small>
                     {i.consumed_at
                       ? t("Accepted")
