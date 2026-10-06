@@ -9,14 +9,14 @@ function escapeHTML(value: string): string {
 
 /** Static HTML for each language: no model, API call or client translation needed. */
 export function renderWebsite(template: string, language: WebsiteLanguage): string {
-  const copy = language === "cn" ? chinese : english;
+  const copy = language === "zh" ? chinese : english;
   const messages: Record<string, string> = {
     ...copy,
-    lang: language === "cn" ? "zh-CN" : "en",
-    ogLocale: language === "cn" ? "zh_CN" : "en_US",
+    lang: language === "zh" ? "zh-CN" : "en",
+    ogLocale: language === "zh" ? "zh_CN" : "en_US",
     homePath: `/${language}/`,
     enCurrent: language === "en" ? "page" : "false",
-    cnCurrent: language === "cn" ? "page" : "false",
+    zhCurrent: language === "zh" ? "page" : "false",
   };
   return template.replace(/\{\{([a-zA-Z]+)\}\}/g, (_, key: string) => {
     if (!Object.hasOwn(messages, key)) throw new Error(`Missing website message: ${key}`);
