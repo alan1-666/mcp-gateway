@@ -38,6 +38,16 @@ type sessionInfo struct{ token, csrf, username string }
 type sessionKey struct{}
 type cloudKey struct{}
 
+// BrowserSessionBinding is a one-way binding for browser-initiated OAuth flows.
+// It is deliberately unavailable to personal API keys and machine clients.
+func BrowserSessionBinding(ctx context.Context) string {
+	s, ok := ctx.Value(sessionKey{}).(sessionInfo)
+	if !ok || s.token == "" {
+		return ""
+	}
+	return fmt.Sprintf("%x", digest(s.token))
+}
+
 // CanManageClients permits local administrators and authenticated cloud browser
 // administrators. Personal and client API keys cannot mint machine identities.
 func CanManageClients(ctx context.Context) bool {

@@ -26,6 +26,7 @@ import (
 	"github.com/alan1-666/mcp-gateway/internal/store/postgres"
 	"github.com/alan1-666/mcp-gateway/internal/transport/httpapi"
 	"github.com/alan1-666/mcp-gateway/internal/transport/mcpserver"
+	"github.com/alan1-666/mcp-gateway/internal/upstreamoauth"
 	"github.com/alan1-666/mcp-gateway/internal/upstreams"
 	"github.com/alan1-666/mcp-gateway/migrations"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -89,12 +90,16 @@ func Run(mode string) error {
 		return err
 	}
 	var vault *credentials.Store
+	var upstreamOAuth *upstreamoauth.Service
 	if path := os.Getenv("GATEWAY_MASTER_KEY_FILE"); path != "" {
 		key, readErr := os.ReadFile(path)
 		if readErr != nil {
 			return fmt.Errorf("cannot read gateway master key")
 		}
 		vault, err = credentials.New(pool, key, adapter)
+		if err == nil && os.Getenv("PUBLIC_ORIGIN") != "" {
+			upstreamOAuth, err = upstreamoauth.New(pool, key, adapter, os.Getenv("PUBLIC_ORIGIN"))
+		}
 		clear(key)
 		if err != nil {
 			return err
@@ -105,6 +110,9 @@ func Run(mode string) error {
 	}
 	upstreamStore := upstreams.NewStore(pool)
 	remote := mcpadapter.New(adapter, upstreamStore)
+	if upstreamOAuth != nil {
+		remote.SetOAuthProvider(upstreamOAuth)
+	}
 	upstreamService := upstreams.New(upstreamStore, remote)
 	if mode == "worker" {
 		schedulerDone := make(chan struct{})
@@ -190,7 +198,7 @@ func Run(mode string) error {
 		address = env("GATEWAY_ADDR", "127.0.0.1:8091")
 		mux.Handle("/mcp", mcpserver.Handler(service, executor, auth))
 	} else {
-		api := &httpapi.API{Service: service, Executor: executor, Adapter: adapter, Upstreams: upstreamService, Credentials: vault, Clients: clients.New(pool), Releases: releases.New(pool, remote, adapter), Observability: observability.New(pool), Capacity: budgets}
+		api := &httpapi.API{Service: service, Executor: executor, Adapter: adapter, Upstreams: upstreamService, Credentials: vault, Clients: clients.New(pool), Releases: releases.New(pool, remote, adapter), Observability: observability.New(pool), Capacity: budgets, UpstreamOAuth: upstreamOAuth}
 
 		if env("AUTH_MODE", "token") == "cloud" {
 			secretPath := os.Getenv("RUNNER_SHARED_SECRET_FILE")

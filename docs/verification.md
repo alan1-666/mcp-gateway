@@ -333,3 +333,33 @@ Deployed browser acceptance confirmed both languages, keyboard switching with se
 - Replaced the synthetic JSON comparison with an explicitly labeled, local five-step operation illustration. Keyboard-operable buttons switch between a confirmed result and an uncertain write: UNKNOWN is retained, no automatic write replay is represented, and a reviewer can append evidence. No preinstalled ticket connector or downstream exactly-once guarantee is claimed.
 - Production TypeScript/build checks and all 70 existing console tests passed. Browser checks covered both scenario directions, keyboard activation, language switching with the execution anchor, and the previous response anchor. Chinese remains free of full-width stops. English at 320px and Chinese at 390px have no horizontal document overflow; no browser errors were recorded.
 - Complete translated content is rendered into static HTML. Without JavaScript, the completed sequence remains readable and unavailable scenario controls remain hidden. Source and cloud deployment receipts are recorded on the corresponding feature pull request.
+
+## Upstream OAuth capability — 2026-10-06
+
+Implemented the profile in [upstream OAuth](upstream-oauth.md): pre-registered
+clients, protected-resource/issuer metadata, PKCE S256, mandatory RFC 9207 issuer
+responses, encrypted grants, browser-session-bound attempts and persisted refresh
+claims. Console Settings now contains configuration, authorization, status and
+reconnection controls. Enterprise account expansion is deferred.
+
+Local acceptance:
+
+- `make check`: Go vet, TypeScript checks and production bundles passed
+- `RUN_CLOUD_WORKER_INTEGRATION=1 TEST_DATABASE_URL=... make test`: all Go race
+  and PostgreSQL integration suites passed; console 79/79 and Pi runner 31/31 passed
+- 20 OAuth test groups cover metadata/egress bounds, PKCE, state/session/issuer
+  binding, exact resource fencing, encrypted persistence, optimistic edits,
+  concurrent refresh across two service instances, failed/ambiguous exchanges,
+  disabled servers, expired grants, and disconnect/configuration races
+- An official MCP SDK client/server over trusted fixture TLS exercised initialize,
+  tools/list and tools/call; a 401 was sent once, without refresh or replay, and
+  revoked/previously anonymous transports were fenced
+- Cloud HTTP contract tests verify administrator/browser-only management, CSRF,
+  workspace isolation, personal-key rejection and safe callback redirects
+- Release/backup/monitor Python suite: 39 tests passed
+
+These checks use isolated PostgreSQL schemas and deterministic provider fixtures.
+They do not claim completed consent or compatibility testing with a real external
+OAuth provider. Cloud release and browser acceptance are recorded in the release
+pull request after exact-commit CI. The TLS edge and console proxy must both
+suppress access and error logging for the callback URI before enabling OAuth.

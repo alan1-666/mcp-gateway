@@ -925,6 +925,28 @@
   flex-shrink: 0;
   margin-bottom: 1px;
 }
+.oauth-callback {
+  grid-column: 1 / -1;
+}
+.oauth-form,
+.oauth-confirm {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+.oauth-form {
+  display: grid;
+  gap: 14px;
+}
+.oauth-form h4,
+.oauth-form p {
+  margin: 0;
+}
+.oauth-form select,
+.oauth-form input {
+  min-width: 0;
+  max-width: 100%;
+}
 @media (max-width: 640px) {
   .schedule-controls {
     flex-wrap: wrap;

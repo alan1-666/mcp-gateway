@@ -18,6 +18,7 @@ import (
 	"github.com/alan1-666/mcp-gateway/internal/identity"
 	"github.com/alan1-666/mcp-gateway/internal/observability"
 	"github.com/alan1-666/mcp-gateway/internal/releases"
+	"github.com/alan1-666/mcp-gateway/internal/upstreamoauth"
 	"github.com/alan1-666/mcp-gateway/internal/upstreams"
 )
 
@@ -31,11 +32,13 @@ type API struct {
 	Releases      *releases.Service
 	Observability *observability.Service
 	Capacity      *capacity.Service
+	UpstreamOAuth *upstreamoauth.Service
 }
 
 func (a *API) Handler(auth *identity.Auth) http.Handler {
 	mux := http.NewServeMux()
 	a.registerUpstreams(mux)
+	a.registerUpstreamOAuth(mux)
 	a.registerResponsePolicies(mux)
 	a.registerCredentials(mux)
 	a.registerDiagnostics(mux)
@@ -134,7 +137,15 @@ func (a *API) Handler(auth *identity.Auth) http.Handler {
 		}
 		respond(w, map[string]any{"items": result}, err)
 	})
-	return auth.Middleware(mux)
+	protected := auth.Middleware(mux)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if a.UpstreamOAuth != nil && r.Method == http.MethodGet && r.URL.Path == upstreamoauth.CallbackPath {
+			w.Header().Set("Referrer-Policy", "no-referrer")
+			protected.ServeHTTP(&oauthCallbackResponse{ResponseWriter: w}, r)
+			return
+		}
+		protected.ServeHTTP(w, r)
+	})
 }
 
 func (a *API) listTools(w http.ResponseWriter, r *http.Request) {

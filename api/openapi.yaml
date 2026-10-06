@@ -4,7 +4,7 @@ info:
   version: 0.1.0
   description: |
     HTTP contract for the implemented tool registry, remote MCP server management,
-    scoped clients, encrypted credentials, reviewed tool releases, approval, durable
+    upstream OAuth connections, scoped clients, encrypted credentials, reviewed tool releases, approval, durable
     execution, audit and capacity APIs.
     The MCP transport is exposed separately and is not described by this document.
 
@@ -14,6 +14,9 @@ info:
     Origin must appear in the server's allowed-origin configuration. Cloud session
     mutations also require X-CSRF-Token. Account endpoints are documented separately
     in docs/cloud-deployment.md and require browser sessions for administration.
+    Upstream OAuth management accepts administrator browser sessions only; bearer
+    keys cannot configure or authorize these connections. Its provider callback is
+    a GET redirect endpoint, not a JSON action, and uses the initiating session.
 
     POST requests require Content-Type application/json and one JSON object, with a
     maximum request body of 262144 bytes. Unknown request fields are rejected. Actions
@@ -142,6 +145,9 @@ paths:
         diagnostics with effective enabled false. Re-enabling preserves each tool's
         independent published/enabled state. An already admitted downstream request
         is not guaranteed to be cancelled; recorded results are retained.
+        If OAuth is configured, disabling also clears its grant and pending attempt
+        and increments its connection version. Re-enabling requires fresh OAuth
+        authorization before that server's tools can be called.
       x-required-roles: [admin]
       requestBody:
         required: true
@@ -220,6 +226,264 @@ paths:
           $ref: '#/components/responses/Unavailable'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /api/v1/mcp/servers/{id}/oauth:
+    parameters:
+      - $ref: '#/components/parameters/ResourceID'
+    get:
+      operationId: getMCPUpstreamOAuth
+      tags: [MCP Servers]
+      summary: Read the upstream OAuth connection status
+      security: [{sessionCookie: []}]
+      x-required-roles: [admin]
+      description: |
+        Requires a cloud administrator browser session. Returns unconfigured with
+        version 0 when the server has no OAuth configuration. Does not contact the
+        provider or refresh tokens. Expired authorization attempts and abandoned
+        exchanges are reported as reconnect_required. Configuration contains public
+        client metadata only; secrets, tokens, state and PKCE verifiers are never returned.
+        OAuth routes are unavailable when the cloud OAuth service is not configured.
+      responses:
+        '200': {$ref: '#/components/responses/MCPUpstreamOAuthStatus'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '429': {$ref: '#/components/responses/TooManyRequests'}
+        '503': {$ref: '#/components/responses/MCPUpstreamOAuthUnavailable'}
+    put:
+      operationId: configureMCPUpstreamOAuth
+      tags: [MCP Servers]
+      summary: Replace the upstream OAuth client configuration
+      security: [{sessionCookie: []}]
+      x-required-roles: [admin]
+      parameters:
+        - $ref: '#/components/parameters/SessionCSRF'
+        - $ref: '#/components/parameters/SessionOrigin'
+      description: |
+        Requires an enabled server without credential_ref and an administrator browser
+        session. Discovers metadata under the configured egress policy, then checks
+        expected_version again inside the management transaction. Use version 0 for
+        initial configuration; otherwise use the current status version.
+
+        Supports pre-registered clients, authorization code, PKCE S256 and RFC 9207
+        issuer responses. Saves an encrypted client secret only for client_secret_basic;
+        that secret must be supplied again on every replacement. Saving increments the
+        version, clears the previous grant and authorization attempt, and leaves the
+        connection disconnected. A 409 requires reading status before another mutation.
+        A failed or interrupted response must not trigger an automatic retry.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/MCPUpstreamOAuthConfigInput'}
+      responses:
+        '200': {$ref: '#/components/responses/MCPUpstreamOAuthStatus'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '429': {$ref: '#/components/responses/TooManyRequests'}
+        '503': {$ref: '#/components/responses/MCPUpstreamOAuthUnavailable'}
+  /api/v1/mcp/servers/{id}/oauth/discover:
+    parameters:
+      - $ref: '#/components/parameters/ResourceID'
+    post:
+      operationId: discoverMCPUpstreamOAuth
+      tags: [MCP Servers]
+      summary: Discover the protected resource and authorization provider
+      security: [{sessionCookie: []}]
+      x-required-roles: [admin]
+      parameters:
+        - $ref: '#/components/parameters/SessionCSRF'
+        - $ref: '#/components/parameters/SessionOrigin'
+      description: |
+        Requires an enabled server without credential_ref and an administrator browser
+        session. Uses an unauthenticated MCP initialize to inspect the Bearer challenge;
+        never invokes tools. Falls back to path-specific and root protected-resource
+        metadata, then OAuth/OIDC issuer metadata. Every network origin must be explicitly
+        allowed; redirects, credentials in URLs, query strings and fragments are rejected.
+        Metadata JSON is limited to 65536 bytes per response and discovery to 20 seconds.
+
+        An optional issuer selects an advertised provider. Without it, selects the first
+        allowed provider supporting authorization code, PKCE S256, RFC 9207 issuer
+        responses and one supported client authentication method. Resource metadata
+        must identify the exact registered MCP URL. Returns the fixed callback URI for
+        preregistration; does not register clients or save an OAuth configuration.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                issuer:
+                  $ref: '#/components/schemas/MCPUpstreamOAuthURL'
+      responses:
+        '200':
+          description: Bounded resource metadata and a compatible authorization provider
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/MCPUpstreamOAuthMetadata'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '429': {$ref: '#/components/responses/TooManyRequests'}
+        '503': {$ref: '#/components/responses/MCPUpstreamOAuthUnavailable'}
+  /api/v1/mcp/servers/{id}/oauth/connect:
+    parameters:
+      - $ref: '#/components/parameters/ResourceID'
+    post:
+      operationId: connectMCPUpstreamOAuth
+      tags: [MCP Servers]
+      summary: Start a browser-bound upstream authorization attempt
+      security: [{sessionCookie: []}]
+      x-required-roles: [admin]
+      parameters:
+        - $ref: '#/components/parameters/SessionCSRF'
+        - $ref: '#/components/parameters/SessionOrigin'
+      description: |
+        Requires saved OAuth configuration, an enabled server without credential_ref,
+        and an administrator browser session. Atomically checks expected_version,
+        increments the version, clears any previous grant, and stores one authorization
+        attempt bound to this administrator and browser session. Open authorization_url
+        in the same browser session; the attempt expires after ten minutes. Starting
+        another attempt invalidates the preceding link. No access token is returned.
+        A stale version returns 409; read status before reconnecting or retrying.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ExpectedVersionInput'}
+      responses:
+        '200':
+          description: One-time authorization link and its deadline; do not log or persist the link in browser storage
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/MCPUpstreamOAuthAuthorization'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '429': {$ref: '#/components/responses/TooManyRequests'}
+        '503': {$ref: '#/components/responses/MCPUpstreamOAuthUnavailable'}
+  /api/v1/mcp/servers/{id}/oauth/disconnect:
+    parameters:
+      - $ref: '#/components/parameters/ResourceID'
+    post:
+      operationId: disconnectMCPUpstreamOAuth
+      tags: [MCP Servers]
+      summary: Clear the stored upstream grant and pending authorization
+      security: [{sessionCookie: []}]
+      x-required-roles: [admin]
+      parameters:
+        - $ref: '#/components/parameters/SessionCSRF'
+        - $ref: '#/components/parameters/SessionOrigin'
+      description: |
+        Requires an existing OAuth configuration and an administrator browser session.
+        Checks expected_version and increments the version, preventing an older exchange
+        or refresh from restoring the grant. Clears local tokens and pending attempts;
+        retains the client configuration and encrypted client secret. Does not revoke
+        consent at the provider. Later calls fail closed until reconnection, without
+        falling back to anonymous access. Already dispatched requests may finish.
+        Available for disabled servers. Read status after any 409 or uncertain response.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ExpectedVersionInput'}
+      responses:
+        '200': {$ref: '#/components/responses/MCPUpstreamOAuthStatus'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '429': {$ref: '#/components/responses/TooManyRequests'}
+        '503': {$ref: '#/components/responses/MCPUpstreamOAuthUnavailable'}
+  /api/v1/mcp/oauth/callback:
+    get:
+      operationId: completeMCPUpstreamOAuth
+      tags: [MCP Servers]
+      summary: Complete the provider's authorization response
+      security: [{sessionCookie: []}]
+      x-required-roles: [admin]
+      x-max-query-bytes: 16384
+      description: |
+        Fixed preregistered HTTPS callback. Requires the initiating administrator's
+        browser session, matching one-time state, and an iss value exactly matching
+        the configured issuer. Exactly one nonempty code or error is accepted.
+        Recognized parameters must not be repeated; unknown response parameters are
+        ignored. The complete encoded query must not exceed 16384 bytes.
+
+        Claims the attempt before a single code exchange with PKCE S256 and the exact
+        resource audience. Exchange failure, denial, expired/replayed state or a
+        mismatched issuer redirects to reconnect_required. Missing, revoked or expired
+        browser sessions also redirect there without exchanging the code. This GET
+        callback does not require the mutation CSRF header; state and session binding
+        authorize completion. No arbitrary redirect destination, provider error or
+        token is reflected. Reverse proxies must omit credential-bearing callback
+        queries from access and error logs.
+      parameters:
+        - name: state
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 43
+            maxLength: 43
+            pattern: '^[A-Za-z0-9_-]{43}$'
+        - name: iss
+          in: query
+          required: true
+          schema: {$ref: '#/components/schemas/MCPUpstreamOAuthURL'}
+        - name: code
+          in: query
+          description: Required on success and mutually exclusive with error. Never log this value.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 8192
+            x-max-utf8-bytes: 8192
+        - name: error
+          in: query
+          description: Required on provider denial and mutually exclusive with code. Converted to a fixed local outcome.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+            x-max-utf8-bytes: 128
+        - name: error_description
+          in: query
+          description: Optional provider diagnostic, ignored and never reflected. Shares the total encoded-query limit.
+          schema: {type: string, maxLength: 16384}
+        - name: error_uri
+          in: query
+          description: Optional provider diagnostic URI, ignored; never fetched or used for redirects.
+          schema: {type: string, maxLength: 16384}
+        - name: session_state
+          in: query
+          description: Optional provider session metadata, ignored. Gateway authorization is bound to its own browser session.
+          schema: {type: string, maxLength: 16384}
+      responses:
+        '303':
+          description: Authorization outcome or authentication rejection; follow the fixed local Location
+          headers:
+            Location:
+              required: true
+              schema:
+                type: string
+                enum: ['/console/?oauth=connected', '/console/?oauth=reconnect_required']
+            Cache-Control:
+              schema: {type: string, const: no-store}
+            Referrer-Policy:
+              schema: {type: string, const: no-referrer}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '429': {$ref: '#/components/responses/TooManyRequests'}
+        '503': {$ref: '#/components/responses/Unavailable'}
   /api/v1/mcp/servers/{id}/catalog-schedule:
     parameters:
       - $ref: '#/components/parameters/ResourceID'
@@ -1813,6 +2077,22 @@ components:
       scheme: bearer
       description: Expiring cloud personal API key, scoped machine-client key, or configured development token. Machine-client keys have live scope/grant checks and cannot administer resources. Identity, role and workspace are always supplied by the server.
   parameters:
+    SessionCSRF:
+      name: X-CSRF-Token
+      in: header
+      required: true
+      description: CSRF token belonging to the authenticated cloud browser session.
+      schema:
+        type: string
+        minLength: 1
+    SessionOrigin:
+      name: Origin
+      in: header
+      required: true
+      description: Must exactly equal the configured PUBLIC_ORIGIN; browsers supply this header for mutations.
+      schema:
+        type: string
+        format: uri
     ToolQuery:
       name: query
       in: query
@@ -1932,6 +2212,18 @@ components:
             maxProperties: 0
           example: {}
   responses:
+    MCPUpstreamOAuthStatus:
+      description: Current versioned OAuth status and public configuration; never includes secrets or tokens
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/MCPUpstreamOAuthStatus'
+    MCPUpstreamOAuthUnavailable:
+      description: OAuth status or durable completion could not be confirmed. Read the connection status before attempting another mutation; never automatically repeat a code exchange or refresh.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
     MCPServer:
       description: Current registered MCP server with credential references only
       content:
@@ -2116,6 +2408,169 @@ components:
           type: integer
           minimum: 0
           maximum: 100
+    MCPUpstreamOAuthURL:
+      type: string
+      format: uri
+      minLength: 1
+      maxLength: 2048
+      x-max-utf8-bytes: 2048
+      pattern: '^https://'
+      description: HTTPS URL without userinfo, query, fragment, backslash or line breaks. Server-side requests additionally require an allowed exact origin and resolved address.
+    MCPUpstreamOAuthCallbackURI:
+      type: string
+      format: uri
+      pattern: '^https://.+/api/v1/mcp/oauth/callback$'
+      description: Fixed HTTPS callback derived from PUBLIC_ORIGIN; must be registered exactly with the authorization provider.
+    MCPUpstreamOAuthMethod:
+      type: string
+      enum: [none, client_secret_basic]
+      description: Public client with PKCE, or HTTP Basic client authentication with PKCE. Other authentication methods are unsupported.
+    MCPUpstreamOAuthScopes:
+      type: array
+      maxItems: 64
+      uniqueItems: true
+      items:
+        type: string
+        minLength: 1
+        maxLength: 256
+        pattern: '^[\x21\x23-\x5B\x5D-\x7E]+$'
+      description: Distinct OAuth scope tokens of at most 256 ASCII bytes each, excluding spaces, quotes and backslashes. An empty requested set omits scope during authorization and uses provider defaults.
+    MCPUpstreamOAuthConfiguration:
+      type: object
+      additionalProperties: false
+      required: [issuer, client_id, auth_method, scopes]
+      properties:
+        issuer:
+          $ref: '#/components/schemas/MCPUpstreamOAuthURL'
+        client_id:
+          type: string
+          minLength: 1
+          maxLength: 2048
+          x-max-utf8-bytes: 2048
+          description: Pre-registered client identifier. Must contain a non-whitespace character and no NUL, CR or LF.
+        auth_method:
+          $ref: '#/components/schemas/MCPUpstreamOAuthMethod'
+        scopes:
+          $ref: '#/components/schemas/MCPUpstreamOAuthScopes'
+    MCPUpstreamOAuthConfigInput:
+      type: object
+      additionalProperties: false
+      required: [expected_version, issuer, client_id, auth_method]
+      properties:
+        expected_version:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Use 0 only when status is unconfigured; otherwise the current saved version. Stale versions return 409 and require a fresh status read.
+        issuer:
+          $ref: '#/components/schemas/MCPUpstreamOAuthURL'
+        client_id:
+          $ref: '#/components/schemas/MCPUpstreamOAuthConfiguration/properties/client_id'
+        auth_method:
+          $ref: '#/components/schemas/MCPUpstreamOAuthMethod'
+        client_secret:
+          type: string
+          format: password
+          writeOnly: true
+          maxLength: 8192
+          x-max-utf8-bytes: 8192
+          description: Required and nonempty for client_secret_basic; omitted or empty for none. No NUL, CR or LF. Encrypted at rest, never returned; reenter on each configuration replacement.
+        scopes:
+          $ref: '#/components/schemas/MCPUpstreamOAuthScopes'
+          default: []
+      allOf:
+        - if:
+            properties:
+              auth_method: {const: client_secret_basic}
+            required: [auth_method]
+          then:
+            required: [client_secret]
+            properties:
+              client_secret: {minLength: 1}
+          else:
+            properties:
+              client_secret: {maxLength: 0}
+    MCPUpstreamOAuthStatus:
+      type: object
+      additionalProperties: false
+      required: [server_id, version, status, redirect_uri]
+      properties:
+        server_id:
+          type: string
+          format: uuid
+        version:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Monotonic connection version. Configuration, authorization, refresh, disconnect and server disable may change it; read again after 409.
+        status:
+          type: string
+          enum: [unconfigured, disconnected, pending, exchanging, connected, refreshing, reconnect_required]
+        redirect_uri:
+          $ref: '#/components/schemas/MCPUpstreamOAuthCallbackURI'
+        configuration:
+          $ref: '#/components/schemas/MCPUpstreamOAuthConfiguration'
+        expires_at:
+          type: string
+          format: date-time
+          description: Stored access-token expiry when the provider returned a lifetime. Omitted when expiry is unknown or no grant is stored; not the authorization-attempt deadline.
+        updated_at:
+          type: string
+          format: date-time
+      description: |
+        Public connection record. unconfigured has version 0 and no configuration or
+        updated_at. Configured records have a positive version and include both fields.
+        This connection is shared by this server's imported tools in the workspace.
+        Expired attempts and abandoned exchanges are presented as reconnect_required.
+        Tokens are refreshed only during MCP access, not by this status read.
+    MCPUpstreamOAuthMetadata:
+      type: object
+      additionalProperties: false
+      required: [resource, issuers, issuer, authorization_endpoint, token_endpoint, scopes_supported, auth_methods, redirect_uri]
+      properties:
+        resource:
+          $ref: '#/components/schemas/MCPUpstreamOAuthURL'
+        issuers:
+          type: array
+          minItems: 1
+          maxItems: 16
+          items: {$ref: '#/components/schemas/MCPUpstreamOAuthURL'}
+          description: Issuers advertised by the exact protected resource. Selecting another issuer performs a new discovery and policy check.
+        issuer:
+          $ref: '#/components/schemas/MCPUpstreamOAuthURL'
+        authorization_endpoint:
+          $ref: '#/components/schemas/MCPUpstreamOAuthURL'
+        token_endpoint:
+          $ref: '#/components/schemas/MCPUpstreamOAuthURL'
+        scopes_supported:
+          type: array
+          maxItems: 64
+          items:
+            $ref: '#/components/schemas/MCPUpstreamOAuthScopes/items'
+          description: Advertised protected-resource scopes for review, not an automatic grant or a restriction on manually requested scopes.
+        auth_methods:
+          type: array
+          minItems: 1
+          maxItems: 2
+          uniqueItems: true
+          items: {$ref: '#/components/schemas/MCPUpstreamOAuthMethod'}
+        redirect_uri:
+          $ref: '#/components/schemas/MCPUpstreamOAuthCallbackURI'
+      description: The selected issuer matches its metadata, supports response type code, PKCE S256 and authorization_response_iss_parameter_supported=true. Dynamic client registration, client ID metadata documents and device authorization are not supported by this profile.
+    MCPUpstreamOAuthAuthorization:
+      type: object
+      additionalProperties: false
+      required: [authorization_url, expires_at]
+      properties:
+        authorization_url:
+          type: string
+          format: uri
+          pattern: '^https://'
+          description: Provider authorization URL containing client_id, exact redirect_uri, state, PKCE S256 challenge, resource and optional scope. Bound to the initiating session; never contains an access token or client secret.
+        expires_at:
+          type: string
+          format: date-time
+          description: Ten-minute deadline of this single-use authorization attempt.
     MCPConfig:
       type: object
       additionalProperties: false

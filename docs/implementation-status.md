@@ -13,6 +13,7 @@ The [product design](product-design.md) and [system architecture](architecture.m
 | Execution | Prepare → independent approval for writes → atomic claim → HTTP/MCP dispatch → durable result; canonical idempotency checks and conservative recovery |
 | Uncertainty | Interrupted or ambiguous writes remain `UNKNOWN`; independent reviewers append immutable outcome evidence with concurrent-update protection, without replaying the call or rewriting its state |
 | Network and secrets | Deployment origin/CIDR allowlists, checked DNS dialing, blocked redirects/metadata addresses; static-file or AES-GCM-encrypted workspace/origin-bound credentials with dynamic rotation/disablement |
+| Upstream OAuth | Pre-registered public/confidential clients, protected-resource and issuer discovery, PKCE S256 + RFC 9207, browser-bound callbacks, encrypted grants, cross-process refresh claims, revocation fences and reconnect controls; see [supported profile](upstream-oauth.md) |
 | Connection diagnostics | Safe policy/authentication/connection/discovery/compatibility stages, per-tool reports and persisted bounded check history; no business tool calls during a check |
 | Catalog change review | Complete discovery compared with registered versions; schema/description drift, unimported/missing tools, last 50 successful reports and audit; hash/version-guarded refresh candidates with explicit review/publication |
 | Scheduled catalog checks | Opt-in per-server cadence, two bounded worker consumers, durable fenced leases, failure backoff, safe outcomes, admin revision checks and source-labeled history; see [scheduling](catalog-scheduling.md) |
@@ -38,7 +39,7 @@ English and Simplified Chinese pages are available at `/en/` and `/cn/`; `/` rem
 
 | Workstream | Delivered | Next gap |
 | --- | --- | --- |
-| Third-party access | Remote Streamable HTTP, managed credentials, discovery/import and connection diagnostics; public documentation and an authorized private test integration have each supplied three published tools | Upstream OAuth, outbound private Connector, stdio and additional protocols |
+| Third-party access | Remote Streamable HTTP, managed credentials, pre-registered OAuth, discovery/import and connection diagnostics; public documentation and an authorized private test integration have each supplied three published tools | Outbound private Connector, stdio, additional OAuth registration profiles and protocols |
 | Tool governance | Explicit client grants, immutable versions, candidate diffs, approval, retirement and reviewed rollback | Staged publication and broader access policies |
 | Response control | Schema validation, object/array projection, cursor preservation, bounded results and sample preview | Large-result storage and measured production workloads |
 | Operational visibility | Recorded operations, audit, scoped admission, catalog comparison, retained review history and scheduled checks | Telemetry/SLO dashboards and scheduler-specific alerting |
@@ -51,14 +52,24 @@ English and Simplified Chinese pages are available at `/en/` and `/cn/`; `/` rem
 
 The original five packages are implemented: connections/credentials, client access, tool publication, diagnostics/audit, and capacity/recovery. Their cloud.8 acceptance is historical evidence, not the current deployment. Subsequent proxy recovery, private integration and catalog-review releases are recorded chronologically in [verification](verification.md).
 
-The console redesign is deployed and cloud-verified. Scheduled catalog checks are deployed and cloud-verified. The public website is deployed and cloud-verified, with its own workspace route and backward-compatible invitation entry. The next access capability is upstream OAuth. Off-host recovery and external alert delivery still need real destinations before they can be commissioned. Use the [delivery workflow](development.md#delivery-workflow) for every package; completion of one package does not establish readiness for all production scenarios.
+The console redesign is deployed and cloud-verified. Scheduled catalog checks are deployed and cloud-verified. The public website is deployed and cloud-verified, with its own workspace route and backward-compatible invitation entry. Upstream OAuth is implemented for the documented pre-registered client profile; real third-party consent acceptance is still pending. Gateway product capabilities take priority over enterprise account expansion. Off-host recovery and external alert delivery still need real destinations before they can be commissioned. Use the [delivery workflow](development.md#delivery-workflow) for every package; completion of one package does not establish readiness for all production scenarios.
+
+### Gateway product priorities
+
+1. Complete remote connection coverage: validate this OAuth profile against a named real provider; add private Connector and isolated stdio support
+2. Improve tool discovery: service/environment filters, ranking, context-budget measurements and permission-aware catalog performance
+3. Improve response handling: measured workloads, large-result artifacts and on-demand retrieval, while retaining schema/cursor guarantees
+4. Improve execution quality: classified failures, read-only retry policies, upstream circuit breaking and outcome verification without replaying uncertain writes
+5. Make quality measurable: traces, latency/error dashboards, load tests and reproducible end-to-end evaluation cases
+
+Enterprise SSO/MFA, multi-organization membership and account expansion are deferred. Existing permissions and approval gates continue to protect gateway operations.
 
 ## Remaining production architecture
 
 - Enterprise OIDC/OAuth interoperability, MFA, self-service account recovery and short-lived Runner identity.
 - Multiple organization/workspace membership, database RLS and separate service database accounts.
 - Signed application/tool releases, staged rollout, instance acknowledgements and broader version-compatibility policies.
-- OpenAPI/Protobuf import, gRPC, upstream MCP OAuth and an outbound private-network Connector with isolated stdio execution.
+- OpenAPI/Protobuf import, gRPC, additional upstream OAuth registration profiles and an outbound private-network Connector with isolated stdio execution.
 - Semantic ranking, service/environment filters and actor/resource/field-level access policies.
 - Distributed Runner control, multi-host checkpoint storage and organization-wide model budgets.
 - Adapter-specific business outcome queries, compensation and upstream idempotency guarantees.
@@ -72,7 +83,7 @@ The console redesign is deployed and cloud-verified. Scheduled catalog checks ar
 - Cloud.16 is deployed from `9dc23b702d613a7d45e54241caa5dcebf85f610d`, applying the Rillgate name to the public website, workspace, browser identity and CLI help. Exact-source push/PR checks and bounded cloud brand/routing/auth/UI acceptance passed. The preceding cloud.11 acceptance includes a projected external MCP read; cloud.14 includes actual scheduled discovery with no business calls or definition mutations; cloud.15 includes account login and invitation-route acceptance. Brand acceptance changed no business tools or client grants and created no new accounts. The release sequence remains in [verification](verification.md). Full cloud administrative-mutation coverage and a real application rollback are not claimed.
 - The host topology is single-server. An encrypted local snapshot shares that host's failure domain. An authorized second backup destination and an external alert webhook are still pending; no snapshot or backup-key copy to another host has completed. Automatic off-host recovery protection and external notification are not yet commissioned.
 - Backups contain PostgreSQL, cloud configuration and the secret directory including the vault master key. Pi configuration/session volumes, nginx and certificate state need their own coordinated recovery handling. The independent backup key must be escrowed separately. Snapshots are not automatically pruned; production retention/deletion remains future work.
-- HTTP tools require bounded JSON and static paths. Remote MCP supports Streamable HTTP JSON/SSE responses to the original POST and text/structured results; no legacy SSE, standalone streams/resumption, upstream OAuth or stdio. See [remote MCP integration](remote-mcp-contract.md).
+- HTTP tools require bounded JSON and static paths. Remote MCP supports Streamable HTTP JSON/SSE responses to the original POST and text/structured results; no legacy SSE, standalone streams/resumption or stdio. OAuth requires the documented pre-registered client, PKCE and issuer-response profile. See [remote MCP integration](remote-mcp-contract.md).
 - Server registration is admin-only and capped at 100 per workspace. Credentials cannot expand the deployment's origin/CIDR allowlist. Managed credential changes resolve on new attempts without restart; static file/network-policy changes still need service replacement.
 - Normal discovery is complete or fails: 1000 tools, 100 pages, 4 MiB aggregate, 1 MiB per protocol response, 64 KiB per schema. Diagnostics can explain incompatible definitions, but do not authorize partial import. Every execution repeats discovery; no pool, cache or background synchronization is implemented.
 - All write tools require independent approval with a 30-minute expiry. Human reconciliation retains the operation's `UNKNOWN` state; a confirmed human finding is separate evidence, not a new adapter result.
