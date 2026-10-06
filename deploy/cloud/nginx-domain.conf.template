@@ -1,0 +1,74 @@
+# Replace PUBLIC_DOMAIN and PUBLIC_IP before installing this instead of the
+# IP-only template. Issue both certificates before nginx reads this file.
+limit_req_zone $binary_remote_addr zone=gateway_auth:10m rate=10r/m;
+limit_req_zone $binary_remote_addr zone=gateway_api:10m rate=30r/s;
+log_format gateway_safe '$remote_addr $request_method $uri $status $request_time';
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name PUBLIC_DOMAIN www.PUBLIC_DOMAIN PUBLIC_IP;
+    location /.well-known/acme-challenge/ { root /var/www/mcp-gateway-acme; }
+    location / { return 308 https://PUBLIC_DOMAIN$request_uri; }
+}
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name PUBLIC_DOMAIN;
+    if ($host != PUBLIC_DOMAIN) { return 444; }
+    ssl_certificate /etc/letsencrypt/live/mcp-gateway-domain/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/mcp-gateway-domain/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_session_cache shared:GatewayTLS:10m;
+    ssl_session_tickets off;
+    server_tokens off;
+    client_max_body_size 256k;
+    client_body_timeout 15s;
+    add_header Strict-Transport-Security "max-age=31536000" always;
+    access_log /var/log/nginx/mcp-gateway-access.log gateway_safe;
+    error_log /var/log/nginx/mcp-gateway-error.log warn;
+    limit_req_status 429;
+    location /internal/ { return 404; }
+    location ~ ^/api/v1/auth/(login|accept|password)$ {
+        limit_req zone=gateway_auth burst=10 nodelay;
+        proxy_pass http://127.0.0.1:4782;
+        proxy_set_header Host $host;
+        proxy_read_timeout 30s;
+    }
+    location / {
+        limit_req zone=gateway_api burst=60 nodelay;
+        proxy_pass http://127.0.0.1:4782;
+        proxy_set_header Host $host;
+        proxy_read_timeout 145s;
+        proxy_buffering off;
+    }
+}
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name www.PUBLIC_DOMAIN;
+    if ($host != www.PUBLIC_DOMAIN) { return 444; }
+    ssl_certificate /etc/letsencrypt/live/mcp-gateway-domain/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/mcp-gateway-domain/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_session_tickets off;
+    server_tokens off;
+    add_header Strict-Transport-Security "max-age=31536000" always;
+    access_log /var/log/nginx/mcp-gateway-access.log gateway_safe;
+    return 308 https://PUBLIC_DOMAIN$request_uri;
+}
+server {
+    # IP clients commonly omit SNI; keep their certificate as the TLS default.
+    listen 443 ssl default_server;
+    listen [::]:443 ssl default_server;
+    server_name PUBLIC_IP;
+    if ($host != PUBLIC_IP) { return 444; }
+    ssl_certificate /etc/letsencrypt/live/mcp-gateway-ip/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/mcp-gateway-ip/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_session_tickets off;
+    server_tokens off;
+    add_header Strict-Transport-Security "max-age=31536000" always;
+    access_log /var/log/nginx/mcp-gateway-access.log gateway_safe;
+    return 308 https://PUBLIC_DOMAIN$request_uri;
+}

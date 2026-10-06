@@ -2,6 +2,8 @@
 
 **The MCP gateway for governed agent access.**
 
+[Website](https://rillgate.cn/) · [Team workspace](https://rillgate.cn/console/) · [Documentation](docs/architecture.md)
+
 Rillgate connects AI agents to existing HTTP APIs and remote MCP servers through a governed tool discovery and execution layer. Its Go backend manages upstream connections, reviewed tool contracts, permissions, approvals and bounded responses. A web console provides administration and execution history; Pi is a client for model-assisted tasks. OpenAPI import, gRPC integration and private-network Connectors remain planned.
 
 > **Project status:** Active development. The core cloud gateway, invitation-only workspace, Pi task worker and scheduled catalog checks are implemented and cloud-verified within the acceptance journeys recorded in [verification](docs/verification.md). The public product website is at `/`; the team workspace is at `/console/`. Upstream OAuth, private Connectors, high availability and independently commissioned recovery remain open. See [implementation status](docs/implementation-status.md) for current delivery and remaining production work.
