@@ -141,8 +141,12 @@ func TestDiscoveryAcrossRESTMCPAndLiveCloudIdentity(t *testing.T) {
 			t.Fatal(err)
 		}
 		for _, item := range wire.Items {
-			if len(item) != 5 {
-				t.Fatalf("discovery leaked extra fields: %v", item)
+			for key := range item {
+				switch key {
+				case "id", "name", "description", "risk", "version", "match", "server_id":
+				default:
+					t.Fatalf("discovery leaked extra field: %s", key)
+				}
 			}
 			for _, key := range []string{"id", "name", "description", "risk", "version"} {
 				if _, ok := item[key]; !ok {
@@ -204,6 +208,18 @@ func TestDiscoveryAcrossRESTMCPAndLiveCloudIdentity(t *testing.T) {
 	if !reflect.DeepEqual(second, fromMCP) {
 		t.Fatalf("REST/MCP page mismatch: REST %+v MCP %+v", second, fromMCP)
 	}
+
+	rankedREST := decodePage(request("/catalog/tools?query=NEEDLE", "operator", 200))
+	rankedMCP := searchMCP(map[string]any{"query": "NEEDLE"}, false)
+	if !reflect.DeepEqual(rankedREST, rankedMCP) || rankedMCP.Items[0].Match == nil {
+		t.Fatalf("ranked REST/MCP mismatch: %+v %+v", rankedREST, rankedMCP)
+	}
+	filteredREST := decodePage(request("/catalog/tools?query=NEEDLE&server_id=absent-service", "operator", 200))
+	filteredMCP := searchMCP(map[string]any{"query": "NEEDLE", "server_id": "absent-service"}, false)
+	if !reflect.DeepEqual(filteredREST, filteredMCP) || filteredMCP.Total != 0 {
+		t.Fatalf("server filter REST/MCP mismatch: %+v %+v", filteredREST, filteredMCP)
+	}
+	searchMCP(map[string]any{"query": "NEEDLE", "server_id": "absent-service", "cursor": first.NextCursor}, true)
 	searchMCP(map[string]any{"cursor": "invalid"}, true)
 	// The protocol advertises and enforces the same page-size bound.
 	invalidResult, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "search_tools", Arguments: map[string]any{"limit": 0}})

@@ -19,6 +19,7 @@ export function ToolResponsePolicy({ tool }: { tool: Tool }) {
     <h3>Response policy</h3>
     <p>{policy.include?.length ? "Only these fields are retained:" : "All result fields are retained."}</p>
     {policy.include?.length ? <ul>{policy.include.map((path) => <li className="mono" key={path}>{path}</li>)}</ul> : null}
-    <p>Maximum {policy.max_bytes.toLocaleString()} bytes. Top-level nextCursor and next_cursor are preserved when present.</p>
+    {policy.artifact ? <p>Large results: up to {policy.artifact.max_bytes.toLocaleString()} bytes; retained for {policy.artifact.ttl_seconds} seconds.</p> : null}
+    <p>Inline maximum {policy.max_bytes.toLocaleString()} bytes. Top-level nextCursor and next_cursor are preserved when present.</p>
   </div>;
 }

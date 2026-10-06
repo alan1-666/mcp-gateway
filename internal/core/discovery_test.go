@@ -25,6 +25,10 @@ func TestNormalizeToolSearchBounds(t *testing.T) {
 		{Query: strings.Repeat("中", 67)},
 		{Query: string([]byte{0xff})},
 		{Query: "a\x00b"},
+		{ServerID: strings.Repeat("x", 129)},
+		{ServerID: "abc\x00"},
+		{ServerID: "a\rb"},
+		{ServerID: string([]byte{0xff})},
 		{Limit: -1},
 		{Limit: 51},
 		{Cursor: strings.Repeat("a", 2049)},
@@ -111,12 +115,13 @@ type searchRepository struct {
 	input ToolSearchInput
 	scope ToolVisibilityScope
 	page  ToolPage
+	err   error
 }
 
 func (r *searchRepository) SearchTools(_ context.Context, _ Actor, input ToolSearchInput, scope ToolVisibilityScope) (ToolPage, error) {
 	r.input = input
 	r.scope = scope
-	return r.page, nil
+	return r.page, r.err
 }
 
 func TestServiceControlsSearchScopeAndSummary(t *testing.T) {
@@ -149,5 +154,50 @@ func TestServiceControlsSearchScopeAndSummary(t *testing.T) {
 	}
 	if _, err := service.DiscoverTools(context.Background(), Actor{}, ToolSearchInput{}); !errors.Is(err, ErrUnauthorized) {
 		t.Fatalf("unauthenticated discovery: %v", err)
+	}
+}
+
+func TestDiscoverySummaryCarriesBoundedSearchExplanation(t *testing.T) {
+	repo := &searchRepository{page: ToolPage{Items: []Tool{{ID: "a", Name: "status", MCP: &MCPConfig{ServerID: "server", ToolName: "private", SchemaHash: "private"}}}, Matches: map[string]ToolMatch{"a": {Score: 500, Reason: "exact_name"}}}}
+	actor := Actor{ID: "a", WorkspaceID: "w", Role: RoleAdmin}
+	page, err := NewService(repo).DiscoverTools(context.Background(), actor, ToolSearchInput{Query: "status", ServerID: " server "})
+	if err != nil || repo.input.ServerID != "server" || page.Items[0].ServerID != "server" || page.Items[0].Match == nil || page.Items[0].Match.Score != 500 {
+		t.Fatalf("summary %+v %v", page, err)
+	}
+	raw, _ := json.Marshal(page)
+	if strings.Contains(string(raw), "private") {
+		t.Fatal("upstream configuration leaked")
+	}
+	page, err = NewService(repo).DiscoverTools(context.Background(), actor, ToolSearchInput{})
+	if err != nil || page.Items[0].Match != nil {
+		t.Fatalf("empty query must not imply relevance %+v %v", page, err)
+	}
+}
+
+func TestDiscoveryServiceRejectsInvalidRequestsAndPropagatesStoreErrors(t *testing.T) {
+	repo := &searchRepository{err: errors.New("storage unavailable")}
+	svc := NewService(repo)
+	actor := Actor{ID: "admin", WorkspaceID: "workspace", Role: RoleAdmin}
+	if _, err := svc.SearchTools(context.Background(), Actor{}, ToolSearchInput{}); !errors.Is(err, ErrUnauthorized) {
+		t.Fatalf("registry auth %v", err)
+	}
+	for _, scope := range []string{"registry", "catalog"} {
+		t.Run(scope, func(t *testing.T) {
+			if scope == "registry" {
+				if _, err := svc.SearchTools(context.Background(), actor, ToolSearchInput{Limit: -1}); !errors.Is(err, ErrInvalid) {
+					t.Fatalf("invalid search %v", err)
+				}
+				if _, err := svc.SearchTools(context.Background(), actor, ToolSearchInput{}); !errors.Is(err, repo.err) {
+					t.Fatalf("store error %v", err)
+				}
+			} else {
+				if _, err := svc.DiscoverTools(context.Background(), actor, ToolSearchInput{Limit: -1}); !errors.Is(err, ErrInvalid) {
+					t.Fatalf("invalid search %v", err)
+				}
+				if _, err := svc.DiscoverTools(context.Background(), actor, ToolSearchInput{}); !errors.Is(err, repo.err) {
+					t.Fatalf("store error %v", err)
+				}
+			}
+		})
 	}
 }

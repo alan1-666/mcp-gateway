@@ -241,3 +241,33 @@ test("revoked access disables further policy actions and clears a prior preview"
   assert.equal(controller.getSnapshot().denied, true);
   assert.equal(requests, 2);
 });
+
+test("artifact options survive observation and edits and are removed only by explicit disable", async () => {
+  const artifact = { max_bytes: 262144, ttl_seconds: 120 };
+  let current: Tool = { ...tool, response_policy: { ...policy, artifact } };
+  const requests: unknown[] = [];
+  const controller = new ResponsePolicyEditorController(api(async (_path, options) => {
+    const body = options?.body as { response_policy: Tool["response_policy"] };
+    requests.push(body);
+    current = { ...current, version: current.version + 1, response_policy: body.response_policy };
+    return current;
+  }), tool.id, true);
+  controller.observe(current);
+  assert.equal(controller.getSnapshot().artifactEnabled, "true");
+  assert.equal(controller.getSnapshot().artifactMaxBytes, "262144");
+  assert.equal(controller.getSnapshot().artifactTTL, "120");
+  controller.edit("include", "/results/*/url");
+  await controller.save();
+  assert.deepEqual(current.response_policy?.artifact, artifact);
+  controller.edit("artifactMaxBytes", "524288");
+  controller.edit("artifactTTL", "600");
+  await controller.save();
+  assert.deepEqual(current.response_policy?.artifact, { max_bytes: 524288, ttl_seconds: 600 });
+  controller.edit("artifactTTL", "59");
+  assert.equal(await controller.save(), null);
+  assert.equal(requests.length, 2);
+  controller.edit("artifactEnabled", "false");
+  await controller.save();
+  assert.equal(current.response_policy?.artifact, undefined);
+  assert.equal(requests.length, 3);
+});

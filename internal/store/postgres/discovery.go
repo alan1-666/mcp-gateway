@@ -17,15 +17,19 @@ import (
 // A cursor is an unsigned pagination position. Its context binding prevents
 // accidental reuse; all visibility predicates are independently recomputed.
 type toolCursor struct {
-	Version   int                      `json:"v"`
-	Workspace string                   `json:"workspace"`
-	Actor     string                   `json:"actor"`
-	Role      core.Role                `json:"role"`
-	Query     string                   `json:"query"`
-	Scope     core.ToolVisibilityScope `json:"scope"`
-	Upper     time.Time                `json:"upper"`
-	AfterTime time.Time                `json:"after_time"`
-	AfterID   string                   `json:"after_id"`
+	ClientID    string                   `json:"client_id"`
+	ClientKeyID string                   `json:"client_key_id"`
+	Version     int                      `json:"v"`
+	Workspace   string                   `json:"workspace"`
+	Actor       string                   `json:"actor"`
+	Role        core.Role                `json:"role"`
+	Query       string                   `json:"query"`
+	ServerID    string                   `json:"server_id"`
+	AfterScore  int                      `json:"after_score"`
+	Scope       core.ToolVisibilityScope `json:"scope"`
+	Upper       time.Time                `json:"upper"`
+	AfterTime   time.Time                `json:"after_time"`
+	AfterID     string                   `json:"after_id"`
 }
 
 func decodeToolCursor(actor core.Actor, input core.ToolSearchInput, scope core.ToolVisibilityScope) (toolCursor, error) {
@@ -48,10 +52,13 @@ func decodeToolCursor(actor core.Actor, input core.ToolSearchInput, scope core.T
 	if err := decoder.Decode(new(any)); err != io.EOF {
 		return invalid()
 	}
-	if cursor.Version != 1 || cursor.Workspace != actor.WorkspaceID || cursor.Actor != actor.ID || cursor.Role != actor.Role || cursor.Query != input.Query || cursor.Scope != scope {
+	if cursor.Version != 2 || cursor.Workspace != actor.WorkspaceID || cursor.Actor != actor.ID || cursor.Role != actor.Role || cursor.Query != input.Query || cursor.Scope != scope || cursor.ServerID != input.ServerID || cursor.ClientID != actor.ClientID || cursor.ClientKeyID != actor.ClientKeyID {
 		return invalid()
 	}
 	if cursor.Upper.IsZero() || cursor.AfterTime.IsZero() || cursor.Upper.Year() < 1970 || cursor.AfterTime.Year() < 1970 || cursor.AfterTime.After(cursor.Upper) || cursor.Upper.After(time.Now().Add(5*time.Minute)) {
+		return invalid()
+	}
+	if cursor.AfterScore < 0 || cursor.AfterScore > 500 || cursor.AfterScore%100 != 0 || (input.Query == "" && cursor.AfterScore != 0) || (input.Query != "" && cursor.AfterScore == 0) {
 		return invalid()
 	}
 	if cursor.AfterID == "" || len(cursor.AfterID) > 128 || !utf8.ValidString(cursor.AfterID) || strings.ContainsAny(cursor.AfterID, "\x00\r\n") {
@@ -60,8 +67,8 @@ func decodeToolCursor(actor core.Actor, input core.ToolSearchInput, scope core.T
 	return cursor, nil
 }
 
-func encodeToolCursor(actor core.Actor, input core.ToolSearchInput, scope core.ToolVisibilityScope, upper time.Time, last core.Tool) (string, error) {
-	cursor := toolCursor{Version: 1, Workspace: actor.WorkspaceID, Actor: actor.ID, Role: actor.Role, Query: input.Query, Scope: scope, Upper: upper.UTC(), AfterTime: last.CreatedAt.UTC(), AfterID: last.ID}
+func encodeToolCursor(actor core.Actor, input core.ToolSearchInput, scope core.ToolVisibilityScope, upper time.Time, last core.Tool, score int) (string, error) {
+	cursor := toolCursor{Version: 2, ClientID: actor.ClientID, ClientKeyID: actor.ClientKeyID, ServerID: input.ServerID, AfterScore: score, Workspace: actor.WorkspaceID, Actor: actor.ID, Role: actor.Role, Query: input.Query, Scope: scope, Upper: upper.UTC(), AfterTime: last.CreatedAt.UTC(), AfterID: last.ID}
 	data, err := json.Marshal(cursor)
 	if err != nil {
 		return "", err
@@ -80,56 +87,82 @@ func (r *Repository) SearchTools(ctx context.Context, actor core.Actor, input co
 	}
 	var upperParam, afterParam any
 	var afterID string
+	var afterScore int
 	if input.Cursor != "" {
 		cursor, err := decodeToolCursor(actor, input, scope)
 		if err != nil {
 			return core.ToolPage{}, err
 		}
-		upperParam, afterParam, afterID = cursor.Upper, cursor.AfterTime, cursor.AfterID
+		upperParam, afterParam, afterID, afterScore = cursor.Upper, cursor.AfterTime, cursor.AfterID, cursor.AfterScore
 	}
-	// Materialize only matching IDs and timestamps; large schemas are fetched
+	// Materialize only authorized matching IDs, ranks and timestamps; large schemas are fetched
 	// after pagination for registry pages only. Count, boundary and page share
 	// a single statement snapshot.
-	// strpos provides literal substring matching without SQL wildcard escaping.
+	// strpos retains literal punctuation; all query terms may also match in any
+	// order. Ranking is computed before pagination, never over a limited page.
 	query := `
 WITH boundary AS (
  SELECT COALESCE($4::timestamptz,statement_timestamp()) AS upper_bound
-), filtered AS MATERIALIZED (
- SELECT t.id,t.created_at
+), eligible AS MATERIALIZED (
+ SELECT t.id,t.created_at,lower(t.name) AS name,
+ lower(t.name || ' ' || COALESCE(t.definition->>'description','')) AS document
  FROM tools t CROSS JOIN boundary b
  WHERE t.workspace_id=$1
    AND ($2 OR (t.status='published' AND t.enabled AND (t.definition->'mcp'->>'server_id' IS NULL OR EXISTS (SELECT 1 FROM mcp_servers ms WHERE ms.workspace_id=t.workspace_id AND ms.id=t.definition->'mcp'->>'server_id' AND ms.enabled AND ` + connectorAvailable + `))))
-   AND ($3='' OR strpos(lower(t.name || ' ' || COALESCE(t.definition->>'description','')),lower($3))>0)
+   AND ($11='' OR t.definition->'mcp'->>'server_id'=$11)
    AND t.created_at<=b.upper_bound
    AND ` + clientToolAccessSQL("t", "$9", "$10") + `
+), ranked AS (
+ SELECT id,created_at,CASE
+   WHEN $3='' THEN 0
+   WHEN name=lower($3) THEN 500
+   WHEN starts_with(name,lower($3)) THEN 400
+   WHEN strpos(name,lower($3))>0 THEN 300
+   WHEN strpos(document,lower($3))>0 THEN 200
+   ELSE 100 END AS score
+ FROM eligible
+ WHERE $3='' OR strpos(document,lower($3))>0
+   OR NOT EXISTS (SELECT 1 FROM unnest($12::text[]) term WHERE strpos(document,lower(term))=0)
+), filtered AS MATERIALIZED (
+ SELECT * FROM ranked
 ), page AS (
- SELECT id,created_at FROM filtered
- WHERE $5::timestamptz IS NULL OR (created_at,id)<($5::timestamptz,$6::text)
- ORDER BY created_at DESC,id DESC LIMIT $7
+ SELECT id,created_at,score FROM filtered
+ WHERE $5::timestamptz IS NULL OR (score,created_at,id)<($13::integer,$5::timestamptz,$6::text)
+ ORDER BY score DESC,created_at DESC,id DESC LIMIT $7
 )
 SELECT (SELECT upper_bound FROM boundary),
        (SELECT count(*) FROM filtered),
        COALESCE((
          SELECT jsonb_agg((CASE WHEN $8 THEN t.definition
-           ELSE jsonb_build_object('description',t.definition->>'description') END) || jsonb_build_object(
+           ELSE jsonb_build_object('description',t.definition->>'description','mcp',CASE WHEN t.definition->'mcp'->>'server_id' IS NOT NULL THEN jsonb_build_object('server_id',t.definition->'mcp'->>'server_id') END) END) || jsonb_build_object(
+           '_search_match',jsonb_build_object('score',p.score,'reason',CASE p.score WHEN 500 THEN 'exact_name' WHEN 400 THEN 'name_prefix' WHEN 300 THEN 'name_fragment' WHEN 200 THEN 'phrase' WHEN 100 THEN 'all_terms' ELSE 'recent' END),
            'id',t.id,'workspace_id',t.workspace_id,'name',t.name,'risk',t.risk,
            'status',t.status,'enabled',(t.enabled AND (t.definition->'mcp'->>'server_id' IS NULL OR EXISTS (SELECT 1 FROM mcp_servers ms WHERE ms.workspace_id=t.workspace_id AND ms.id=t.definition->'mcp'->>'server_id' AND ms.enabled AND ` + connectorAvailable + `))),'version',t.version,'created_at',t.created_at
-         ) ORDER BY p.created_at DESC,p.id DESC)
+         ) ORDER BY p.score DESC,p.created_at DESC,p.id DESC)
          FROM page p JOIN tools t ON t.workspace_id=$1 AND t.id=p.id
        ),'[]'::jsonb)`
 	showUnpublished := scope == core.ToolScopeRegistry && actor.Role == core.RoleAdmin
 	var upper time.Time
 	var payload []byte
 	page := core.ToolPage{Items: []core.Tool{}}
-	if err := r.pool.QueryRow(ctx, query, actor.WorkspaceID, showUnpublished, input.Query, upperParam, afterParam, afterID, input.Limit+1, scope == core.ToolScopeRegistry, actor.ClientID, actor.ClientKeyID).Scan(&upper, &page.Total, &payload); err != nil {
+	if err := r.pool.QueryRow(ctx, query, actor.WorkspaceID, showUnpublished, input.Query, upperParam, afterParam, afterID, input.Limit+1, scope == core.ToolScopeRegistry, actor.ClientID, actor.ClientKeyID, input.ServerID, strings.Fields(input.Query), afterScore).Scan(&upper, &page.Total, &payload); err != nil {
 		return page, dbError(err)
 	}
-	if err := json.Unmarshal(payload, &page.Items); err != nil {
+	var rows []struct {
+		core.Tool
+		Match core.ToolMatch `json:"_search_match"`
+	}
+	if err := json.Unmarshal(payload, &rows); err != nil {
 		return core.ToolPage{}, fmt.Errorf("decode tool search page: %w", err)
+	}
+	page.Matches = make(map[string]core.ToolMatch, len(rows))
+	for _, row := range rows {
+		page.Items = append(page.Items, row.Tool)
+		page.Matches[row.ID] = row.Match
 	}
 	if len(page.Items) > input.Limit {
 		page.Items = page.Items[:input.Limit]
-		page.NextCursor, err = encodeToolCursor(actor, input, scope, upper, page.Items[len(page.Items)-1])
+		page.NextCursor, err = encodeToolCursor(actor, input, scope, upper, page.Items[len(page.Items)-1], page.Matches[page.Items[len(page.Items)-1].ID].Score)
 		if err != nil {
 			return core.ToolPage{}, err
 		}

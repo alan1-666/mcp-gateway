@@ -1,0 +1,81 @@
+{
+  "date": "2026-10-06",
+  "fixture": "TestDiscoveryFixedCatalogEvaluation",
+  "environment": {
+    "os": "macOS 26.5",
+    "architecture": "darwin/arm64",
+    "go": "1.26.8",
+    "database": "local PostgreSQL over loopback",
+    "concurrency": 1
+  },
+  "metrics": {
+    "catalog": "1000",
+    "queries": "8",
+    "samples_per_query": "20",
+    "baseline_hit@5": "2/8",
+    "ranked_hit@5": "7/8",
+    "baseline_p50_ms": "0.339",
+    "baseline_p95_ms": "0.385",
+    "ranked_p50_ms": "1.075",
+    "ranked_p95_ms": "1.468",
+    "full_catalog_json_bytes": "782766",
+    "mean_ranked_page_bytes": "993"
+  },
+  "queries": [
+    {
+      "query": "orders",
+      "substring_hit_at_5": false,
+      "ranked_hit_at_5": true,
+      "ranked_page_json_bytes": 1471
+    },
+    {
+      "query": "tasks",
+      "substring_hit_at_5": false,
+      "ranked_hit_at_5": true,
+      "ranked_page_json_bytes": 1459
+    },
+    {
+      "query": "logs",
+      "substring_hit_at_5": false,
+      "ranked_hit_at_5": true,
+      "ranked_page_json_bytes": 1450
+    },
+    {
+      "query": "metrics",
+      "substring_hit_at_5": false,
+      "ranked_hit_at_5": true,
+      "ranked_page_json_bytes": 1461
+    },
+    {
+      "query": "客户 查询",
+      "substring_hit_at_5": false,
+      "ranked_hit_at_5": true,
+      "ranked_page_json_bytes": 191
+    },
+    {
+      "query": "状态 任务",
+      "substring_hit_at_5": false,
+      "ranked_hit_at_5": false,
+      "ranked_page_json_bytes": 1559
+    },
+    {
+      "query": "错误 日志",
+      "substring_hit_at_5": true,
+      "ranked_hit_at_5": true,
+      "ranked_page_json_bytes": 177
+    },
+    {
+      "query": "服务 指标",
+      "substring_hit_at_5": true,
+      "ranked_hit_at_5": true,
+      "ranked_page_json_bytes": 179
+    }
+  ],
+  "limits": [
+    "Synthetic fixture deliberately contains recent distractors and old exact-name targets; not production relevance.",
+    "Baseline is a lighter literal SQL query without live count/cursor construction; ranked latency includes Service.DiscoverTools. Do not interpret as like-for-like transport overhead.",
+    "No HTTP/TLS/network latency or concurrent load measured.",
+    "Context counts UTF-8 JSON bytes, not model tokens. Full catalog includes schemas; selected schema fetches add bytes.",
+    "Ambiguous Chinese 状态 任务 ties with distractors and misses top 5; lexical ranking has no semantic disambiguation."
+  ]
+}

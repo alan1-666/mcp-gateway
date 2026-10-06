@@ -32,9 +32,10 @@ func New(db postgres.DB, remote upstreams.Remote, http *httpadapter.Adapter) *Se
 }
 
 type Version struct {
-	Version    int            `json:"version"`
-	Definition core.ToolInput `json:"definition"`
-	CreatedAt  time.Time      `json:"created_at"`
+	ApprovalPolicy core.ApprovalPolicy `json:"approval_policy"`
+	Version        int                 `json:"version"`
+	Definition     core.ToolInput      `json:"definition"`
+	CreatedAt      time.Time           `json:"created_at"`
 }
 type VersionPage struct {
 	Items      []Version `json:"items"`
@@ -159,6 +160,15 @@ func (s *Service) Versions(ctx context.Context, a core.Actor, id string, before,
 		if err := json.Unmarshal(raw, &v.Definition); err != nil {
 			return page, err
 		}
+		var stored core.Tool
+		if err := json.Unmarshal(raw, &stored); err != nil {
+			return page, err
+		}
+		policy, err := core.EffectiveApprovalPolicy(stored)
+		if err != nil {
+			return page, err
+		}
+		v.ApprovalPolicy = policy
 		page.Items = append(page.Items, v)
 	}
 	if len(page.Items) > limit {
@@ -292,6 +302,9 @@ func (s *Service) Create(ctx context.Context, a core.Actor, id string, in Candid
 		return Candidate{}, err
 	}
 	changes := differences(definition(base), d)
+	if policy := revisionApprovalPolicy(base, d.Risk); policy != base.ApprovalPolicy {
+		changes = append(changes, Change{"approval_policy", base.ApprovalPolicy, policy})
+	}
 	if len(changes) == 0 && base.Status != "retired" {
 		return Candidate{}, fmt.Errorf("%w: candidate has no changes", core.ErrConflict)
 	}
@@ -434,7 +447,17 @@ func (s *Service) Publish(ctx context.Context, a core.Actor, id, candidateID str
 				return core.Tool{}, core.ErrConflict
 			}
 		}
-		raw, _ := json.Marshal(c.Definition)
+		current, err := postgres.New(tx).GetTool(ctx, a, id)
+		if err != nil {
+			return core.Tool{}, err
+		}
+		// Definition revisions preserve the current policy, including rollbacks;
+		// only the dedicated policy endpoint can grant an approval exemption.
+		// Reclassifying risk restores the conservative default for the new class.
+		raw, _ := json.Marshal(struct {
+			core.ToolInput
+			ApprovalPolicy core.ApprovalPolicy `json:"approval_policy"`
+		}{c.Definition, revisionApprovalPolicy(current, c.Definition.Risk)})
 		_, err = tx.Exec(ctx, `UPDATE tools SET definition=$3,risk=$4,version=version+1,status='published',enabled=true WHERE workspace_id=$1 AND id=$2`, a.WorkspaceID, id, raw, c.Definition.Risk)
 		if err != nil {
 			return core.Tool{}, err
@@ -474,4 +497,14 @@ func (s *Service) Retire(ctx context.Context, a core.Actor, id string, expected 
 		}
 		return postgres.New(tx).GetTool(ctx, a, id)
 	})
+}
+
+func revisionApprovalPolicy(current core.Tool, risk core.Risk) core.ApprovalPolicy {
+	if current.Risk == risk {
+		return current.ApprovalPolicy
+	}
+	if risk == core.RiskWrite {
+		return core.ApprovalRequired
+	}
+	return core.ApprovalNone
 }

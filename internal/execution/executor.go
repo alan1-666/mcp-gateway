@@ -77,7 +77,7 @@ func (e *Executor) Execute(ctx context.Context, actor core.Actor, id string) (co
 	defer finishCancel()
 	finished, err := e.Service.Finish(finishCtx, actor, id, result)
 	if e.Capacity != nil {
-		state := result.State
+		state := finished.State
 		if err != nil {
 			state = core.StateUnknown
 		}

@@ -15,6 +15,7 @@ export interface HTTPConfiguration {
 export interface ResponsePolicy {
   include?: string[];
   max_bytes: number;
+  artifact?: { max_bytes: number; ttl_seconds: number };
 }
 
 export interface MCPServer {
@@ -49,6 +50,7 @@ export interface Tool {
   name: string;
   description: string;
   risk: "read" | "write";
+  approval_policy?: "required" | "none";
   input_schema: Record<string, unknown>;
   output_schema?: Record<string, unknown>;
   http: HTTPConfiguration;
@@ -63,7 +65,7 @@ export interface Tool {
 export type ToolSummary = Pick<
   Tool,
   "id" | "name" | "description" | "risk" | "version"
->;
+> & { server_id?: string; match?: { score: number; reason: string } };
 
 export interface ToolPage<T = Tool> {
   items: T[];

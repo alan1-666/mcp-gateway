@@ -18,6 +18,7 @@ export function toolSearchPath(
   input: string,
   cursor = "",
   limit = scope === "registry" ? 50 : 25,
+  serverID = "",
 ): string {
   const query = normalizeToolQuery(input);
   if (!Number.isInteger(limit) || limit < 1 || limit > 50)
@@ -26,7 +27,10 @@ export function toolSearchPath(
     throw new Error(
       "The gateway returned an invalid search cursor. Restart the search.",
     );
+  if (new TextEncoder().encode(serverID).length > 128 || /[\s\x00]/.test(serverID))
+    throw new Error("Choose a valid MCP server ID.");
   const params = new URLSearchParams({ limit: String(limit) });
+  if (serverID) params.set("server_id", serverID);
   if (query) params.set("query", query);
   if (cursor) params.set("cursor", cursor);
   return `${scope === "registry" ? "/tools" : "/catalog/tools"}?${params}`;

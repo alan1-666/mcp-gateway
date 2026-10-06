@@ -13,8 +13,9 @@ import (
 // '*' segment selects every array element. Numeric segments remain object keys;
 // array indices and object wildcards are not supported.
 type ResponsePolicy struct {
-	Include  []string `json:"include,omitempty"`
-	MaxBytes int      `json:"max_bytes"`
+	Include  []string              `json:"include,omitempty"`
+	MaxBytes int                   `json:"max_bytes"`
+	Artifact *ResultArtifactPolicy `json:"artifact,omitempty"`
 }
 
 func NormalizeResponsePolicy(in *ResponsePolicy) (*ResponsePolicy, error) {
@@ -33,6 +34,13 @@ func normalizeResponsePolicy(in *ResponsePolicy) (*ResponsePolicy, *responseSele
 	}
 	if p.MaxBytes < 1024 || p.MaxBytes > 128<<10 || len(p.Include) > 32 {
 		return nil, nil, fmt.Errorf("%w: response policy allows 1024–131072 bytes and at most 32 paths", ErrInvalid)
+	}
+	if p.Artifact != nil {
+		a, err := NormalizeResultArtifactPolicy(*p.Artifact, p.MaxBytes)
+		if err != nil {
+			return nil, nil, err
+		}
+		p.Artifact = &a
 	}
 	sort.Strings(p.Include)
 	selection := &responseSelection{}
@@ -232,7 +240,14 @@ func ApplyMCPResponsePolicy(raw json.RawMessage, policy *ResponsePolicy) (json.R
 	if err != nil {
 		return nil, fmt.Errorf("cannot encode bounded MCP result")
 	}
-	if len(encoded) > p.MaxBytes {
+	limit := p.MaxBytes
+	if p.Artifact != nil {
+		if _, ok := filtered["structuredContent"]; !ok {
+			return nil, fmt.Errorf("artifact policy requires structuredContent")
+		}
+		limit = p.Artifact.MaxBytes
+	}
+	if len(encoded) > limit {
 		return nil, fmt.Errorf("MCP result exceeds the configured response limit; narrow the projection")
 	}
 	return encoded, nil

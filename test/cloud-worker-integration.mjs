@@ -66,7 +66,10 @@ execute = async ctx => {
     assert.deepEqual(last.items, localLast.items); assert.equal(last.total, 2); assert.ok(!last.next_cursor);
     const discovered = [...first.items, ...last.items];
     assert.deepEqual(new Set(discovered.map(tool => tool.id)), new Set([config.readToolID, config.writeToolID]));
-    for (const tool of discovered) assert.deepEqual(Object.keys(tool).sort(), ['description', 'id', 'name', 'risk', 'version']);
+    for (const tool of discovered) {
+      assert.deepEqual(Object.keys(tool).sort(), ['description', 'id', 'match', 'name', 'risk', 'version']);
+      assert.deepEqual(tool.match, { score: 400, reason: 'name_prefix' });
+    }
     const selected = await invoke('get_tool_schema', { tool_id: config.readToolID });
     assert.equal(selected.input_schema.type, 'object');
     assert.deepEqual(journal.list(), []);

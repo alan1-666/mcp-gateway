@@ -1,0 +1,13 @@
+{
+  "internal/core/approval_policy.go": 90,
+  "internal/execution/call.go": 90,
+  "internal/store/postgres/approval_policy.go": 90,
+  "internal/transport/httpapi/approval_policy.go": 90,
+  "internal/core/result_artifact.go": 90,
+  "internal/store/postgres/result_artifact.go": 90,
+  "internal/transport/httpapi/result_reads.go": 90,
+  "internal/core/discovery.go": 90,
+  "internal/store/postgres/discovery.go": 90,
+  "internal/transport/httpapi/tool_search.go": 90,
+  "internal/adapters/httpadapter/reliability.go": 90
+}
