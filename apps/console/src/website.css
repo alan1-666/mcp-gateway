@@ -29,8 +29,7 @@ button {
   -webkit-tap-highlight-color: transparent;
 }
 a:focus-visible,
-button:focus-visible,
-pre:focus-visible {
+button:focus-visible {
   outline: 3px solid #9b7515;
   outline-offset: 5px;
 }
@@ -475,31 +474,31 @@ h2 {
 .workflow a:hover {
   border-color: #52594a;
 }
-.response-section {
+.execution-section {
   background: #292e27;
   color: #f7f8ec;
   padding: 95px 0;
 }
-.response-layout {
+.execution-layout {
   display: grid;
-  grid-template-columns: 1fr 1.1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
   gap: 80px;
   align-items: center;
 }
-.response-copy .eyebrow {
+.execution-copy .eyebrow {
   color: #c0c6ad;
   margin-bottom: 26px;
 }
-.response-copy h2 {
+.execution-copy h2 {
   font-size: 46px;
 }
-.response-copy > p:not(.eyebrow) {
+.execution-copy > p:not(.eyebrow) {
   font-size: 14px;
   color: #bac1b1;
   margin-top: 25px;
   max-width: 350px;
 }
-.response-copy .text-link {
+.execution-copy .text-link {
   margin-top: 24px;
   color: #e8edda;
 }
@@ -519,7 +518,7 @@ h2 {
 .policy-note p {
   font-size: 10px;
 }
-.response-example {
+.operation-example {
   border: 1px solid #59634e;
   background: #242a21;
   border-radius: 6px;
@@ -541,7 +540,7 @@ h2 {
   gap: 9px;
 }
 .example-toolbar > span:last-child {
-  font-size: 7px;
+  font-size: 9px;
   letter-spacing: 0.8px;
   color: #a3ae93;
 }
@@ -551,41 +550,30 @@ h2 {
   border-radius: 50%;
   background: #d7dcae;
 }
-.response-tabs {
+.scenario-controls {
   display: flex;
   border-bottom: 1px solid #414b38;
   padding: 0 18px;
   gap: 21px;
 }
-.response-tabs button {
+.scenario-controls button {
   border: 0;
   background: none;
   padding: 16px 0 13px;
-  color: #aab69b;
-  font-size: 10px;
+  color: #c0c6b7;
+  font-size: 12px;
   border-bottom: 2px solid transparent;
   transition: color 0.2s;
 }
-.response-tabs button[aria-pressed="true"] {
+.scenario-controls button[aria-pressed="true"] {
   color: #f6e49b;
   border-bottom-color: #f2d566;
 }
-.response-tabs button:hover {
+.scenario-controls button:hover {
   color: #fff;
 }
-.response-tabs button span {
+.scenario-controls button span {
   padding-left: 9px;
-}
-.response-code {
-  font: 11px/1.95 var(--mono);
-  margin: 0;
-  height: 297px;
-  padding: 27px 21px;
-  overflow: auto;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  color: #dce5cc;
-  tab-size: 2;
 }
 .example-footer {
   border-top: 1px solid #414b38;
@@ -595,15 +583,12 @@ h2 {
   font: 8px var(--mono);
   color: #a5b592;
 }
-.example-footer > span:last-child {
-  color: #d6ddb9;
-}
 .operate-section {
   padding-bottom: 116px;
 }
 .operations-layout {
   display: grid;
-  grid-template-columns: 1fr 1.1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
   gap: 80px;
   align-items: center;
   margin-top: 58px;
@@ -896,15 +881,12 @@ h2 {
   .section-heading {
     column-gap: 45px;
   }
-  .response-layout,
+  .execution-layout,
   .operations-layout {
     gap: 42px;
   }
-  .response-copy h2 {
+  .execution-copy h2 {
     font-size: 40px;
-  }
-  .response-code {
-    font-size: 10px;
   }
   .workflow {
     gap: 28px;
@@ -1080,26 +1062,26 @@ h2 {
     margin-top: 16px;
     justify-self: start;
   }
-  .response-section {
+  .execution-section {
     padding: 62px 0;
   }
-  .response-layout {
+  .execution-layout {
     grid-template-columns: 1fr;
     gap: 32px;
   }
-  .response-copy .eyebrow {
+  .execution-copy .eyebrow {
     font-size: 9px;
     margin-bottom: 20px;
   }
-  .response-copy h2 {
+  .execution-copy h2 {
     font-size: 37px;
   }
-  .response-copy > p:not(.eyebrow) {
+  .execution-copy > p:not(.eyebrow) {
     font-size: 13px;
     max-width: 400px;
     margin-top: 19px;
   }
-  .response-copy .text-link {
+  .execution-copy .text-link {
     font-size: 11px;
     margin-top: 20px;
   }
@@ -1111,15 +1093,10 @@ h2 {
   .policy-note p {
     font-size: 10px;
   }
-  .response-example {
+  .operation-example {
     max-width: 520px;
     width: 100%;
     justify-self: center;
-  }
-  .response-code {
-    height: 275px;
-    font-size: 11px;
-    padding: 22px 18px;
   }
   .operations-layout {
     grid-template-columns: 1fr;
@@ -1242,11 +1219,11 @@ h2 {
     font-size: 15px;
     gap: 8px;
   }
-  .response-tabs {
+  .scenario-controls {
     gap: 17px;
     padding: 0 16px;
   }
-  .response-tabs button {
+  .scenario-controls button {
     font-size: 9px;
   }
   .example-toolbar {
@@ -1259,9 +1236,6 @@ h2 {
   .example-footer {
     font-size: 7px;
     padding: 15px 16px;
-  }
-  .response-code {
-    font-size: 10px;
   }
   .site-footer p {
     font-size: 8px;
@@ -1351,11 +1325,72 @@ h2 {
   .language-switch { margin-left: auto; }
   :lang(zh-CN) .hero-copy h1 { font-size: clamp(40px, 10vw, 64px); }
   :lang(zh-CN) .section-heading h2,
-  :lang(zh-CN) .response-copy h2,
+  :lang(zh-CN) .execution-copy h2,
   :lang(zh-CN) .build-inner h2 { font-size: clamp(28px, 7.4vw, 40px); }
 }
 @media (max-width: 480px) {
   .header-cta { display: none; }
   .header-inner { gap: 10px; }
   .language-switch a { min-height: 40px; }
+}
+
+/* One operation, shown as a readable sequence rather than a live console. */
+[hidden] { display: none !important; }
+.operation-trace {
+  list-style: none;
+  margin: 0;
+  padding: 26px 24px 18px;
+}
+.operation-trace li {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 16px;
+  position: relative;
+  padding-bottom: 24px;
+}
+.operation-trace li::before {
+  content: "";
+  position: absolute;
+  top: 34px;
+  bottom: 6px;
+  left: 13px;
+  width: 1px;
+  background: #49513f;
+}
+.operation-trace li:last-child { padding-bottom: 0; }
+.operation-trace li:last-child::before { display: none; }
+.trace-index {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid #59634e;
+  border-radius: 50%;
+  color: #c8d0bc;
+  font: 10px var(--mono);
+}
+.operation-trace h3 { font-size: 14px; font-weight: 500; margin: 3px 0 5px; }
+.operation-trace p { font-size: 12px; line-height: 1.7; color: #bdc6b0; }
+.trace-result .trace-index { color: #f2d566; border-color: #a79652; }
+#execution-outcome { min-height: 150px; }
+.outcome-panel { padding-top: 12px; animation: arrive 0.2s both; }
+.outcome-heading { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.outcome-heading strong { font-size: 14px; font-weight: 500; color: #f6e49b; }
+.outcome-heading code { font: 9px var(--mono); padding: 4px 6px; border: 1px solid #827b52; color: #e8d987; }
+.operation-trace .outcome-evidence { margin-top: 8px; color: #e0e5d6; }
+.operation-example .example-toolbar { font-size: 11px; flex-wrap: wrap; row-gap: 8px; }
+.operation-example .example-footer { font-size: 10px; line-height: 1.7; }
+.scenario-controls button:focus-visible { outline-color: var(--accent); outline-offset: 3px; }
+.operations-features .text-link { margin-top: 14px; font-size: 11px; color: #444c36; }
+@media (max-width: 760px) {
+  .operation-trace { padding: 24px 18px 18px; }
+  .operation-trace li { gap: 13px; }
+  #execution-outcome { min-height: 180px; }
+  .policy-note p { font-size: 11px; }
+}
+@media (max-width: 390px) {
+  .scenario-controls button { font-size: 11px; }
+  .operation-example .example-toolbar > span:last-child { font-size: 9px; }
+  .operation-trace p { font-size: 11px; }
+  #execution-outcome { min-height: 190px; }
 }

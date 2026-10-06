@@ -43,7 +43,7 @@
         >
         <nav aria-label="{{navLabel}}">
           <a href="#how-it-works">{{how}}</a
-          ><a href="#response-control">{{response}}</a
+          ><a href="#execution">{{executionNav}}</a
           ><a href="https://github.com/alan1-666/mcp-gateway/tree/main/docs"
             >{{docs}} <span aria-hidden="true">↗</span></a
           >
@@ -143,7 +143,7 @@
                 ><strong>Rillgate</strong>
                 <div class="gate-policies">
                   <span>{{access}}</span><span>{{approvals}}</span
-                  ><span>{{policy}}</span>
+                  ><span>{{history}}</span>
                 </div>
                 <span class="gateway-port">/mcp</span>
               </div>
@@ -227,7 +227,7 @@
               {{governDescription}}
             </p>
             <a
-              href="https://github.com/alan1-666/mcp-gateway/blob/main/docs/cloud-deployment.md#identity-and-access"
+              href="https://github.com/alan1-666/mcp-gateway/blob/main/docs/tool-discovery-contract.md"
               >{{governLink}} <span aria-hidden="true">↗</span></a
             >
           </article>
@@ -238,66 +238,59 @@
               {{executeDescription}}
             </p>
             <a
-              href="https://github.com/alan1-666/mcp-gateway/blob/main/docs/implementation-status.md"
+              href="https://github.com/alan1-666/mcp-gateway/blob/main/docs/cloud-deployment.md#identity-and-access"
               >{{executeLink}} <span aria-hidden="true">↗</span></a
             >
           </article>
         </div>
       </section>
-      <section
-        class="response-section"
-        id="response-control"
-        aria-labelledby="response-title"
-      >
-        <div class="wrap response-layout">
-          <div class="response-copy">
-            <p class="eyebrow">{{responseEyebrow}}</p>
-            <h2 id="response-title">
-              {{responseFirst}}<br />{{responseLast}}
-            </h2>
-            <p>
-              {{responseDescription}}
-            </p>
-            <a
-              class="text-link"
-              href="https://github.com/alan1-666/mcp-gateway/blob/main/docs/remote-mcp-contract.md"
-              >{{responseLink}} <span aria-hidden="true">↗</span></a
-            >
+      <section class="execution-section" id="execution" aria-labelledby="execution-title">
+        <div class="wrap execution-layout">
+          <div class="execution-copy">
+            <p class="eyebrow">{{executionEyebrow}}</p>
+            <h2 id="execution-title">{{executionFirst}}<br />{{executionLast}}</h2>
+            <p>{{executionDescription}}</p>
+            <a class="text-link" href="https://github.com/alan1-666/mcp-gateway/blob/main/docs/remote-mcp-contract.md#operational-history-and-uncertain-outcomes">
+              {{executionLink}} <span aria-hidden="true">↗</span>
+            </a>
             <div class="policy-note">
               <span aria-hidden="true">↳</span>
-              <p>
-                {{responseNoteFirst}}<br />{{responseNoteLast}}
-              </p>
+              <p>{{executionNoteFirst}}<br />{{executionNoteLast}}</p>
             </div>
           </div>
-          <div class="response-example">
+          <div class="operation-example">
             <div class="example-toolbar">
-              <span
-                ><span class="sample-dot" aria-hidden="true"></span>
-                docs.search</span
-              ><span>{{illustration}}</span>
+              <span><span class="sample-dot" aria-hidden="true"></span>{{operationTitle}}</span>
+              <span>{{operationIllustration}}</span>
             </div>
-            <div
-              class="response-tabs"
-              role="group"
-              aria-label="{{sampleViewLabel}}"
-            >
-              <button type="button" data-view="upstream" aria-pressed="false">
-                {{upstream}}</button
-              ><button type="button" data-view="projected" aria-pressed="true">
-                {{projected}} <span aria-hidden="true">↗</span>
-              </button>
+            <div class="scenario-controls" data-scenario-controls role="group" aria-label="{{scenarioLabel}}" hidden>
+              <button type="button" data-scenario="success" aria-pressed="true" aria-controls="execution-outcome">{{scenarioSuccess}}</button>
+              <button type="button" data-scenario="unknown" aria-pressed="false" aria-controls="execution-outcome">{{scenarioUnknown}} <span aria-hidden="true">↗</span></button>
             </div>
-            <pre
-              class="response-code"
-              tabindex="0"
-              aria-label="{{sampleCodeLabel}}"
-            ><code id="response-code" data-sample-title="{{sampleTitle}}" data-sample-content="{{sampleContent}}" data-upstream-note="{{upstreamNote}}" data-projected-note="{{projectedNote}}">{{sampleProjected}}</code></pre>
-            <div class="example-footer">
-              <span id="response-note" role="status"
-                >{{projectedNote}}</span
-              ><span aria-hidden="true">{ }</span>
-            </div>
+            <ol class="operation-trace">
+              <li><span class="trace-index" aria-hidden="true">01</span><div><h3>{{discoverStep}}</h3><p>{{discoverDetail}}</p></div></li>
+              <li><span class="trace-index" aria-hidden="true">02</span><div><h3>{{authorizeStep}}</h3><p>{{authorizeDetail}}</p></div></li>
+              <li><span class="trace-index" aria-hidden="true">03</span><div><h3>{{approveStep}}</h3><p>{{approveDetail}}</p></div></li>
+              <li><span class="trace-index" aria-hidden="true">04</span><div><h3>{{dispatchStep}}</h3><p>{{dispatchDetail}}</p></div></li>
+              <li class="trace-result">
+                <span class="trace-index" aria-hidden="true">05</span>
+                <div>
+                  <h3>{{outcomeStep}}</h3>
+                  <div id="execution-outcome" aria-live="polite" aria-atomic="true">
+                    <div data-outcome="success" class="outcome-panel">
+                      <div class="outcome-heading"><strong>{{successTitle}}</strong><code>SUCCEEDED</code></div>
+                      <p>{{successDetail}}</p>
+                    </div>
+                    <div data-outcome="unknown" class="outcome-panel" hidden>
+                      <div class="outcome-heading"><strong>{{unknownTitle}}</strong><code>UNKNOWN</code></div>
+                      <p>{{unknownDetail}}</p>
+                      <p class="outcome-evidence">{{unknownEvidence}}</p>
+                    </div>
+                  </div>
+                </div>
+              </li>
+            </ol>
+            <p class="example-footer">{{operationCaption}}</p>
           </div>
         </div>
       </section>
@@ -360,13 +353,14 @@
                 </p>
               </div>
             </article>
-            <article>
+            <article id="response-control">
               <span class="feature-index">03</span>
               <div>
-                <h3>{{uncertaintyTitle}}</h3>
+                <h3>{{responseFeatureTitle}}</h3>
                 <p>
-                  {{uncertaintyDescription}}
+                  {{responseFeatureDescription}}
                 </p>
+                <a class="text-link" href="https://github.com/alan1-666/mcp-gateway/blob/main/docs/remote-mcp-contract.md">{{responseFeatureLink}} <span aria-hidden="true">↗</span></a>
               </div>
             </article>
           </div>
