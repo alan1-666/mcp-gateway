@@ -4,9 +4,9 @@
 
 [Website — EN](https://rillgate.cn/en/) · [官网 — 中文](https://rillgate.cn/cn/) · [Team workspace](https://rillgate.cn/console/) · [Documentation](docs/architecture.md)
 
-Rillgate connects AI agents to existing HTTP APIs and remote MCP servers through a governed tool discovery and execution layer. Its Go backend manages upstream connections, reviewed tool contracts, permissions, approvals and bounded responses. A web console provides administration and execution history; Pi is a client for model-assisted tasks. OpenAPI import, gRPC integration and private-network Connectors remain planned.
+Rillgate connects AI agents to existing HTTP APIs and remote MCP servers through a governed tool discovery and execution layer. Its Go backend manages upstream connections, reviewed tool contracts, permissions, approvals and bounded responses. A web console provides administration and execution history; Pi is a client for model-assisted tasks. Private MCP services can connect through outbound HTTPS Connectors; OpenAPI import and gRPC integration remain planned.
 
-> **Project status:** Active development. The core cloud gateway, invitation-only workspace, Pi task worker and scheduled catalog checks are implemented and cloud-verified within the acceptance journeys recorded in [verification](docs/verification.md). The public product website is at `/`; the team workspace is at `/console/`. Upstream OAuth, private Connectors, high availability and independently commissioned recovery remain open. See [implementation status](docs/implementation-status.md) for current delivery and remaining production work.
+> **Project status:** Active development. The core cloud gateway, invitation-only workspace, Pi task worker and scheduled catalog checks are implemented and cloud-verified within the acceptance journeys recorded in [verification](docs/verification.md). The public product website is at `/`; the team workspace is at `/console/`. Upstream OAuth and private Connectors have bounded supported profiles; live provider interoperability, high availability and independently commissioned recovery remain open. See [implementation status](docs/implementation-status.md) for current delivery and remaining production work.
 
 ## Cloud Delivery
 
@@ -48,7 +48,7 @@ For the delivery workflow, source development, downstream configuration and veri
 - Submit cloud Agent tasks, inspect event/output history, cancel work and resume after approval.
 - Run a restricted Pi agent with durable task leases, server-side sessions and intent persistence.
 
-Remote MCP currently supports static-file and encrypted managed header credentials, text/structured results and bounded POST responses (JSON or SSE), plus [pre-registered upstream OAuth](docs/upstream-oauth.md) with PKCE, issuer-bound callbacks, encrypted grants and fenced refresh. Legacy SSE transport, stdio processes and automatic replay remain unsupported. See the [remote MCP contract](docs/remote-mcp-contract.md) for onboarding, projection rules and compatibility limits.
+Remote MCP currently supports static-file and encrypted managed header credentials, text/structured results and bounded POST responses (JSON or SSE), plus [pre-registered upstream OAuth](docs/upstream-oauth.md) with PKCE, issuer-bound callbacks, encrypted grants and fenced refresh. Private HTTP and isolated stdio targets use [outbound Connectors](docs/private-connectors.md). Legacy SSE transport and automatic replay remain unsupported. See the [remote MCP contract](docs/remote-mcp-contract.md) for onboarding, projection rules and compatibility limits.
 
 The sections below describe the target production system. Follow [implementation status](docs/implementation-status.md) for current limitations and [the OpenAPI contract](api/openapi.yaml) for implemented management endpoints.
 
@@ -67,7 +67,7 @@ The platform serves two types of users:
 
 | Area | Scope |
 | --- | --- |
-| Tool integration | Import OpenAPI definitions and Protobuf descriptors; extend existing remote MCP support with additional OAuth registration profiles and isolated stdio servers through a Connector. |
+| Tool integration | Import OpenAPI definitions and Protobuf descriptors; extend existing remote MCP and Connector support with additional OAuth registration profiles. |
 | Tool discovery | Add semantic ranking and service/environment filters to the existing paginated lexical catalog. |
 | Access governance | Extend existing workspace/role/client tool grants with organization, environment, resource and field policies. |
 | Configuration lifecycle | Extend reviewed immutable versions and compatible rollback with signed releases, instance acknowledgements and staged rollout. |

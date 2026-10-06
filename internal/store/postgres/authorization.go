@@ -107,6 +107,12 @@ func lockOperationClient(ctx context.Context, tx pgx.Tx, executor core.Actor, op
 	return lockSnapshotGrant(ctx, tx, id, op)
 }
 
+// LockOperationClient rechecks the requesting client's live grants at a deferred
+// execution boundary. Callers must keep this transaction through authorization.
+func LockOperationClient(ctx context.Context, tx pgx.Tx, executor core.Actor, op core.Operation) error {
+	return lockOperationClient(ctx, tx, executor, op)
+}
+
 func lockSnapshotGrant(ctx context.Context, tx pgx.Tx, clientID string, op core.Operation) error {
 	var granted bool
 	err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM gateway_client_tool_grants WHERE workspace_id=$1 AND client_id=$2 AND tool_id=$3)

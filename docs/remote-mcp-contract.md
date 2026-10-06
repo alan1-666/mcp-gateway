@@ -25,7 +25,7 @@ The adapter uses the official MCP Go SDK. Every discovery or execution attempt c
 - **Capabilities:** initialization, complete paginated `tools/list` discovery and one reviewed `tools/call` per execution session. Resource, prompt, sampling, elicitation and task APIs are not proxied or advertised as Gateway capabilities.
 - **Authentication:** workspace/origin-bound credential references with headers such as `Authorization`. References can use a deployment file or the encrypted managed credential store. Alternatively, [upstream OAuth](upstream-oauth.md) supports metadata discovery, interactive authorization and refresh for pre-registered clients with PKCE S256 and RFC 9207 issuer responses. Static credentials and OAuth cannot be combined. Dynamic registration and client ID metadata documents remain unsupported. The Pi model subscription is separate from upstream MCP authentication.
 - **Results:** text content and optional structured JSON. Image, audio, resource and other content blocks are rejected. A tool requiring unsupported interaction does not become successful merely because it returned an MCP response.
-- **Processes:** the cloud Gateway does not launch local stdio servers. A private-network Connector and isolated stdio execution remain planned.
+- **Processes:** the cloud Gateway does not launch stdio servers. An [outbound Connector](private-connectors.md) executes locally configured private HTTP or isolated Linux rootless-Podman stdio targets.
 
 A valid implementation of other MCP features is not necessarily compatible with this intentionally limited adapter. Review the server's transport, authentication and output requirements before onboarding it.
 

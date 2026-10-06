@@ -1,3 +1,5 @@
+import { Connectors } from "./Connectors";
+import { ConnectorController, connectorPresence } from "./connector-state";
 import { CatalogSchedule } from "./CatalogSchedule";
 import { MCPOAuth } from "./MCPOAuth";
 import { SectionTabs } from "./SectionTabs";
@@ -31,7 +33,40 @@ function ErrorNotice({ error }: { error: string }) {
   ) : null;
 }
 
-export function MCPServers({
+export function MCPServers(props: {
+  api: APIClient;
+  identity: Identity;
+  cloud?: boolean;
+  refreshVersion: string;
+  onRegistry: (toolID: string, section?: "contract" | "versions") => void;
+  onImported: () => void;
+}) {
+  const [section, setSection] = useState("connections");
+  if (!canManageMCPServers(props.identity)) return null;
+  return (
+    <SectionTabs
+      label="MCP connections"
+      value={section}
+      onChange={setSection}
+      tabs={[
+        {
+          id: "connections",
+          label: "Connections",
+          content: <MCPConnections {...props} />,
+        },
+        {
+          id: "connectors",
+          label: "Connectors",
+          content: (
+            <Connectors api={props.api} active={section === "connectors"} />
+          ),
+        },
+      ]}
+    />
+  );
+}
+
+function MCPConnections({
   api,
   identity,
   cloud = false,
@@ -211,7 +246,7 @@ export function MCPServers({
           {loaded
             ? `${servers.length} ${servers.length === 1 ? "connection" : "connections"}`
             : "Connections"}{" "}
-          · Streamable HTTP
+          · HTTP and private targets
         </p>
         <button
           className="button primary"
@@ -269,8 +304,8 @@ export function MCPServers({
             <div className="panel-body">
               <h3>No servers connected</h3>
               <p>
-                Add a server’s Streamable HTTP URL to discover the tools it
-                offers.
+                Connect a Streamable HTTP endpoint or a private connector target
+                to discover its tools.
               </p>
             </div>
           ) : (
@@ -548,17 +583,37 @@ export function MCPServers({
                             <dd>{selected.timeout_ms.toLocaleString()} ms</dd>
                           </div>
                           <div>
-                            <dt>Server URL</dt>
-                            <dd className="mono break-word">{selected.url}</dd>
+                            <dt>
+                              {selected.connector_id
+                                ? "Private target"
+                                : "Server URL"}
+                            </dt>
+                            <dd className="mono break-word">
+                              {selected.target_name || selected.url}
+                            </dd>
                           </div>
                           <div>
-                            <dt>Credential reference</dt>
+                            <dt>
+                              {selected.connector_id
+                                ? "Connector ID"
+                                : "Credential reference"}
+                            </dt>
                             <dd className="mono break-word">
-                              {selected.credential_ref || "None configured"}
+                              {selected.connector_id ||
+                                selected.credential_ref ||
+                                "None configured"}
                             </dd>
                           </div>
                         </dl>
-                        <MCPOAuth api={api} server={selected} cloud={cloud} />
+                        {selected.connector_id ? (
+                          <p className="field-help">
+                            This target and its credentials are configured on
+                            the private connector host. Manage its connection
+                            from the Connectors tab.
+                          </p>
+                        ) : (
+                          <MCPOAuth api={api} server={selected} cloud={cloud} />
+                        )}
                         <CatalogSchedule
                           key={selected.id}
                           api={api}
@@ -621,12 +676,32 @@ function ServerForm({
     url: "",
     credential: "",
     timeout: "10000",
+    transport: "http",
+    connectorID: "",
+    targetName: "",
   });
+  const connectorController = useMemo(
+    () => new ConnectorController(api),
+    [api],
+  );
+  const connectors = useSyncExternalStore(
+    connectorController.subscribe,
+    connectorController.getSnapshot,
+  );
+  useEffect(() => () => connectorController.cancel(), [connectorController]);
+  useEffect(() => {
+    if (draft.transport === "connector") void connectorController.load();
+  }, [draft.transport, connectorController]);
+  const connector = connectors.items.find(
+    (item) => item.id === draft.connectorID,
+  );
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const pending = useRef(false);
-  const field = (key: keyof MCPServerDraft, value: string) =>
-    setDraft((current) => ({ ...current, [key]: value }));
+  const field = <K extends keyof MCPServerDraft>(
+    key: K,
+    value: MCPServerDraft[K],
+  ) => setDraft((current) => ({ ...current, [key]: value }));
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (pending.current) return;
@@ -634,7 +709,7 @@ function ServerForm({
     setBusy(true);
     setError("");
     try {
-      const body = parseServerDraft(draft);
+      const body = parseServerDraft(draft, connectors.items);
       const server = await api.request<MCPServer>("/mcp/servers", {
         method: "POST",
         body,
@@ -689,34 +764,118 @@ function ServerForm({
               </span>
             </label>
             <label className="span-two">
-              Server URL
-              <input
-                required
-                type="url"
-                autoComplete="off"
-                value={draft.url}
-                onChange={(event) => field("url", event.target.value)}
-                placeholder="https://tools.example.com/mcp"
-              />
-              <span className="field-help">
-                Use the server’s Streamable HTTP endpoint. No query string or
-                credentials.
-              </span>
+              Connection type
+              <select
+                value={draft.transport}
+                onChange={(event) =>
+                  field("transport", event.target.value as "http" | "connector")
+                }
+              >
+                <option value="http">Direct HTTP</option>
+                <option value="connector">Private connector</option>
+              </select>
             </label>
-            <label>
-              Credential reference <span className="optional">optional</span>
-              <input
-                autoComplete="off"
-                spellCheck={false}
-                value={draft.credential}
-                onChange={(event) => field("credential", event.target.value)}
-                placeholder="ORDERS_ACCESS_TOKEN"
-              />
-              <span className="field-help">
-                Reference an operator-configured credential. Never paste a
-                secret. Leave empty to configure OAuth in server Settings.
-              </span>
-            </label>
+            {draft.transport === "connector" ? (
+              <>
+                <label>
+                  Connector
+                  <select
+                    required
+                    value={draft.connectorID}
+                    onChange={(event) =>
+                      setDraft((current) => ({
+                        ...current,
+                        connectorID: event.target.value,
+                        targetName: "",
+                      }))
+                    }
+                    disabled={connectors.loading}
+                  >
+                    <option value="">
+                      {connectors.loading
+                        ? "Loading connectors…"
+                        : "Choose a connector"}
+                    </option>
+                    {connectors.items
+                      .filter((item) => item.enabled)
+                      .map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.name} · {connectorPresence(item)}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+                <label>
+                  Target
+                  <select
+                    required
+                    value={draft.targetName}
+                    onChange={(event) =>
+                      field("targetName", event.target.value)
+                    }
+                    disabled={!connector?.enabled}
+                  >
+                    <option value="">Choose an advertised target</option>
+                    {connector?.targets.map((target) => (
+                      <option key={target.name} value={target.name}>
+                        {target.name} · {target.transport}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <div className="span-two">
+                  <ErrorNotice error={connectors.error} />
+                  <p className="field-help">
+                    Register and start a connector from the Connectors tab
+                    first. The connector controls its local endpoint,
+                    credentials and process settings.
+                  </p>
+                  <button
+                    type="button"
+                    className="text-button"
+                    disabled={connectors.loading}
+                    onClick={() => void connectorController.load()}
+                  >
+                    Refresh connectors
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <label className="span-two">
+                  Server URL
+                  <input
+                    required
+                    type="url"
+                    autoComplete="off"
+                    value={draft.url}
+                    onChange={(event) => field("url", event.target.value)}
+                    placeholder="https://tools.example.com/mcp"
+                  />
+                  <span className="field-help">
+                    Use the server’s Streamable HTTP endpoint. No query string
+                    or credentials.
+                  </span>
+                </label>
+                <label>
+                  Credential reference{" "}
+                  <span className="optional">optional</span>
+                  <input
+                    autoComplete="off"
+                    spellCheck={false}
+                    value={draft.credential}
+                    onChange={(event) =>
+                      field("credential", event.target.value)
+                    }
+                    placeholder="ORDERS_ACCESS_TOKEN"
+                  />
+                  <span className="field-help">
+                    Reference an operator-configured credential. Never paste a
+                    secret. Leave empty to configure OAuth in server Settings.
+                  </span>
+                </label>
+              </>
+            )}
             <label>
               Timeout (milliseconds)
               <input

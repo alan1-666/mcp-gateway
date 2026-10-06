@@ -17,11 +17,11 @@ type Store struct{ db postgres.DB }
 
 func NewStore(db postgres.DB) *Store { return &Store{db: db} }
 
-const columns = `id,workspace_id,name,namespace,url,credential_ref,timeout_ms,enabled,created_at,updated_at`
+const columns = `id,workspace_id,name,namespace,url,credential_ref,timeout_ms,enabled,created_at,updated_at,COALESCE(connector_id,''),target_name`
 
 func scan(row interface{ Scan(...any) error }) (core.MCPServer, error) {
 	var v core.MCPServer
-	err := row.Scan(&v.ID, &v.WorkspaceID, &v.Name, &v.Namespace, &v.URL, &v.CredentialRef, &v.TimeoutMS, &v.Enabled, &v.CreatedAt, &v.UpdatedAt)
+	err := row.Scan(&v.ID, &v.WorkspaceID, &v.Name, &v.Namespace, &v.URL, &v.CredentialRef, &v.TimeoutMS, &v.Enabled, &v.CreatedAt, &v.UpdatedAt, &v.ConnectorID, &v.TargetName)
 	return v, mapError(err)
 }
 func mapError(err error) error {
@@ -73,7 +73,7 @@ func (s *Store) create(ctx context.Context, actor core.Actor, in core.MCPServerI
 		if count >= MaxServers {
 			return core.MCPServer{}, fmt.Errorf("%w: workspace supports at most %d MCP servers", core.ErrConflict, MaxServers)
 		}
-		v, err := scan(tx.QueryRow(ctx, `INSERT INTO mcp_servers(workspace_id,id,name,namespace,url,credential_ref,timeout_ms) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING `+columns, actor.WorkspaceID, core.NewID(), in.Name, in.Namespace, in.URL, in.CredentialRef, in.TimeoutMS))
+		v, err := scan(tx.QueryRow(ctx, `INSERT INTO mcp_servers(workspace_id,id,name,namespace,url,credential_ref,timeout_ms,connector_id,target_name) VALUES($1,$2,$3,$4,$5,$6,$7,NULLIF($8,''),$9) RETURNING `+columns, actor.WorkspaceID, core.NewID(), in.Name, in.Namespace, in.URL, in.CredentialRef, in.TimeoutMS, in.ConnectorID, in.TargetName))
 		if err != nil {
 			return v, err
 		}

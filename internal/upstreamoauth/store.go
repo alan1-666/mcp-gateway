@@ -28,7 +28,7 @@ type row struct {
 func (s *Service) server(ctx context.Context, w, id string) (core.MCPServer, error) {
 	var v core.MCPServer
 	v.ID, v.WorkspaceID = id, w
-	err := s.db.QueryRow(ctx, `SELECT url,credential_ref,enabled FROM mcp_servers WHERE workspace_id=$1 AND id=$2`, w, id).Scan(&v.URL, &v.CredentialRef, &v.Enabled)
+	err := s.db.QueryRow(ctx, `SELECT url,credential_ref,enabled,COALESCE(connector_id,'') FROM mcp_servers WHERE workspace_id=$1 AND id=$2`, w, id).Scan(&v.URL, &v.CredentialRef, &v.Enabled, &v.ConnectorID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		err = core.ErrNotFound
 	}
@@ -67,7 +67,7 @@ func (s *Service) locked(ctx context.Context, a core.Actor, id string, manage bo
 		}
 	}
 	server := core.MCPServer{ID: id, WorkspaceID: a.WorkspaceID}
-	err = tx.QueryRow(ctx, `SELECT url,credential_ref,enabled FROM mcp_servers WHERE workspace_id=$1 AND id=$2 FOR UPDATE`, a.WorkspaceID, id).Scan(&server.URL, &server.CredentialRef, &server.Enabled)
+	err = tx.QueryRow(ctx, `SELECT url,credential_ref,enabled,COALESCE(connector_id,'') FROM mcp_servers WHERE workspace_id=$1 AND id=$2 FOR UPDATE`, a.WorkspaceID, id).Scan(&server.URL, &server.CredentialRef, &server.Enabled, &server.ConnectorID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return core.ErrNotFound
 	}
@@ -175,7 +175,7 @@ func (s *Service) Configure(ctx context.Context, a core.Actor, id string, in Con
 		if e := versionMatches(in.ExpectedVersion, v); e != nil {
 			return e
 		}
-		if !server.Enabled || server.CredentialRef != "" || server.URL != metadata.Resource {
+		if server.ConnectorID != "" || !server.Enabled || server.CredentialRef != "" || server.URL != metadata.Resource {
 			return core.ErrConflict
 		}
 		_, e := tx.Exec(ctx, `INSERT INTO mcp_upstream_oauth(workspace_id,server_id,version,status,configuration,client_secret) VALUES($1,$2,1,'disconnected',$3,$4) ON CONFLICT(workspace_id,server_id) DO UPDATE SET version=mcp_upstream_oauth.version+1,status='disconnected',configuration=$3,client_secret=$4,token=NULL,expires_at=NULL,state_hash=NULL,session_hash=NULL,actor_id=NULL,verifier=NULL,deadline=NULL,updated_at=clock_timestamp()`, a.WorkspaceID, id, raw, encrypted)

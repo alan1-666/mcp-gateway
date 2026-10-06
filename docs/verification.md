@@ -363,3 +363,16 @@ They do not claim completed consent or compatibility testing with a real externa
 OAuth provider. Cloud release and browser acceptance are recorded in the release
 pull request after exact-commit CI. The TLS edge and console proxy must both
 suppress access and error logging for the callback URI before enabling OAuth.
+
+## Private Connector implementation — 2026-10-06
+
+See [private MCP Connectors](private-connectors.md) for the supported execution profile and installation steps. Cloud deployment acceptance is recorded on the release pull request after exact-source CI succeeds.
+
+- Complete Go race suite with real PostgreSQL and the Node cloud-worker integration passed; `make check` passed. Console has 88 passing tests; Pi has 31. The 39 Python operations tests passed.
+- Durable queue tests cover hashed credentials, workspace isolation, frozen target fingerprints, one-use claim/start, exact completion retries, current grants/key/tool/server/approval checks, deadlines under lock contention, bounded capacity, retention and UNKNOWN write outcomes. Restarted services never requeue claimed work.
+- Results are schema-validated and projected before Connector queue persistence; regressions check that dropped fields, raw text and arbitrary error bodies are not stored. Exact integer values survive the transport.
+- Runtime tests exercise real subprocess stdio, local TLS HTTP control requests, fixed private target credentials, journal fsync/restart protection, failed-start no-retry, result-only retries, corruption/capacity fail-stop, output limits, process reaping and unconfirmed-cleanup shutdown.
+- The rootless container test runs separately on the Ubuntu 24.04 cloud host under a dedicated non-root acceptance account. It uses only a locally built synthetic fixture image and checks MCP discovery/call, timeout, cancellation and final container absence. Kernel cgroup files confirm 256 MiB memory, 64 processes and a 1 CPU quota. Container logs and inherited proxy environment are disabled.
+- Revoked Connector tools disappear from consuming catalogs and cannot be prepared or claimed. Administrators retain a visible disabled record. The target configuration and existing tool flag are not rewritten by revocation.
+
+These checks use synthetic targets and do not establish compatibility with every private MCP server, arbitrary stdio package or large-scale workload. The Connector transport is bounded HTTPS polling rather than the architecture's future bidirectional gRPC stream. No private company data or real business write was used for this package.

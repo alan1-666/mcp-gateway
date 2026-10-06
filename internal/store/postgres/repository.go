@@ -31,7 +31,8 @@ const toolColumns = `id, workspace_id, name, risk, status, enabled, version, def
 
 // An admin can inspect a disabled upstream tool; all consumers observe its
 // effective enabled state. The stored tool flag is retained for reactivation.
-const serverAvailable = `(definition->'mcp'->>'server_id' IS NULL OR EXISTS (SELECT 1 FROM mcp_servers ms WHERE ms.workspace_id=tools.workspace_id AND ms.id=tools.definition->'mcp'->>'server_id' AND ms.enabled))`
+const connectorAvailable = `(ms.connector_id IS NULL OR EXISTS (SELECT 1 FROM gateway_connectors gc WHERE gc.workspace_id=ms.workspace_id AND gc.id=ms.connector_id AND gc.enabled))`
+const serverAvailable = `(definition->'mcp'->>'server_id' IS NULL OR EXISTS (SELECT 1 FROM mcp_servers ms WHERE ms.workspace_id=tools.workspace_id AND ms.id=tools.definition->'mcp'->>'server_id' AND ms.enabled AND ` + connectorAvailable + `))`
 const effectiveToolColumns = `id, workspace_id, name, risk, status, (enabled AND ` + serverAvailable + `), version, definition, created_at`
 
 func lockMCPServer(ctx context.Context, tx pgx.Tx, workspaceID string, config *core.MCPConfig) error {
@@ -39,11 +40,15 @@ func lockMCPServer(ctx context.Context, tx pgx.Tx, workspaceID string, config *c
 		return nil
 	}
 	var enabled bool
-	if err := tx.QueryRow(ctx, `SELECT enabled FROM mcp_servers WHERE workspace_id=$1 AND id=$2 FOR SHARE`, workspaceID, config.ServerID).Scan(&enabled); err != nil {
+	// Do not lock the Connector after tool/operation locks: its Start boundary
+	// locks the Connector first and serializes final dispatch with revocation.
+	// This snapshot rejects already committed revocations without reversing that
+	// order; a revoke racing Prepare/Claim is caught again before downstream I/O.
+	if err := tx.QueryRow(ctx, `SELECT ms.enabled AND `+connectorAvailable+` FROM mcp_servers ms WHERE ms.workspace_id=$1 AND ms.id=$2 FOR SHARE OF ms`, workspaceID, config.ServerID).Scan(&enabled); err != nil {
 		return dbError(err)
 	}
 	if !enabled {
-		return fmt.Errorf("%w: MCP server is disabled", core.ErrConflict)
+		return fmt.Errorf("%w: MCP server or Connector is disabled", core.ErrConflict)
 	}
 	return nil
 }

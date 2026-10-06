@@ -24,6 +24,8 @@ export interface MCPServer {
   namespace: string;
   url: string;
   credential_ref?: string;
+  connector_id?: string;
+  target_name?: string;
   timeout_ms: number;
   enabled: boolean;
   created_at: string;

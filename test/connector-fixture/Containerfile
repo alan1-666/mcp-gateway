@@ -1,0 +1,4 @@
+FROM scratch
+COPY connector-fixture /connector-fixture
+USER 65532:65532
+ENTRYPOINT ["/connector-fixture"]
