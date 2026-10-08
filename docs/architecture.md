@@ -18,7 +18,7 @@
 - 自动重试只适用于 HTTP 只读 GET 的部分临时连接错误与 502/503/504，最多两次、共用原期限；进程内熔断不跨实例共享。MCP、Connector 和写操作均不自动重放。
 - Go CI 对声明文件逐文件检查至少 90% 语句覆盖；前端 TypeScript 逻辑采用聚合 95% 行、90% 分支/函数门槛，TSX 不包含在内。不能据此声称全仓或 UI 覆盖达标。
 
-以上核心能力已在 `20261006-cloud.23` 完成对应版本的 CI、外部 MCP SDK 与云端验收。当前记录部署为 `20261008-cloud.30`，源码 `ef8b28d2669dbd8fa3bdb3292b4e379c73c3c277`；该次更新增加原 POST SSE 目录变更通知、分页观察失效与发送前防护，准确源码 CI、云端 SDK 只读调用、幂等重放与撤权回归通过，见[发布证据](evidence/mcp-catalog-release-2026-10-08.json)。通知场景由实际 HTTP/SDK 隔离测试验证；真实供应商持续推送未验收。上游会话管理记录在 [cloud.29](evidence/mcp-session-release-2026-10-08.json)。跨会话契约诊断及 EN/ZH 展示验收记录在 [cloud.27](evidence/mcp-compatibility-release-2026-10-08.json)。此前 cloud.26 已交付受限 OpenAPI JSON 导入并修复 x/text 漏洞。后续源码变更仍需独立验收，不能据此视为已部署。真实 OAuth 供应商授权、真实业务写入和生产负载尚未验收，单机部署不宣称高可用。范围见 [实现状态](implementation-status.md)，各次证据见 [验证记录](verification.md)。
+以上核心能力已在 `20261006-cloud.23` 完成对应版本的 CI、外部 MCP SDK 与云端验收。当前记录部署为 `20261008-cloud.31`，源码 `a17b5d931aa302a46b4b16987c904de1782a9732`；该次更新增加 MCP 调用阶段记录、固定错误分类、受限统计与中英文观测面板，准确源码 CI、云端只读调用和浏览器验收通过，见[调用观测证据](evidence/mcp-execution-observability-release-2026-10-08.json)。统计与健康状态仅代表受限历史样本。目录变更防护见 [cloud.30](evidence/mcp-catalog-release-2026-10-08.json)，真实供应商持续推送未验收。上游会话管理记录在 [cloud.29](evidence/mcp-session-release-2026-10-08.json)。跨会话契约诊断及 EN/ZH 展示验收记录在 [cloud.27](evidence/mcp-compatibility-release-2026-10-08.json)。此前 cloud.26 已交付受限 OpenAPI JSON 导入并修复 x/text 漏洞。后续源码变更仍需独立验收，不能据此视为已部署。真实 OAuth 供应商授权、真实业务写入和生产负载尚未验收，单机部署不宣称高可用。范围见 [实现状态](implementation-status.md)，各次证据见 [验证记录](verification.md)。
 
 ## 云端交付决策
 
