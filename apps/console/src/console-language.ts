@@ -7,6 +7,7 @@ import { appZh } from "./locale-app";
 import { accessZh } from "./locale-access";
 import { mcpZh } from "./locale-mcp";
 import { toolsZh } from "./locale-tools";
+import { openapiZh } from "./locale-openapi";
 import { dynamicMessageTemplates, errorsZh } from "./locale-errors";
 
 export type Language = WebsiteLanguage;
@@ -15,6 +16,7 @@ export const chineseCopy: Readonly<Record<string, string>> = Object.freeze({
   ...accessZh,
   ...mcpZh,
   ...toolsZh,
+  ...openapiZh,
   // Shared navigation/field terms take precedence across feature dictionaries.
   ...appZh,
   ...errorsZh,

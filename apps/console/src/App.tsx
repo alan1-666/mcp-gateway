@@ -15,7 +15,15 @@ import {
   useResource,
 } from "./AdminUI";
 import { filterPath, isoDate } from "./admin-state";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import type { OpenAPIImportCandidate } from "./openapi-import";
 import type { FormEvent, ReactNode } from "react";
 import { APIClient, messageOf, parseObject } from "./api";
 import { hasUnsafeNumbers } from "./json";
@@ -41,6 +49,12 @@ import type {
   ToolPage,
   ToolSummary,
 } from "./types";
+
+const OpenAPIImport = lazy(() =>
+  import("./OpenAPIImport").then((module) => ({
+    default: module.OpenAPIImport,
+  })),
+);
 
 type Page =
   | "credentials"
@@ -1292,6 +1306,9 @@ function Registry({
 }) {
   const { t, locale } = useI18n();
   const [showForm, setShowForm] = useState(false);
+  const [showImport, setShowImport] = useState(false);
+  const [importedCandidate, setImportedCandidate] =
+    useState<OpenAPIImportCandidate>();
   const [detailTab, setDetailTab] = useState({
     id: initialSelectedId,
     value: initialSection,
@@ -1355,13 +1372,29 @@ function Registry({
           />
         ) : null}
         {canManage ? (
-          <button
-            className="button primary"
-            onClick={() => setShowForm((current) => !current)}
-          >
-            <Icon name={showForm ? "close" : "plus"} />
-            {showForm ? t("Close form") : t("Register tool")}
-          </button>
+          <div className="action-row">
+            <button
+              className="button secondary"
+              onClick={() => {
+                setShowForm(false);
+                setImportedCandidate(undefined);
+                setShowImport((current) => !current);
+              }}
+            >
+              {showImport ? t("Close import") : t("Import OpenAPI")}
+            </button>
+            <button
+              className="button primary"
+              onClick={() => {
+                setShowImport(false);
+                setImportedCandidate(undefined);
+                setShowForm((current) => !current);
+              }}
+            >
+              <Icon name={showForm ? "close" : "plus"} />
+              {showForm ? t("Close form") : t("Register tool")}
+            </button>
+          </div>
         ) : (
           <span className="muted">
             {t("Tool configuration is managed by administrators.")}
@@ -1369,8 +1402,22 @@ function Registry({
         )}
       </div>
       {error ? <Notice>{t(error)}</Notice> : null}
+      {showImport && !selectedId ? (
+        <Suspense fallback={<AdminLoading />}>
+          <OpenAPIImport
+            onCancel={() => setShowImport(false)}
+            onSelect={(candidate) => {
+              setImportedCandidate(candidate);
+              setShowImport(false);
+              setShowForm(true);
+            }}
+          />
+        </Suspense>
+      ) : null}
       {showForm && !selectedId ? (
         <ToolForm
+          key={importedCandidate?.id ?? "manual"}
+          initial={importedCandidate}
           api={api}
           onCancel={() => setShowForm(false)}
           onCreated={async (tool) => {
@@ -1694,22 +1741,28 @@ function Registry({
 
 function ToolForm({
   api,
+  initial,
   onCreated,
   onCancel,
 }: {
   api: APIClient;
+  initial?: OpenAPIImportCandidate;
   onCreated: (tool: Tool) => Promise<void>;
   onCancel: () => void;
 }) {
   const { t } = useI18n();
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [url, setUrl] = useState("");
-  const [method, setMethod] = useState("GET");
-  const [risk, setRisk] = useState<"read" | "write">("read");
+  const [name, setName] = useState(initial?.name ?? "");
+  const [description, setDescription] = useState(initial?.description ?? "");
+  const [url, setUrl] = useState(initial?.url ?? "");
+  const [method, setMethod] = useState(initial?.method ?? "GET");
+  const [risk, setRisk] = useState<"read" | "write">(
+    initial ? "write" : "read",
+  );
   const [timeout, setTimeoutValue] = useState("10000");
   const [credential, setCredential] = useState("");
-  const [schema, setSchema] = useState(defaultSchema);
+  const [schema, setSchema] = useState(() =>
+    initial ? JSON.stringify(initial.inputSchema, null, 2) : defaultSchema,
+  );
   const [outputSchema, setOutputSchema] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -1731,6 +1784,10 @@ function ToolForm({
         throw new Error("Description must not exceed 4000 UTF-8 bytes.");
       if (risk === "read" && method !== "GET")
         throw new Error("Read tools require the GET method.");
+      if (initial?.credentialRequired && !credential.trim())
+        throw new Error(
+          "This imported operation requires a managed credential reference.",
+        );
       if (credential.trim() && !/^[A-Z][A-Z0-9_]*$/.test(credential.trim()))
         throw new Error(
           "Credential references use uppercase letters, digits, and underscores, starting with a letter.",
@@ -1770,6 +1827,23 @@ function ToolForm({
   }
   return (
     <form className="panel tool-form" onSubmit={submit}>
+      {initial ? (
+        <div className="panel-body">
+          <p className="field-help">
+            {t(
+              "Imported settings are a draft. Review the destination, credential, schema, and risk before creating it. Approval is required by default.",
+            )}
+          </p>
+          <details>
+            <summary>{t("Import review notes")}</summary>
+            <ul className="field-help">
+              {initial.warnings.map((warning) => (
+                <li key={warning}>{t(warning)}</li>
+              ))}
+            </ul>
+          </details>
+        </div>
+      ) : null}
       <div className="panel-heading">
         <div>
           <span className="eyebrow">{t("NEW INTEGRATION")}</span>
@@ -1863,8 +1937,13 @@ function ToolForm({
             </label>
             <label className="span-two">
               {t("Credential reference")}{" "}
-              <span className="optional">{t("optional")}</span>
+              <span className="optional">
+                {initial?.credentialRequired
+                  ? t("Required by API")
+                  : t("optional")}
+              </span>
               <input
+                required={initial?.credentialRequired}
                 value={credential}
                 onChange={(event) => setCredential(event.target.value)}
                 placeholder="SERVICE_ACCESS_TOKEN"

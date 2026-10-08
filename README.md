@@ -8,7 +8,7 @@ Rillgate connects existing MCP clients and agents to remote MCP services, HTTP A
 
 The Go gateway handles discovery, credentials, permissions, execution records and bounded results. The React console manages services, access keys and call history in English or Simplified Chinese, with a language preference shared with the website. No Pi task, model account or separate Rillgate agent application is required.
 
-> **Delivery status:** The gateway core is deployed as `20261006-cloud.25` from source `7f840b201e7ddf191edddbe1b281f8c2696f8414` (bilingual console update). Exact-source CI, official MCP SDK calls against the authorized cloud test integration, browser checks and temporary-key revocation passed. Public Cloudflare compatibility passed separately through an ephemeral local gateway; it is not enabled in production. See the [release evidence](docs/evidence/gateway-core-release-2026-10-06.json) and [implementation status](docs/implementation-status.md) for the supported boundary.
+> **Delivery status:** The gateway core is deployed as `20261008-cloud.26` from source `bb9f234ea0f38a7d61272458cb9ed253fd269348`, adding reviewed OpenAPI JSON import and an x/text security update. All six exact-source CI checks, release backup/health gates and affected cloud browser checks passed. Earlier core SDK acceptance and public-provider boundaries remain recorded separately. See the [release evidence](docs/evidence/openapi-import-release-2026-10-08.json) and [implementation status](docs/implementation-status.md) for the supported boundary.
 
 ## How it works
 
@@ -23,7 +23,7 @@ flowchart LR
     Gateway --> DB[(PostgreSQL)]
 ```
 
-1. **Connect:** register a remote MCP service, define a fixed HTTP JSON tool, or configure an outbound private Connector
+1. **Connect:** register a remote MCP service, define a fixed HTTP JSON tool (manually or from a reviewed OpenAPI operation), or configure an outbound private Connector
 2. **Publish:** review tool contracts, risk classification and response policy; enable selected tools
 3. **Grant:** create a machine access key scoped to explicit tools or services
 4. **Use:** configure the gateway MCP URL and Bearer key in an existing client, then search, inspect schemas and call tools
@@ -68,7 +68,7 @@ Use the same idempotency key for the same intent. A pending approval is not succ
 - OAuth has automated protocol/refresh tests for the [documented registration profile](docs/upstream-oauth.md). Real third-party provider consent acceptance is tracked separately and is not claimed from local fixtures.
 - The current deployment topology is a single host. High availability, an independently commissioned off-host backup destination and external alert delivery are not established.
 
-See the [remote MCP contract](docs/remote-mcp-contract.md), [discovery contract](docs/tool-discovery-contract.md), [Connector guide](docs/private-connectors.md) and [cloud deployment guide](docs/cloud-deployment.md).
+See the [OpenAPI import profile](docs/openapi-import.md), [remote MCP contract](docs/remote-mcp-contract.md), [discovery contract](docs/tool-discovery-contract.md), [Connector guide](docs/private-connectors.md) and [cloud deployment guide](docs/cloud-deployment.md).
 
 ## Developer setup
 
@@ -87,7 +87,7 @@ For source development, tests and release gates, see [development](docs/developm
 
 The [gateway roadmap](docs/gateway-roadmap.md) prioritizes a complete connection → discovery → invocation → result workflow using existing MCP clients. Agent workbench expansion, multi-agent orchestration, standalone client products, model-account management and enterprise account expansion are outside this delivery.
 
-The existing [Pi runner](apps/agent-runner/README.md) remains an optional integration client with its original five-tool interface. It is maintained for compatibility and does not yet expose the new large-result reader. Future needs can drive OpenAPI/Protobuf import, additional OAuth providers, semantic retrieval, distributed telemetry and high availability.
+The existing [Pi runner](apps/agent-runner/README.md) remains an optional integration client with its original five-tool interface. It is maintained for compatibility and does not yet expose the new large-result reader. Future needs can drive broader OpenAPI/Protobuf import, additional OAuth providers, semantic retrieval, distributed telemetry and high availability.
 
 ## Design references
 
