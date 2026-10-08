@@ -3,13 +3,14 @@ package mcpadapter
 import (
 	"context"
 	"encoding/json"
-	"github.com/alan1-666/mcp-gateway/internal/core"
-	"github.com/alan1-666/mcp-gateway/internal/upstreams"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"strings"
 	"time"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/alan1-666/mcp-gateway/internal/core"
+	"github.com/alan1-666/mcp-gateway/internal/upstreams"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // Check performs initialization and complete bounded catalog inspection only.
@@ -18,7 +19,7 @@ import (
 func (a *Adapter) Check(ctx context.Context, actor core.Actor, server core.MCPServer) (report upstreams.CheckReport) {
 	start := time.Now()
 	defer func() { report.DurationMS = time.Since(start).Milliseconds() }()
-	report = upstreams.CheckReport{ServerID: server.ID, Status: "failed", Tools: []upstreams.ToolCompatibility{}}
+	report = upstreams.CheckReport{ServerID: server.ID, Status: "failed", SessionContractStatus: "not_checked", Tools: []upstreams.ToolCompatibility{}}
 	fail := func(stage, code, message string) upstreams.CheckReport {
 		report.Stage = stage
 		report.Code = code
@@ -44,24 +45,26 @@ func (a *Adapter) Check(ctx context.Context, actor core.Actor, server core.MCPSe
 	ctx, cancel := context.WithTimeout(outboundContext{ctx}, time.Duration(server.TimeoutMS)*time.Millisecond)
 	defer cancel()
 	if a.ValidateServerContext(ctx, actor, server) != nil {
+		if ctx.Err() != nil {
+			return diagnosticFailure(ctx, nil, report, "policy", "configuration_blocked", "The endpoint, timeout or credential is blocked by the configured policy.")
+		}
 		return fail("policy", "configuration_blocked", "The endpoint, timeout or credential is blocked by the configured policy.")
 	}
 	session, transport, closeSession, err := a.connect(ctx, actor, server)
 	if err != nil {
-		if transport != nil && (transport.status() == 401 || transport.status() == 403) {
-			return fail("authentication", "authentication_rejected", "The upstream server rejected authentication.")
-		}
-		return fail("connect", "connection_failed", "Connection or MCP initialization failed; inspect endpoint, network and protocol compatibility.")
+		return diagnosticFailure(ctx, transport, report, "connect", "connection_failed", "Connection or MCP initialization failed; inspect endpoint, network and protocol compatibility.")
 	}
-	defer closeSession()
+	defer func() {
+		if closeSession != nil {
+			closeSession()
+		}
+	}()
 	cursor, totalBytes, count := "", 0, 0
 	seenNames, seenCursors := map[string]bool{}, map[string]bool{}
+	hashes := make(map[string]string)
 	for page := 0; page < maxPages; page++ {
 		if _, err = session.ListTools(ctx, &mcp.ListToolsParams{Cursor: cursor}); err != nil {
-			if transport.status() == 401 || transport.status() == 403 {
-				return fail("authentication", "authentication_rejected", "The upstream server rejected authentication.")
-			}
-			return fail("discovery", "discovery_failed", "The upstream catalog could not be completely read.")
+			return diagnosticFailure(ctx, transport, report, "discovery", "discovery_failed", "The upstream catalog could not be completely read.")
 		}
 		raw, err := transport.result("tools/list")
 		if err != nil {
@@ -110,6 +113,7 @@ func (a *Adapter) Check(ctx context.Context, actor core.Actor, server core.MCPSe
 			seenNames[tool.Name] = true
 			if item.Status == "compatible" {
 				report.CompatibleCount++
+				hashes[tool.Name] = schemaHash(tool.Name, tool.Input, tool.Output)
 			} else {
 				report.IncompatibleCount++
 			}
@@ -122,10 +126,12 @@ func (a *Adapter) Check(ctx context.Context, actor core.Actor, server core.MCPSe
 				report.Code = "unsupported_definitions"
 				report.Message = "Discovery completed with incompatible definitions; strict import and execution remain blocked."
 			} else {
-				report.Status = "ok"
-				report.Stage = "complete"
-				report.Code = "catalog_compatible"
-				report.Message = "Connection and catalog checks passed; no business tool was executed."
+				// Definitions are reviewed outside the execution session. A second
+				// independent session detects changing contracts without dropping
+				// session-bound const/default constraints from the schema hash.
+				closeSession()
+				closeSession = nil
+				return a.checkSessionContracts(ctx, actor, server, report, hashes)
 			}
 			return report
 		}

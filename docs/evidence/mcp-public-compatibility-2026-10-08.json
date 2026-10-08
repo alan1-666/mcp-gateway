@@ -1,0 +1,89 @@
+{
+  "business_tools_called": false,
+  "checks": [
+    "initialization",
+    "complete_catalog",
+    "fresh_session_catalog",
+    "contract_comparison"
+  ],
+  "environment": "local adapter with fixed public endpoint allowlists",
+  "limitations": [
+    "two observed sessions do not guarantee future contract stability",
+    "no real vendor OAuth or business writes",
+    "public provider availability is not a CI gate"
+  ],
+  "production_configuration_changed": false,
+  "providers": {
+    "cloudflare_docs": {
+      "authentication": "public; no account",
+      "endpoint": "https://docs.mcp.cloudflare.com/mcp",
+      "official_reference": "https://developers.cloudflare.com/agents/model-context-protocol/cloudflare/servers-for-cloudflare/",
+      "report": {
+        "id": "0",
+        "server_id": "cloudflare_docs",
+        "checked_at": "0001-01-01T00:00:00Z",
+        "status": "ok",
+        "stage": "complete",
+        "code": "catalog_compatible",
+        "message": "Connection and two independent catalogs passed; no business tool was executed.",
+        "duration_ms": 2318,
+        "compatible_count": 2,
+        "incompatible_count": 0,
+        "session_contract_status": "stable",
+        "tools": [
+          {
+            "name": "search_cloudflare_documentation",
+            "status": "compatible",
+            "code": "supported",
+            "message": "Definition is compatible; business execution has not been tested."
+          },
+          {
+            "name": "migrate_pages_to_workers_guide",
+            "status": "compatible",
+            "code": "supported",
+            "message": "Definition is compatible; business execution has not been tested."
+          }
+        ]
+      }
+    },
+    "microsoft_learn": {
+      "authentication": "public; no account",
+      "endpoint": "https://learn.microsoft.com/api/mcp",
+      "official_reference": "https://learn.microsoft.com/en-us/training/support/mcp",
+      "report": {
+        "id": "0",
+        "server_id": "microsoft_learn",
+        "checked_at": "0001-01-01T00:00:00Z",
+        "status": "degraded",
+        "stage": "compatibility",
+        "code": "session_catalog_changed",
+        "message": "The tool catalog changed between independent sessions; review upstream contract stability before publishing.",
+        "duration_ms": 3828,
+        "compatible_count": 0,
+        "incompatible_count": 3,
+        "session_contract_status": "changed",
+        "tools": [
+          {
+            "name": "microsoft_docs_search",
+            "status": "incompatible",
+            "code": "session_contract_changed",
+            "message": "This tool changed or disappeared in a fresh session; its reviewed contract cannot be reused safely."
+          },
+          {
+            "name": "microsoft_code_sample_search",
+            "status": "incompatible",
+            "code": "session_contract_changed",
+            "message": "This tool changed or disappeared in a fresh session; its reviewed contract cannot be reused safely."
+          },
+          {
+            "name": "microsoft_docs_fetch",
+            "status": "incompatible",
+            "code": "session_contract_changed",
+            "message": "This tool changed or disappeared in a fresh session; its reviewed contract cannot be reused safely."
+          }
+        ]
+      }
+    }
+  },
+  "verified_at": "2026-10-08T03:50:25Z"
+}

@@ -19,6 +19,8 @@ flowchart LR
 
 The adapter uses the official MCP Go SDK. Every discovery or execution attempt creates its own upstream session and closes it afterward. It does not pool sessions across users or forward the caller's Gateway bearer token, browser cookie or request headers.
 
+Connection diagnostics compare two independent complete catalogs when the first catalog is compatible, using the original timeout. `session_contract_status` distinguishes observed stability, changed contracts and incomplete verification; historical reports and Connectors are explicitly not checked for this property. This adds a diagnostic observation, not session reuse or permission to ignore schema drift. See the [compatibility matrix and check contract](mcp-compatibility.md).
+
 ### Supported protocol scope
 
 - **Transport:** remote Streamable HTTP. Responses to the original POST can be JSON or SSE. Standalone GET streams, stream resumption and reconnect/replay are disabled. This does not provide the legacy HTTP+SSE transport.
