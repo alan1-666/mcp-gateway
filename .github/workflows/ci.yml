@@ -58,5 +58,6 @@ jobs:
       - run: npm test
       - run: npm run test:coverage --workspace @mcp-gateway/console
       - run: npm run test:coverage:gateway --workspace @mcp-gateway/console
+      - run: npm run test:coverage:openapi --workspace @mcp-gateway/console
       - run: npm run build
       - run: npm audit --audit-level=high

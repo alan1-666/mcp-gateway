@@ -410,3 +410,18 @@ Microsoft Learn's current session-dependent schema profile, real third-party OAu
 - Read-only cloud page inspection found role options still in English and a mobile overflow from absolutely positioned screen-reader table labels; the final source translates display labels with explicit unchanged role values and contains those labels within scrollable tables.
 - Final-release browser acceptance confirmed translated role choices, Chinese and English document width equal to the 390px viewport, usable mobile navigation/Escape handling, restored 1280px desktop layout, and no browser errors or warnings.
 - Unknown upstream diagnostic messages and raw audit/protocol codes remain unchanged. Self-hosting runs the same server stack; the hosted instance remains invitation-only.
+
+## OpenAPI HTTP tool import — 2026-10-08
+
+The console now offers local/pasted OpenAPI 3.0/3.1 JSON preview and a single-operation handoff to the existing draft form. See the [supported mapping profile](openapi-import.md).
+
+| Check | Outcome |
+| --- | --- |
+| Parser regression and independent coverage gate | Passed: malformed/duplicate-key/oversized JSON, precision, local references/cycles, nullable and exclusive-bound conversion, path/base URL precedence, request serialization, authentication and reference amplification; parser 100% lines, 99.18% branches, 100% functions |
+| Console suite and aggregate TypeScript coverage | 143 tests passed; 98.84% lines, 94.39% branches, 95.73% functions across loaded TypeScript logic. TSX coverage is not included |
+| Cross-language PostgreSQL/API/HTTP integration with race detector | Actual TypeScript parser → Go draft registration → isolated PostgreSQL → approved HTTP fixture execution passed; query escaping and base paths, required/schema rejection, nullable and exclusive numeric bounds, independent approval and one dispatch on replay verified |
+| Required project checks | `make check` and complete `RUN_CLOUD_WORKER_INTEGRATION=1 TEST_DATABASE_URL=... make test` passed; existing Go/MCP/Node worker checks retained, including 32 runner tests |
+| Browser interaction | Isolated local workspace: JSON paste and file upload, supported/unsupported operations, EN/ZH preserving selection and edited name, changed URL invalidating selection, draft creation, missing managed credential blocked, and denied non-allowlisted origin verified. No business tools executed |
+| Responsive layout | Selected import preview at 390px has 390px document width; viewport restored after the check |
+
+The import profile does not map dynamic paths, arbitrary query serialization, optional bodies, YAML, external references or OAuth scopes. Imported output schemas are not inferred. File selection was initially interrupted in browser automation; the resumed actual-file chooser flow completed and the uploaded document appeared in the textarea and preview. These local results do not establish compatibility with an arbitrary vendor API. Cloud deployment and remote CI require their own release evidence below.
