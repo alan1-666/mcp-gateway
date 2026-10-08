@@ -1,0 +1,98 @@
+{
+  "release": "20261008-cloud.26",
+  "deployed_source": "bb9f234ea0f38a7d61272458cb9ed253fd269348",
+  "date": "2026-10-08",
+  "origin": "https://rillgate.cn",
+  "github_pr": 19,
+  "status": "passed_with_documented_import_profile",
+  "artifact_sha256": "ed561968b1eb11025b97863d2fe1534d78373a40f2074a977e5ea573fe1bb87f",
+  "ci_checks": [
+    {
+      "link": "https://github.com/alan1-666/mcp-gateway/actions/runs/37715922409/job/113112220417",
+      "name": "console-proxy",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/alan1-666/mcp-gateway/actions/runs/37715922409/job/113112220687",
+      "name": "release-tooling",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/alan1-666/mcp-gateway/actions/runs/37715922409/job/113112220579",
+      "name": "verify",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/alan1-666/mcp-gateway/actions/runs/37715917631/job/113112206737",
+      "name": "console-proxy",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/alan1-666/mcp-gateway/actions/runs/37715917631/job/113112206673",
+      "name": "verify",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/alan1-666/mcp-gateway/actions/runs/37715917631/job/113112206481",
+      "name": "release-tooling",
+      "state": "SUCCESS"
+    }
+  ],
+  "deployment": {
+    "encrypted_pre_release_backup": true,
+    "previous_release": "20261006-cloud.25",
+    "health_gates": "passed",
+    "migration_count": 16,
+    "new_migrations": 0
+  },
+  "verification": {
+    "make_check": "passed",
+    "full_race_postgresql_mcp_worker_suite": "passed",
+    "console_tests": 144,
+    "runner_tests": 32,
+    "console_typescript_coverage_percent": {
+      "lines": 98.85,
+      "branches": 94.39,
+      "functions": 95.73
+    },
+    "parser_coverage_percent": {
+      "lines": 100,
+      "branches": 99.18,
+      "functions": 100
+    },
+    "tsx_in_coverage": false,
+    "parser_go_postgres_http_execution": "passed",
+    "govulncheck_affected_symbols": 0,
+    "govulncheck_imported_package_findings": 0,
+    "unused_module_advisories_remain": true
+  },
+  "local_browser_checks": [
+    "paste and actual JSON file upload",
+    "supported and unsupported operation preview",
+    "EN/ZH retains selected operation and edited name",
+    "URL changes invalidate preview",
+    "isolated draft creation",
+    "required managed credential prevents missing input",
+    "non-allowlisted origin rejected",
+    "390px document width"
+  ],
+  "cloud_browser_checks": [
+    "reload and existing owner workspace session reconnect",
+    "OpenAPI lazy chunk loads",
+    "one compatible operation and one disabled dynamic path",
+    "EN/ZH retains selected operation",
+    "review form retains name, GET destination and required input schema",
+    "write-risk requiring approval selected by default",
+    "managed credential required with missing-input validity",
+    "no captured console warnings or errors"
+  ],
+  "production_mutations_during_ui_acceptance": false,
+  "boundaries": [
+    "Static paths, scalar GET query and required JSON object bodies only; see docs/openapi-import.md",
+    "Output schemas not imported; operator review and existing publish/client grants remain required",
+    "Cloud acceptance used synthetic preview only; draft creation and execution verified in isolated local PostgreSQL/HTTP fixtures",
+    "No real vendor OAuth, real business writes or production load acceptance",
+    "Cloudflare production egress unchanged; Microsoft Learn session-bound schema incompatibility remains",
+    "Single host; off-host recovery, external alert delivery and actual application rollback not commissioned"
+  ]
+}
