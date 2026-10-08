@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -112,6 +113,16 @@ func Run(mode string) error {
 	connectorService := connectors.New(pool)
 	upstreamStore := upstreams.NewStore(pool)
 	remote := mcpadapter.New(adapter, upstreamStore)
+	defer remote.Close()
+	poolSize, err := strconv.Atoi(env("MCP_SESSION_POOL_SIZE", "32"))
+	if err != nil || poolSize < 0 {
+		return fmt.Errorf("invalid MCP_SESSION_POOL_SIZE")
+	}
+	if poolSize > 0 {
+		if err := remote.EnableSessionPool(mcpadapter.SessionPoolOptions{MaxSessions: poolSize, IdleTTL: time.Minute, MaxLifetime: 10 * time.Minute}); err != nil {
+			return err
+		}
+	}
 	remote.SetDelegate(connectorService)
 	if upstreamOAuth != nil {
 		remote.SetOAuthProvider(upstreamOAuth)

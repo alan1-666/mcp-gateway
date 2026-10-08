@@ -12,6 +12,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/alan1-666/mcp-gateway/internal/adapters/httpadapter"
 	"github.com/alan1-666/mcp-gateway/internal/adapters/mcpadapter"
@@ -173,6 +174,10 @@ func TestAuthenticatedMCPHotRotationDisableDiagnosticsAndHistory(t *testing.T) {
 	}
 	resolver := upstreams.NewStore(pool)
 	adapter := mcpadapter.New(egress, resolver)
+	if err := adapter.EnableSessionPool(mcpadapter.SessionPoolOptions{MaxSessions: 4, IdleTTL: time.Minute, MaxLifetime: 10 * time.Minute}); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(adapter.Close)
 	service := upstreams.New(resolver, adapter)
 	registered, err := service.Create(ctx, actor, core.MCPServerInput{Name: "Authenticated upstream", Namespace: "auth", URL: server.URL, CredentialRef: "MCP", TimeoutMS: 10000})
 	if err != nil {
@@ -201,6 +206,16 @@ func TestAuthenticatedMCPHotRotationDisableDiagnosticsAndHistory(t *testing.T) {
 	if out := adapter.Execute(ctx, actor, tool, core.Operation{Arguments: json.RawMessage(`{}`)}); out.State != core.StateSucceeded || calls.Load() != 1 {
 		t.Fatalf("execute after rotation %+v", out)
 	}
+	if out := adapter.Execute(ctx, actor, tool, core.Operation{Arguments: json.RawMessage(`{}`)}); out.State != core.StateSucceeded || adapter.SessionPoolStats().Hits != 1 {
+		t.Fatal("healthy authenticated execution did not reuse its session")
+	}
+	// Even a rotation to identical header values must establish a fresh session.
+	if _, err = store.Rotate(ctx, actor, "MCP", credentials.RotateInput{ExpectedVersion: 2, Headers: map[string]string{"Authorization": "Bearer valid-fixture"}}); err != nil {
+		t.Fatal(err)
+	}
+	if out := adapter.Execute(ctx, actor, tool, core.Operation{Arguments: json.RawMessage(`{}`)}); out.State != core.StateSucceeded || adapter.SessionPoolStats().Hits != 1 || calls.Load() != 3 {
+		t.Fatal("credential version change reused a stale session")
+	}
 	history, err := service.Checks(ctx, actor, registered.ID, 1, 0)
 	if err != nil || len(history.Items) != 1 || history.Items[0].ID != passed.ID || history.NextCursor == "" {
 		t.Fatalf("history %+v %v", history, err)
@@ -215,14 +230,14 @@ func TestAuthenticatedMCPHotRotationDisableDiagnosticsAndHistory(t *testing.T) {
 		t.Fatal("cross-workspace diagnostic history leaked")
 	}
 	disabled := false
-	if _, err = store.SetEnabled(ctx, actor, "MCP", credentials.EnabledInput{ExpectedVersion: 2, Enabled: &disabled}); err != nil {
+	if _, err = store.SetEnabled(ctx, actor, "MCP", credentials.EnabledInput{ExpectedVersion: 3, Enabled: &disabled}); err != nil {
 		t.Fatal(err)
 	}
 	before := requests.Load()
 	if out := adapter.Execute(ctx, actor, tool, core.Operation{Arguments: json.RawMessage(`{}`)}); out.State != core.StateFailed {
 		t.Fatal("disabled credential still executed")
 	}
-	if requests.Load() != before || calls.Load() != 1 {
+	if requests.Load() != before || calls.Load() != 3 {
 		t.Fatal("disabled credential reached upstream")
 	}
 	disabledReport, err := service.Check(ctx, actor, registered.ID)

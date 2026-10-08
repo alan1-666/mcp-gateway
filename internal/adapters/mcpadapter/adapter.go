@@ -1,6 +1,6 @@
 // Package mcpadapter executes reviewed remote MCP tools through the gateway's
-// egress policy. Connections are isolated per discovery or operation: no user's
-// session, credential, server notification, or model capability is shared.
+// egress policy. Execution sessions may be reused within one exact actor and
+// credential scope; discovery and diagnostics always use independent sessions.
 package mcpadapter
 
 import (
@@ -38,6 +38,7 @@ type Adapter struct {
 	oauth    OAuthProvider
 	delegate Delegate
 	factory  TransportFactory
+	pool     *sessionPool
 }
 
 // Delegate executes fixed private bindings through an authenticated Connector.
@@ -103,34 +104,62 @@ func (a *Adapter) ValidateServerContext(ctx context.Context, actor core.Actor, s
 	return nil
 }
 
-func (a *Adapter) connect(ctx context.Context, actor core.Actor, server core.MCPServer) (*mcp.ClientSession, *protocolTransport, func(), error) {
+func (a *Adapter) prepareClient(ctx context.Context, actor core.Actor, server core.MCPServer, reusable bool) (*http.Client, func(), string, error) {
 	if err := a.ValidateServerContext(ctx, actor, server); err != nil {
-		return nil, nil, nil, err
+		return nil, nil, "", err
 	}
 	var client *http.Client
 	var closeClient func()
 	var err error
 	if a.factory != nil {
 		client, closeClient, err = a.factory(ctx, server)
+	} else if reusable {
+		client, closeClient, err = a.egress.NewSessionClientContext(ctx, actor.WorkspaceID, server.URL, server.CredentialRef, time.Duration(server.TimeoutMS)*time.Millisecond)
 	} else {
 		client, closeClient, err = a.egress.NewClientContext(ctx, actor.WorkspaceID, server.URL, server.CredentialRef, time.Duration(server.TimeoutMS)*time.Millisecond)
 	}
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, "", err
 	}
 	if client == nil || client.Transport == nil || closeClient == nil {
 		if closeClient != nil {
 			closeClient()
 		}
-		return nil, nil, nil, fmt.Errorf("MCP transport is unavailable")
+		return nil, nil, "", fmt.Errorf("MCP transport is unavailable")
+	}
+	identity := ""
+	if reusable {
+		if scoped, ok := client.Transport.(interface{ SessionIdentity() string }); ok {
+			identity = scoped.SessionIdentity()
+		}
 	}
 	if a.oauth != nil {
 		client.Transport, err = a.oauth.WrapTransport(ctx, actor, server, client.Transport)
 		if err != nil {
 			closeClient()
-			return nil, nil, nil, err
+			return nil, nil, "", err
+		}
+		if scoped, ok := client.Transport.(interface{ GrantSessionIdentity() string }); ok && identity != "" && scoped.GrantSessionIdentity() != "" {
+			identity += "\x00" + scoped.GrantSessionIdentity()
+		} else {
+			identity = ""
 		}
 	}
+	if reusable && a.resolver != nil {
+		client.Transport = &serverScopeTransport{base: client.Transport, resolver: a.resolver, server: server}
+	}
+	return client, closeClient, identity, nil
+}
+
+func (a *Adapter) connect(ctx context.Context, actor core.Actor, server core.MCPServer) (*mcp.ClientSession, *protocolTransport, func(), error) {
+	client, closeClient, _, err := a.prepareClient(ctx, actor, server, false)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return connectClient(ctx, server, client, closeClient)
+}
+
+func connectClient(ctx context.Context, server core.MCPServer, client *http.Client, closeClient func()) (*mcp.ClientSession, *protocolTransport, func(), error) {
 	transport := &protocolTransport{base: client.Transport, ctx: ctx, responses: make(map[string]*responseCapture)}
 	client.Transport = transport
 	sdk := mcp.NewClient(&mcp.Implementation{Name: "mcp-gateway", Version: "1.0.0"}, &mcp.ClientOptions{
@@ -310,12 +339,27 @@ func (a *Adapter) Execute(ctx context.Context, actor core.Actor, tool core.Tool,
 		return core.FinishInput{State: core.StateSucceeded, Result: envelope}
 	}
 
-	session, transport, closeSession, err := a.connect(ctx, actor, server)
+	session, transport, releaseSession, err := a.executionSession(ctx, actor, server)
 	if err != nil {
 		return fail("MCP server is blocked or could not be connected", false)
 	}
-	defer closeSession()
+	healthy := false
+	defer func() {
+		if releaseSession != nil {
+			releaseSession(healthy)
+		}
+	}()
 	tools, err := discover(ctx, session, transport)
+	// A reused session may have expired upstream. Rebuild only after a 404
+	// during catalog inspection, before any business call, once under the
+	// original deadline. Never rebuild or replay a tools/call.
+	if err != nil && ctx.Err() == nil && transport.status() == http.StatusNotFound && transport.canRebuild() {
+		releaseSession(false)
+		session, transport, releaseSession, err = a.executionSession(ctx, actor, server)
+		if err == nil {
+			tools, err = discover(ctx, session, transport)
+		}
+	}
 	if err != nil {
 		return fail("MCP tool contract could not be verified", false)
 	}
@@ -347,6 +391,7 @@ func (a *Adapter) Execute(ctx context.Context, actor core.Actor, tool core.Tool,
 	if err != nil {
 		return fail(err.Error(), true)
 	}
+	healthy = true
 	return core.FinishInput{State: core.StateSucceeded, Result: envelope}
 }
 

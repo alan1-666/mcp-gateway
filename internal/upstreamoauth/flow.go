@@ -320,3 +320,8 @@ func (t *grantTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	}
 	return resp, err
 }
+
+// GrantSessionIdentity fences pooled sessions across grant rotation/reconnection.
+// This is a version marker, never an access token. RoundTrip still checks the
+// current grant status and expiry before each request.
+func (t *grantTransport) GrantSessionIdentity() string { return fmt.Sprintf("oauth:%d", t.version) }

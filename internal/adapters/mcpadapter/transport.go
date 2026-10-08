@@ -17,18 +17,27 @@ const maxResponseBytes = 1 << 20
 
 // protocolTransport bounds the SDK's reads before decoding (including SSE and
 // error bodies), and prevents any tools/call replay even if SDK retry behavior
-// changes. A session is used for at most one business call.
+// changes. Each exclusive operation lease permits at most one business call.
 type protocolTransport struct {
-	base       http.RoundTripper
-	ctx        context.Context
-	mu         sync.Mutex
-	callSent   bool
-	lastStatus int
-	responses  map[string]*responseCapture
+	base        http.RoundTripper
+	ctx         context.Context
+	mu          sync.Mutex
+	callSent    bool
+	lastStatus  int
+	leaseCancel context.CancelFunc
+	closed      bool
+	leases      uint64
+	responses   map[string]*responseCapture
 }
 
 func (t *protocolTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	if err := t.ctx.Err(); err != nil {
+	t.mu.Lock()
+	leaseCtx, closed := t.ctx, t.closed
+	t.mu.Unlock()
+	if closed && req.Method != http.MethodDelete {
+		return nil, errors.New("MCP session is closed")
+	}
+	if err := leaseCtx.Err(); err != nil {
 		return nil, err
 	}
 	// No standalone SSE or resumption GET is permitted. Reads of the response
@@ -64,7 +73,7 @@ func (t *protocolTransport) RoundTrip(req *http.Request) (*http.Response, error)
 	// network activity back to the operation deadline, including cancellation
 	// notifications and DELETE. Teardown itself gets at most two seconds.
 	ctx, cancel := context.WithCancel(req.Context())
-	stop := context.AfterFunc(t.ctx, cancel)
+	stop := context.AfterFunc(leaseCtx, cancel)
 	if req.Method == http.MethodDelete {
 		var previous = cancel
 		ctx, cancel = context.WithTimeout(ctx, 2*time.Second)
@@ -202,4 +211,49 @@ func (b *boundedBody) Close() error {
 	err := b.body.Close()
 	b.closed.Do(b.close)
 	return err
+}
+
+// begin is called only while the pool holds an exclusive idle session lease.
+// Successful operations consume their complete response before release; any
+// failure discards the session rather than allowing late SDK activity to leak.
+func (t *protocolTransport) begin(ctx context.Context) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.leaseCancel != nil {
+		t.leaseCancel()
+	}
+	t.ctx, t.leaseCancel = context.WithCancel(ctx)
+	t.callSent, t.lastStatus = false, 0
+	t.leases++
+	t.responses = make(map[string]*responseCapture)
+}
+
+func (t *protocolTransport) idle() {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.leaseCancel != nil {
+		t.leaseCancel()
+	}
+	idleCtx, cancel := context.WithCancel(context.Background())
+	cancel()
+	t.ctx = idleCtx
+	t.responses = make(map[string]*responseCapture)
+}
+
+func (t *protocolTransport) shutdown() func() {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.leaseCancel != nil {
+		t.leaseCancel()
+	}
+	t.closed = true
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	t.ctx = ctx
+	return cancel
+}
+
+func (t *protocolTransport) canRebuild() bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.leases > 1 && !t.callSent
 }

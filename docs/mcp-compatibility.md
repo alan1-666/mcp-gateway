@@ -53,4 +53,4 @@ Evidence paths are absolute because Go test runs in the package directory. The S
 
 ## Next compatibility work
 
-Real OAuth consent and additional client/vendor profiles remain separate acceptance items. Session-bound contracts need an explicit binding and reviewed logical contract before they can be supported; generic connection reuse alone does not resolve persisted schema identity. Future pooling and catalog caching must preserve live permission/credential changes, schema checks and the prohibition on uncertain-write replay.
+Real OAuth consent and additional client/vendor profiles remain separate acceptance items. Session-bound contracts need an explicit binding and reviewed logical contract before they can be supported; generic connection reuse alone does not resolve persisted schema identity. [Execution-session retention](mcp-sessions.md) preserves live credential checks, complete per-call discovery and the prohibition on uncertain-write replay; catalog caching remains separate work.

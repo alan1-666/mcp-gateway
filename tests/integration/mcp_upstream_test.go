@@ -75,6 +75,10 @@ func TestRemoteMCPGatewayImportApprovalProjectionAndDisable(t *testing.T) {
 	}
 	store := upstreams.NewStore(pool)
 	adapter := mcpadapter.New(egress, store)
+	if err := adapter.EnableSessionPool(mcpadapter.SessionPoolOptions{MaxSessions: 4, IdleTTL: time.Minute, MaxLifetime: 10 * time.Minute}); err != nil {
+		t.Fatal(err)
+	}
+	defer adapter.Close()
 	service := core.NewService(postgres.New(pool))
 	executor := &execution.Executor{Service: service, Adapter: &execution.Router{HTTP: egress, MCP: adapter}}
 	token := func(name string) string { return strings.Repeat(name+"-", 32) }

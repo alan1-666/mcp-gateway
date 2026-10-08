@@ -13,18 +13,18 @@ flowchart LR
   Registry --> DB[(Tools and operation snapshots)]
   Gateway --> DB
   Gateway --> Policy[Permissions, tool approval policy and response policy]
-  Policy --> Adapter[Isolated MCP session]
+  Policy --> Adapter[Exclusive MCP execution lease]
   Adapter --> Upstream[Remote MCP Server]
 ```
 
-The adapter uses the official MCP Go SDK. Every discovery or execution attempt creates its own upstream session and closes it afterward. It does not pool sessions across users or forward the caller's Gateway bearer token, browser cookie or request headers.
+The adapter uses the official MCP Go SDK. Discovery and diagnostics use independent sessions. Execution can reuse a bounded session exclusively within the same actor/client-key/server/credential scope; no active session is shared between operations. It never forwards the caller's Gateway bearer token, browser cookie or request headers. See [execution sessions](mcp-sessions.md) for configuration, live checks and release acceptance.
 
 Connection diagnostics compare two independent complete catalogs when the first catalog is compatible, using the original timeout. `session_contract_status` distinguishes observed stability, changed contracts and incomplete verification; historical reports and Connectors are explicitly not checked for this property. This adds a diagnostic observation, not session reuse or permission to ignore schema drift. See the [compatibility matrix and check contract](mcp-compatibility.md).
 
 ### Supported protocol scope
 
 - **Transport:** remote Streamable HTTP. Responses to the original POST can be JSON or SSE. Standalone GET streams, stream resumption and reconnect/replay are disabled. This does not provide the legacy HTTP+SSE transport.
-- **Capabilities:** initialization, complete paginated `tools/list` discovery and one reviewed `tools/call` per execution session. Resource, prompt, sampling, elicitation and task APIs are not proxied or advertised as Gateway capabilities.
+- **Capabilities:** initialization, complete paginated `tools/list` discovery and one reviewed `tools/call` per exclusive operation lease. Resource, prompt, sampling, elicitation and task APIs are not proxied or advertised as Gateway capabilities.
 - **Authentication:** workspace/origin-bound credential references with headers such as `Authorization`. References can use a deployment file or the encrypted managed credential store. Alternatively, [upstream OAuth](upstream-oauth.md) supports metadata discovery, interactive authorization and refresh for pre-registered clients with PKCE S256 and RFC 9207 issuer responses. Static credentials and OAuth cannot be combined. Dynamic registration and client ID metadata documents remain unsupported. The Pi model subscription is separate from upstream MCP authentication.
 - **Results:** text content and optional structured JSON. Image, audio, resource and other content blocks are rejected. A tool requiring unsupported interaction does not become successful merely because it returned an MCP response.
 - **Processes:** the cloud Gateway does not launch stdio servers. An [outbound Connector](private-connectors.md) executes locally configured private HTTP or isolated Linux rootless-Podman stdio targets.
@@ -211,7 +211,7 @@ Duplicate tool names, invalid definitions, repeated cursors, unsupported schemas
 
 Before `tools/call`, a configuration, connection or schema-validation failure is `FAILED`. Once the call is attempted, timeout, malformed response, upstream tool error, unsupported interaction/content, output-schema failure or response-policy failure becomes `UNKNOWN` for writes and `FAILED` for reads. `UNKNOWN` requires checking the business outcome before any new action. A returned tool error does not prove that a write made no changes.
 
-The transport prevents a second `tools/call` within the same execution session and disables SDK resumption/retry paths. The database claim prevents another dispatch of the recorded operation. This is not an exactly-once guarantee in the upstream business system, and no generic upstream idempotency support is claimed. New sessions repeat initialization and discovery on each execution; caching, connection pooling and background schema synchronization remain future work. The separate HTTP adapter can retry only eligible read-only GET calls (selected transient connection failures and 502/503/504, at most two attempts within one deadline) and has process-local circuit breaking; this does not add MCP or Connector replay.
+The transport prevents a second `tools/call` within the same exclusive operation lease and disables SDK resumption/retry paths. The database claim prevents another dispatch of the recorded operation. This is not an exactly-once guarantee in the upstream business system, and no generic upstream idempotency support is claimed. Execution retention reduces initialization; complete contract discovery still runs before every call. A 404 during reused-session discovery can rebuild once before dispatch under the original deadline. Catalog caching and notification-driven synchronization remain future work. The separate HTTP adapter can retry only eligible read-only GET calls (selected transient connection failures and 502/503/504, at most two attempts within one deadline) and has process-local circuit breaking; this does not add MCP or Connector replay.
 
 ## Network and credential controls
 
@@ -230,7 +230,7 @@ A reference matches `^[A-Z][A-Z0-9_]{0,127}$`, is unique per workspace and is pe
 
 Headers are encrypted using AES-GCM with a random nonce and workspace/reference/origin-bound authenticated data. `GATEWAY_MASTER_KEY_FILE` supplies a raw 32-byte key outside the database and repository; cloud startup requires it. The database and this key must be retained together for recovery. Rotating a downstream credential updates the encrypted headers, increments its version and preserves enabled state. Concurrent or stale changes return `409`; setting the current enabled state with the current version is a no-op.
 
-Discovery and execution resolve credentials for each new attempt, so managed rotation or disablement takes effect without a restart. Already admitted sessions are not retroactively cancelled. Unknown references fail closed. When a managed record exists, a disabled, wrong-origin or undecryptable value cannot fall back to a static secret. A managed reference cannot shadow a static-file reference; an ambiguous runtime configuration is rejected without falling back to the other secret. This lifecycle covers downstream header secrets, not OAuth tokens or the Gateway client keys described below.
+Discovery and execution resolve credentials for each new attempt, so managed rotation or disablement takes effect without a restart. Retained execution requests additionally fence live credential versions before network dispatch; an already dispatched business action is not retroactively undone. Unknown references fail closed. When a managed record exists, a disabled, wrong-origin or undecryptable value cannot fall back to a static secret. A managed reference cannot shadow a static-file reference; an ambiguous runtime configuration is rejected without falling back to the other secret. This lifecycle covers downstream header secrets, not OAuth tokens or the Gateway client keys described below.
 
 See [cloud onboarding](cloud-deployment.md#downstream-onboarding) for the hosted deployment.
 
@@ -322,6 +322,6 @@ The call facade, approval policies, ranked service filters and artifact retrieva
 
 On 2026-10-06, cloud.23 discovery of Microsoft Learn returned a different `properties.SessionId.const` and matching `.default` in each of five fresh connections. The schema description instructed callers to use that connection's default value. Two tool-description variants were also observed. The input schema's contract hash consequently changed between discovery and import; the gateway rejected import with `upstream schema changed; discover and review again`.
 
-This is genuine session-bound schema variation, not serialization order or a hash canonicalization failure. The current adapter deliberately pins reviewed schemas and creates a fresh upstream session for each execution. It does not implement supplier-specific session-argument binding. This observed Microsoft Learn profile is therefore incompatible with the current reviewed import/execution path. Removing `const`/`default` from hashing or silently rewriting reviewed arguments would weaken the drift check and is not implemented.
+This is genuine session-bound schema variation, not serialization order or a hash canonicalization failure. The current adapter deliberately pins reviewed schemas. Execution pooling does not bind an independently discovered schema to a future execution session. It does not implement supplier-specific session-argument binding. This observed Microsoft Learn profile is therefore incompatible with the current reviewed import/execution path. Removing `const`/`default` from hashing or silently rewriting reviewed arguments would weaken the drift check and is not implemented.
 
 A focused SDK fixture (`TestSessionBoundSchemaConstRemainsPartOfReviewedContract`) reproduces the changing const/default and verifies that execution fails before any business tool call. Earlier dated Microsoft Learn successes remain historical evidence for the then-observed contract; they are not a guarantee of compatibility with this changed supplier behavior. See the dated [verification record](verification.md).
