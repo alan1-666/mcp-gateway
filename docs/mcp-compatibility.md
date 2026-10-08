@@ -51,6 +51,10 @@ RUN_EXTERNAL_MCP_TEST=1 \
 
 Evidence paths are absolute because Go test runs in the package directory. The SDK acceptance requires a loopback test database, creates an isolated schema and removes it afterward; it never uses a cloud account or production database. The public query is fixed in source, and evidence excludes raw returned documents and credentials. Provider availability is not a CI release gate. These checks are not a load benchmark.
 
+Native application configuration and acceptance are tracked separately in the
+[client guide](mcp-clients.md). An SDK pass does not establish model login or
+approval compatibility for every application.
+
 ## Next compatibility work
 
 Real OAuth consent and additional client/vendor profiles remain separate acceptance items. Session-bound contracts need an explicit binding and reviewed logical contract before they can be supported; generic connection reuse alone does not resolve persisted schema identity. [Execution-session retention](mcp-sessions.md) preserves live credential checks, complete per-call discovery and the prohibition on uncertain-write replay; catalog caching remains separate work.

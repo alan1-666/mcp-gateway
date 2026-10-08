@@ -42,6 +42,8 @@ jobs:
           --health-interval 5s --health-timeout 5s --health-retries 10
     env:
       RUN_CLOUD_WORKER_INTEGRATION: "1"
+      RUN_MCP_LOAD_EVALUATION: "1"
+      MCP_LOAD_EVIDENCE: ${{ github.workspace }}/coverage/mcp-load-evaluation.json
       TEST_DATABASE_URL: postgres://gateway:ci-ephemeral-password@127.0.0.1:5432/gateway_test?sslmode=disable
     steps:
       - uses: actions/checkout@v4
@@ -54,6 +56,11 @@ jobs:
       - run: go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
       - run: mkdir -p coverage && go test -race -coverpkg=./... -coverprofile=coverage/go.out ./...
       - run: python3 scripts/check-go-coverage.py coverage/go.out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mcp-load-evaluation
+          path: coverage/mcp-load-evaluation.json
+          if-no-files-found: error
       - run: npm run check
       - run: npm test
       - run: npm run test:coverage --workspace @mcp-gateway/console

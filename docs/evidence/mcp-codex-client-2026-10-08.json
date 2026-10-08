@@ -1,0 +1,60 @@
+{
+  "verified_at": "2026-10-08T08:57:45.909283+00:00",
+  "release_id": "20261008-cloud.31",
+  "clients": [
+    {
+      "name": "codex",
+      "status": "passed",
+      "elapsed_seconds": 68.74,
+      "process_exit": 0,
+      "tools_used": [
+        "mcp__rillgate__search_tools",
+        "mcp__rillgate__get_tool_schema",
+        "mcp__rillgate__call_tool",
+        "mcp__rillgate__read_result",
+        "mcp__rillgate__read_result",
+        "mcp__rillgate__read_result",
+        "mcp__rillgate__read_result",
+        "mcp__rillgate__call_tool",
+        "mcp__rillgate__get_operation"
+      ],
+      "matching_operations": 1,
+      "operation_id": "686f6564-5cdd-43bc-b7bb-389e40182852",
+      "state": "SUCCEEDED",
+      "dispatches": 1,
+      "terminal_observations": 1,
+      "required_tools_observed": true,
+      "revoked_key_http_status": 401,
+      "version": "0.161.0",
+      "native_mcp": true,
+      "authorized_tool_count": 1,
+      "chunk_count": 4,
+      "artifact_bytes": 3991,
+      "artifact_sha256_verified": true,
+      "same_key_same_arguments_same_operation": true
+    }
+  ],
+  "status": "passed",
+  "fixture": {
+    "server_id": "5e5a3be6-e4d1-4376-9330-46ab320de083",
+    "tool_id": "eadf2c55-4256-4d88-82d9-23144f9dbf7b",
+    "source": "existing authorized Sport test MCP",
+    "artifact_ttl_seconds": 600
+  },
+  "test_tool_disabled": true,
+  "test_server_disabled": true,
+  "earlier_attempts": [
+    {
+      "status": "client_configuration_blocked",
+      "detail": "approval_policy=never without explicit MCP preapproval rejected search_tools before dispatch"
+    },
+    {
+      "status": "partial",
+      "detail": "Business call and four artifact chunks succeeded; model stopped before replay and operation lookup. Artifact hash verified; key revoked and fixture disabled."
+    },
+    {
+      "status": "fixture_setup_failed",
+      "detail": "Temporary client creation failed before a key was returned; no business call. Fixture disabled; retry used a unique client name. Exact HTTP failure was not retained."
+    }
+  ]
+}

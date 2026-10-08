@@ -69,9 +69,12 @@ Use the same idempotency key for the same intent. A pending approval is not succ
 - OAuth has automated protocol/refresh tests for the [documented registration profile](docs/upstream-oauth.md). Real third-party provider consent acceptance is tracked separately and is not claimed from local fixtures.
 - The current deployment topology is a single host. High availability, an independently commissioned off-host backup destination and external alert delivery are not established.
 
-See the [MCP compatibility matrix](docs/mcp-compatibility.md), [remote MCP contract](docs/remote-mcp-contract.md), [discovery contract](docs/tool-discovery-contract.md), [OpenAPI import profile](docs/openapi-import.md), [Connector guide](docs/private-connectors.md) and [cloud deployment guide](docs/cloud-deployment.md).
+See the [native client setup guide](docs/mcp-clients.md), [MCP compatibility matrix](docs/mcp-compatibility.md), [remote MCP contract](docs/remote-mcp-contract.md), [discovery contract](docs/tool-discovery-contract.md), [OpenAPI import profile](docs/openapi-import.md), [Connector guide](docs/private-connectors.md) and [cloud deployment guide](docs/cloud-deployment.md).
 
 ## Developer setup
+
+Joining the project? Start with [Contributing](CONTRIBUTING.md) for setup, code
+ownership, tests and the pull-request workflow.
 
 With Node.js and Docker Compose installed:
 

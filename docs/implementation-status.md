@@ -87,6 +87,10 @@ Each package includes its own negative, revocation, compatibility and recovery c
 
 Enterprise SSO/MFA, multi-organization membership and account expansion are deferred. Existing permissions and approval gates continue to protect gateway operations.
 
+## Local development after cloud.31
+
+The [MCP direct/Gateway evaluation](mcp-load-evaluation.md) now covers 16 loopback scenarios with actual PostgreSQL, managed-client authorization, capacity admission and durable observations. All 384 measured requests matched their expected success/tool-error outcome, without replay; local race and full development checks passed. CI wiring is added but not remotely accepted. The same fixture subsequently passed on the deployment host in an isolated container, and twelve paced official-SDK reads through the deployed HTTPS endpoint passed with replay, terminal-observation and client-revocation checks. See the report for both server evidence files and resource limits. No new cloud release or production SLO is claimed. Pi 1.0.0 and Codex CLI 0.161.0 subsequently passed native cloud discovery, schema lookup, business invocation, artifact reconstruction/hash verification, exact-key replay and operation lookup. Claude Code connected but model OAuth refresh failed. Revocation was checked through HTTP identity requests, not native session behavior; see the [client guide](mcp-clients.md).
+
 ## Remaining production architecture
 
 - Enterprise OIDC/OAuth interoperability, MFA, self-service account recovery and short-lived Runner identity.
@@ -103,7 +107,7 @@ Enterprise SSO/MFA, multi-organization membership and account expansion are defe
 ## Current constraints
 
 - Cloud accounts belong to one workspace. Invitations are bearer links; email ownership is not verified. Client keys are separate identities, not enterprise SSO or unrestricted delegated user access.
-- The latest recorded runtime is cloud.30 at `ef8b28d2669dbd8fa3bdb3292b4e379c73c3c277`; cloud.23 records the core SDK/browser acceptance. Earlier brand, scheduled-discovery and account-route checks, including cloud.16 at `9dc23b702d613a7d45e54241caa5dcebf85f610d`, are historical evidence in [verification](verification.md), not the current deployment. Full cloud administrative-mutation coverage and a real application rollback are not claimed.
+- The latest recorded runtime is cloud.31 at `a17b5d931aa302a46b4b16987c904de1782a9732`, with bounded execution-observation acceptance in [release evidence](evidence/mcp-execution-observability-release-2026-10-08.json); this is the recorded release, not a fresh live-host inspection. Cloud.30 catalog checks and cloud.23 core SDK/browser acceptance remain historical evidence in [verification](verification.md). Full cloud administrative-mutation coverage and a real application rollback are not claimed.
 - The host topology is single-server. An encrypted local snapshot shares that host's failure domain. An authorized second backup destination and an external alert webhook are still pending; no snapshot or backup-key copy to another host has completed. Automatic off-host recovery protection and external notification are not yet commissioned.
 - Backups contain PostgreSQL, cloud configuration and the secret directory including the vault master key. Pi configuration/session volumes, nginx and certificate state need their own coordinated recovery handling. The independent backup key must be escrowed separately. Snapshots are not automatically pruned; production retention/deletion remains future work.
 - HTTP tools require bounded JSON and static paths. Remote MCP supports Streamable HTTP JSON/SSE responses to the original POST and text/structured results; no legacy SSE or standalone streams/resumption; isolated stdio is available only through the documented Linux rootless-Podman Connector profile. OAuth requires the documented pre-registered client, PKCE and issuer-response profile. See [remote MCP integration](remote-mcp-contract.md).

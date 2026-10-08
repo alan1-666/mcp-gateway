@@ -1,0 +1,331 @@
+{
+  "verified_at": "2026-10-08T08:35:56.367018+00:00",
+  "release_id": "20261008-cloud.31",
+  "runtime_source": "a17b5d931aa302a46b4b16987c904de1782a9732",
+  "status": "passed",
+  "client_location": "gateway server, public HTTPS DNS/TLS path",
+  "origin": "https://rillgate.cn",
+  "paced_seconds": 1,
+  "same_key_replay": true,
+  "samples": [
+    {
+      "mode": "cold",
+      "id": "aaa539b9-b0cd-4c5c-8742-07c68387f417",
+      "state": "SUCCEEDED",
+      "duration_ms": 675.29,
+      "result_bytes": 3436,
+      "result_sha256": "4f580f94c99b59305aa1ac4e331778cdf2c3df73e1158ccb83c10e708d59c80f"
+    },
+    {
+      "mode": "cold",
+      "id": "e5f37dc9-e01e-43a4-a250-ce7c949d0b1b",
+      "state": "SUCCEEDED",
+      "duration_ms": 219.679,
+      "result_bytes": 3436,
+      "result_sha256": "2d984c76f756085669747bc3b718f5f9406a17ac9828f7d57bff834b765b64f1"
+    },
+    {
+      "mode": "cold",
+      "id": "4d4487d5-a34d-47e8-b869-af070e7c81ca",
+      "state": "SUCCEEDED",
+      "duration_ms": 221.781,
+      "result_bytes": 3436,
+      "result_sha256": "b98ea25e2ff67b545c16a679ecfef2ef8d8302cac76f30394e3915b05ecb193b"
+    },
+    {
+      "mode": "cold",
+      "id": "6ff914cc-9ee1-4b98-b016-274d43fcd048",
+      "state": "SUCCEEDED",
+      "duration_ms": 236.222,
+      "result_bytes": 3436,
+      "result_sha256": "55435b39ed2b7f9d4557e9d46c6bc45a2af74837577fbb4f3bbd67a186a7d1a5"
+    },
+    {
+      "mode": "cold",
+      "id": "8a4ae6ec-e0c2-4022-adb7-f0d4b09697b6",
+      "state": "SUCCEEDED",
+      "duration_ms": 220.628,
+      "result_bytes": 3436,
+      "result_sha256": "df384b7d266199a7d0e03a97bac0bd2814c7e81a0ecee9d01c6b994eac8067b8"
+    },
+    {
+      "mode": "cold",
+      "id": "1a683ca0-9eff-454b-b591-0b2f41e7a8cc",
+      "state": "SUCCEEDED",
+      "duration_ms": 259.985,
+      "result_bytes": 3436,
+      "result_sha256": "0922723f5c8e68fe1ebd7c83652c64595da5c3e89a311c0e295cbd669a5d6dd7"
+    },
+    {
+      "mode": "warm",
+      "id": "ba63aa5a-3a14-4fdb-b885-23013c9d879a",
+      "state": "SUCCEEDED",
+      "duration_ms": 200.307,
+      "result_bytes": 3436,
+      "result_sha256": "84e85016b7340981728eab86c7d6bf3e51462e99e965b8cd0fbb5ab1b8f74752"
+    },
+    {
+      "mode": "warm",
+      "id": "f933eb8b-cbe8-4eee-844c-4213d6d01872",
+      "state": "SUCCEEDED",
+      "duration_ms": 198.557,
+      "result_bytes": 3436,
+      "result_sha256": "c1778a12dbab434948622ca58da78f379827c2d88b60f41999d1a43350f5816d"
+    },
+    {
+      "mode": "warm",
+      "id": "c3a412ee-263c-40ad-867c-4dc76da75f20",
+      "state": "SUCCEEDED",
+      "duration_ms": 219.307,
+      "result_bytes": 3436,
+      "result_sha256": "9104779e878c4166a558b884ff844e5f6ebc609f097b0f370cf9b0e619cad28c"
+    },
+    {
+      "mode": "warm",
+      "id": "3336b6d9-84ce-45aa-8afe-a63e9a3001ba",
+      "state": "SUCCEEDED",
+      "duration_ms": 199.576,
+      "result_bytes": 3436,
+      "result_sha256": "e3f92525cb6a30f43fe07e6941bb76ac1fd9af7abcbf36c35c199b753e5fe150"
+    },
+    {
+      "mode": "warm",
+      "id": "f8bdb55e-dc0d-4050-ad52-dfc15193672c",
+      "state": "SUCCEEDED",
+      "duration_ms": 205.368,
+      "result_bytes": 3436,
+      "result_sha256": "8431ff4b9b43eb6c8c1b5de425bbb7bcff7041a81a29a849dca298751a0c591e"
+    },
+    {
+      "mode": "warm",
+      "id": "17635d42-ce2d-4ee0-9a69-1b1dee2ca21b",
+      "state": "SUCCEEDED",
+      "duration_ms": 216.415,
+      "result_bytes": 3436,
+      "result_sha256": "74517eed34b93fa37700e80c9abb83c5066c110e058737de7e46f4412be66d5d"
+    }
+  ],
+  "traces": [
+    {
+      "operation_id": "aaa539b9-b0cd-4c5c-8742-07c68387f417",
+      "code": "ok",
+      "phase": "result",
+      "total_ms": 349,
+      "phases_ms": {
+        "call": 104,
+        "result": 0,
+        "catalog": 81,
+        "session": 161,
+        "projection": 0,
+        "configuration": 0
+      },
+      "http_status": 200,
+      "call_attempted": true
+    },
+    {
+      "operation_id": "e5f37dc9-e01e-43a4-a250-ce7c949d0b1b",
+      "code": "ok",
+      "phase": "result",
+      "total_ms": 187,
+      "phases_ms": {
+        "call": 105,
+        "result": 0,
+        "catalog": 78,
+        "session": 1,
+        "projection": 0,
+        "configuration": 0
+      },
+      "http_status": 200,
+      "call_attempted": true
+    },
+    {
+      "operation_id": "4d4487d5-a34d-47e8-b869-af070e7c81ca",
+      "code": "ok",
+      "phase": "result",
+      "total_ms": 189,
+      "phases_ms": {
+        "call": 106,
+        "result": 1,
+        "catalog": 79,
+        "session": 1,
+        "projection": 0,
+        "configuration": 0
+      },
+      "http_status": 200,
+      "call_attempted": true
+    },
+    {
+      "operation_id": "6ff914cc-9ee1-4b98-b016-274d43fcd048",
+      "code": "ok",
+      "phase": "result",
+      "total_ms": 194,
+      "phases_ms": {
+        "call": 111,
+        "result": 0,
+        "catalog": 79,
+        "session": 3,
+        "projection": 0,
+        "configuration": 0
+      },
+      "http_status": 200,
+      "call_attempted": true
+    },
+    {
+      "operation_id": "8a4ae6ec-e0c2-4022-adb7-f0d4b09697b6",
+      "code": "ok",
+      "phase": "result",
+      "total_ms": 187,
+      "phases_ms": {
+        "call": 107,
+        "result": 0,
+        "catalog": 78,
+        "session": 1,
+        "projection": 0,
+        "configuration": 0
+      },
+      "http_status": 200,
+      "call_attempted": true
+    },
+    {
+      "operation_id": "1a683ca0-9eff-454b-b591-0b2f41e7a8cc",
+      "code": "ok",
+      "phase": "result",
+      "total_ms": 233,
+      "phases_ms": {
+        "call": 152,
+        "result": 0,
+        "catalog": 78,
+        "session": 1,
+        "projection": 0,
+        "configuration": 0
+      },
+      "http_status": 200,
+      "call_attempted": true
+    },
+    {
+      "operation_id": "ba63aa5a-3a14-4fdb-b885-23013c9d879a",
+      "code": "ok",
+      "phase": "result",
+      "total_ms": 182,
+      "phases_ms": {
+        "call": 102,
+        "result": 0,
+        "catalog": 78,
+        "session": 0,
+        "projection": 0,
+        "configuration": 0
+      },
+      "http_status": 200,
+      "call_attempted": true
+    },
+    {
+      "operation_id": "f933eb8b-cbe8-4eee-844c-4213d6d01872",
+      "code": "ok",
+      "phase": "result",
+      "total_ms": 179,
+      "phases_ms": {
+        "call": 100,
+        "result": 0,
+        "catalog": 78,
+        "session": 1,
+        "projection": 0,
+        "configuration": 0
+      },
+      "http_status": 200,
+      "call_attempted": true
+    },
+    {
+      "operation_id": "c3a412ee-263c-40ad-867c-4dc76da75f20",
+      "code": "ok",
+      "phase": "result",
+      "total_ms": 181,
+      "phases_ms": {
+        "call": 102,
+        "result": 0,
+        "catalog": 77,
+        "session": 1,
+        "projection": 0,
+        "configuration": 0
+      },
+      "http_status": 200,
+      "call_attempted": true
+    },
+    {
+      "operation_id": "3336b6d9-84ce-45aa-8afe-a63e9a3001ba",
+      "code": "ok",
+      "phase": "result",
+      "total_ms": 181,
+      "phases_ms": {
+        "call": 102,
+        "result": 0,
+        "catalog": 77,
+        "session": 0,
+        "projection": 0,
+        "configuration": 0
+      },
+      "http_status": 200,
+      "call_attempted": true
+    },
+    {
+      "operation_id": "f8bdb55e-dc0d-4050-ad52-dfc15193672c",
+      "code": "ok",
+      "phase": "result",
+      "total_ms": 188,
+      "phases_ms": {
+        "call": 106,
+        "result": 0,
+        "catalog": 80,
+        "session": 0,
+        "projection": 0,
+        "configuration": 0
+      },
+      "http_status": 200,
+      "call_attempted": true
+    },
+    {
+      "operation_id": "17635d42-ce2d-4ee0-9a69-1b1dee2ca21b",
+      "code": "ok",
+      "phase": "result",
+      "total_ms": 200,
+      "phases_ms": {
+        "call": 115,
+        "result": 4,
+        "catalog": 78,
+        "session": 1,
+        "projection": 0,
+        "configuration": 0
+      },
+      "http_status": 200,
+      "call_attempted": true
+    }
+  ],
+  "single_dispatch_and_terminal_per_operation": true,
+  "metrics": {
+    "server_id": "70d8677e-ce8e-4804-b11a-048a0defd3e7",
+    "observed_at": "2026-10-08T08:36:29.904656Z",
+    "window_start": "2026-10-07T08:36:29.904656Z",
+    "operations_scanned": 22,
+    "sample_limit": 1000,
+    "truncated": false,
+    "calls": 14,
+    "attempted": 14,
+    "states": {
+      "SUCCEEDED": 14
+    },
+    "errors": {},
+    "p50_ms": 187,
+    "p95_ms": 349,
+    "mean_phases_ms": {
+      "configuration": 0,
+      "session": 23,
+      "catalog": 78,
+      "call": 108,
+      "result": 0,
+      "projection": 0
+    },
+    "health": "healthy",
+    "last_observed_at": "2026-10-08T08:36:15.838093Z",
+    "last_code": "ok"
+  },
+  "temporary_client_revoked": true
+}

@@ -1,0 +1,61 @@
+{
+  "verified_at": "2026-10-08T08:45:07.679248+00:00",
+  "release_id": "20261008-cloud.31",
+  "clients": [
+    {
+      "name": "pi",
+      "status": "passed",
+      "connection_check_exit": 0,
+      "elapsed_seconds": 59.42,
+      "process_exit": 0,
+      "tools_used": [
+        "mcp__rillgate__search_tools",
+        "mcp__rillgate__get_tool_schema",
+        "mcp__rillgate__call_tool",
+        "mcp__rillgate__read_result",
+        "mcp__rillgate__read_result",
+        "mcp__rillgate__read_result",
+        "mcp__rillgate__read_result",
+        "mcp__rillgate__call_tool",
+        "mcp__rillgate__get_operation"
+      ],
+      "matching_operations": 1,
+      "operation_id": "6f78047a-043e-4662-ac9b-55a9d0b49989",
+      "state": "SUCCEEDED",
+      "dispatches": 1,
+      "terminal_observations": 1,
+      "required_tools_observed": true,
+      "revoked_key_http_status": 401,
+      "version": "1.0.0",
+      "native_mcp": true,
+      "authorized_tool_count": 1,
+      "chunk_count": 4,
+      "artifact_bytes": 3991,
+      "artifact_sha256_verified": true,
+      "same_key_same_arguments_same_operation": true
+    },
+    {
+      "name": "claude",
+      "status": "model_auth_blocked",
+      "elapsed_seconds": 3.11,
+      "process_exit": 1,
+      "tools_used": [],
+      "matching_operations": 0,
+      "required_tools_observed": false,
+      "revoked_key_http_status": 401,
+      "version": "2.1.268",
+      "mcp_connection": "connected",
+      "reason": "OAuth session expired and automatic refresh failed",
+      "business_call_acceptance": false
+    }
+  ],
+  "status": "partial",
+  "fixture": {
+    "server_id": "49ec0a54-c308-421c-ba8f-242f18e2b805",
+    "tool_id": "96c1ed54-d1f6-4360-a966-9465c0627d83",
+    "source": "existing authorized Sport test MCP",
+    "artifact_ttl_seconds": 600
+  },
+  "test_tool_disabled": true,
+  "test_server_disabled": true
+}

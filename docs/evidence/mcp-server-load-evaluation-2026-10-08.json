@@ -1,0 +1,2910 @@
+{
+  "version": 1,
+  "recorded_at": "2026-10-08T08:36:58Z",
+  "go": "go1.26.8",
+  "os": "linux",
+  "arch": "amd64",
+  "cpus": 2,
+  "gomaxprocs": 2,
+  "fixture_delay_ms": 2,
+  "payload_bytes": 2048,
+  "results": [
+    {
+      "route": "direct",
+      "mode": "cold",
+      "catalog_size": 1,
+      "concurrency": 1,
+      "fault_every": 0,
+      "warmup": 0,
+      "samples": [
+        {
+          "index": 0,
+          "latency_ms": 5.919,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 1,
+          "latency_ms": 3.905,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 2,
+          "latency_ms": 9.447,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 3,
+          "latency_ms": 4.465,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 4,
+          "latency_ms": 3.891,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 5,
+          "latency_ms": 3.545,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 6,
+          "latency_ms": 3.733,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 7,
+          "latency_ms": 3.381,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 8,
+          "latency_ms": 3.333,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 9,
+          "latency_ms": 8.927,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 10,
+          "latency_ms": 5.708,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 11,
+          "latency_ms": 3.242,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 12,
+          "latency_ms": 4.992,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 13,
+          "latency_ms": 3.131,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 14,
+          "latency_ms": 3.141,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 15,
+          "latency_ms": 3.393,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 16,
+          "latency_ms": 4.101,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 17,
+          "latency_ms": 3.26,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 18,
+          "latency_ms": 3.902,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 19,
+          "latency_ms": 3.967,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 20,
+          "latency_ms": 4.369,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 21,
+          "latency_ms": 3.382,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 22,
+          "latency_ms": 3.297,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 23,
+          "latency_ms": 3.239,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        }
+      ],
+      "succeeded": 24,
+      "failed": 0,
+      "rejected": 0,
+      "unknown": 0,
+      "p50_ms": 3.733,
+      "p95_ms": 8.927,
+      "wall_ms": 105.448,
+      "completed_per_second": 227.60033381382294,
+      "successful_per_second": 227.60033381382294,
+      "upstream_initializes": 24,
+      "upstream_catalog_requests": 24,
+      "upstream_calls": 24,
+      "durable_observations": 0,
+      "gateway_catalog_mean_ms": 0
+    },
+    {
+      "route": "gateway",
+      "mode": "cold",
+      "catalog_size": 1,
+      "concurrency": 1,
+      "fault_every": 0,
+      "warmup": 0,
+      "samples": [
+        {
+          "index": 0,
+          "latency_ms": 36.574,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "1b621728-21db-4cbc-85fe-db3453ced828"
+        },
+        {
+          "index": 1,
+          "latency_ms": 27.182,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "a98511ea-edf6-4c59-b05d-872122b41512"
+        },
+        {
+          "index": 2,
+          "latency_ms": 20.195,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "1a28ca08-72f8-4c38-8004-84ba474016bd"
+        },
+        {
+          "index": 3,
+          "latency_ms": 21.143,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "0e9189d8-0360-4194-8e5f-1f1ded6562de"
+        },
+        {
+          "index": 4,
+          "latency_ms": 18.737,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "a0ba841f-ee81-45c3-b799-7dbef2c2d412"
+        },
+        {
+          "index": 5,
+          "latency_ms": 35.004,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "61d5e4a8-fca9-44bf-b94e-27bdcdc1d41c"
+        },
+        {
+          "index": 6,
+          "latency_ms": 18.248,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "138d5bde-c585-441b-956a-4fdbef15157e"
+        },
+        {
+          "index": 7,
+          "latency_ms": 15.32,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "4269e332-9622-4079-a7a9-e122f53414aa"
+        },
+        {
+          "index": 8,
+          "latency_ms": 17.957,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "f5e1ff17-fbb6-4c64-9694-b2a083f7a2b4"
+        },
+        {
+          "index": 9,
+          "latency_ms": 17.718,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "b7ac57fa-21ce-4667-ba6b-19d289137883"
+        },
+        {
+          "index": 10,
+          "latency_ms": 36.195,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "1b2faedb-4ef8-46ef-aa9b-1c2dc633f1f8"
+        },
+        {
+          "index": 11,
+          "latency_ms": 23.937,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "59e726d7-9c24-4532-a8ed-4143bc73a81b"
+        },
+        {
+          "index": 12,
+          "latency_ms": 15.077,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "fb1b90d0-23b8-48ca-ba3a-13f96cdfdfbb"
+        },
+        {
+          "index": 13,
+          "latency_ms": 14.547,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "b76e03e7-08cc-4044-b5ca-ffef5f1a6c81"
+        },
+        {
+          "index": 14,
+          "latency_ms": 16.619,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "77b652c2-760f-4d8f-be98-a39eaf685bb6"
+        },
+        {
+          "index": 15,
+          "latency_ms": 28.011,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "159af3fa-7296-46be-9e85-380afe7229be"
+        },
+        {
+          "index": 16,
+          "latency_ms": 16.968,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "aa12db85-70a1-4309-b555-962edbb689ec"
+        },
+        {
+          "index": 17,
+          "latency_ms": 13.085,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "86315a27-a8a2-4600-9dab-d14880eae102"
+        },
+        {
+          "index": 18,
+          "latency_ms": 16.819,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "2e200c2f-3381-4650-b0e7-1c53c461364a"
+        },
+        {
+          "index": 19,
+          "latency_ms": 20.019,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "ed3bf442-1073-432c-ac48-079fd582225b"
+        },
+        {
+          "index": 20,
+          "latency_ms": 25.015,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "35827e59-1abd-4331-951e-36fcd0a592e1"
+        },
+        {
+          "index": 21,
+          "latency_ms": 21.598,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "5f0678a1-e9ba-4c07-b6f2-2e986a9b5d3c"
+        },
+        {
+          "index": 22,
+          "latency_ms": 17.911,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "b3a07729-1e34-40ae-a00d-d8d65444d73c"
+        },
+        {
+          "index": 23,
+          "latency_ms": 17.844,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "b614b6a8-df58-499a-be53-383b16268ae8"
+        }
+      ],
+      "succeeded": 24,
+      "failed": 0,
+      "rejected": 0,
+      "unknown": 0,
+      "p50_ms": 18.248,
+      "p95_ms": 36.195,
+      "wall_ms": 511.959,
+      "completed_per_second": 46.87875396271967,
+      "successful_per_second": 46.87875396271967,
+      "upstream_initializes": 24,
+      "upstream_catalog_requests": 24,
+      "upstream_calls": 24,
+      "durable_observations": 24,
+      "gateway_catalog_mean_ms": 0.4166666666666667
+    },
+    {
+      "route": "direct",
+      "mode": "warm",
+      "catalog_size": 1,
+      "concurrency": 1,
+      "fault_every": 0,
+      "warmup": 1,
+      "samples": [
+        {
+          "index": 0,
+          "latency_ms": 2.591,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 1,
+          "latency_ms": 2.56,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 2,
+          "latency_ms": 2.994,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 3,
+          "latency_ms": 2.652,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 4,
+          "latency_ms": 2.458,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 5,
+          "latency_ms": 2.485,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 6,
+          "latency_ms": 2.588,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 7,
+          "latency_ms": 2.538,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 8,
+          "latency_ms": 2.404,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 9,
+          "latency_ms": 2.556,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 10,
+          "latency_ms": 2.958,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 11,
+          "latency_ms": 2.612,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 12,
+          "latency_ms": 2.548,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 13,
+          "latency_ms": 2.499,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 14,
+          "latency_ms": 3.47,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 15,
+          "latency_ms": 2.474,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 16,
+          "latency_ms": 2.723,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 17,
+          "latency_ms": 2.57,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 18,
+          "latency_ms": 2.769,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 19,
+          "latency_ms": 2.514,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 20,
+          "latency_ms": 2.532,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 21,
+          "latency_ms": 2.548,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 22,
+          "latency_ms": 2.843,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 23,
+          "latency_ms": 2.628,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        }
+      ],
+      "succeeded": 24,
+      "failed": 0,
+      "rejected": 0,
+      "unknown": 0,
+      "p50_ms": 2.56,
+      "p95_ms": 2.994,
+      "wall_ms": 63.543,
+      "completed_per_second": 377.6969925876965,
+      "successful_per_second": 377.6969925876965,
+      "upstream_initializes": 0,
+      "upstream_catalog_requests": 0,
+      "upstream_calls": 24,
+      "durable_observations": 0,
+      "gateway_catalog_mean_ms": 0
+    },
+    {
+      "route": "gateway",
+      "mode": "warm",
+      "catalog_size": 1,
+      "concurrency": 1,
+      "fault_every": 0,
+      "warmup": 1,
+      "samples": [
+        {
+          "index": 0,
+          "latency_ms": 9.836,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "698ced05-a4ad-4965-8845-f8782f2c3746"
+        },
+        {
+          "index": 1,
+          "latency_ms": 10.87,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "c839c7ff-a16e-40a8-bf8d-ebd79126b053"
+        },
+        {
+          "index": 2,
+          "latency_ms": 11.036,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "faf51eff-5feb-4060-80ae-a275479aee07"
+        },
+        {
+          "index": 3,
+          "latency_ms": 17.617,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "0ae91afd-d707-4cea-998e-24c3088803d1"
+        },
+        {
+          "index": 4,
+          "latency_ms": 17.504,
+          "outcome": "succeeded",
+          "response_json_bytes": 2877,
+          "operation_id": "94cdd83a-30dd-4ae5-aa2f-94220a601e8c"
+        },
+        {
+          "index": 5,
+          "latency_ms": 12.258,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "caafbbf2-11c2-4160-a502-f811834f32af"
+        },
+        {
+          "index": 6,
+          "latency_ms": 13.357,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "b89d3af7-cea1-46a1-8db5-1ec1cd7ad50d"
+        },
+        {
+          "index": 7,
+          "latency_ms": 13.196,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "09d6ab87-2a12-495c-bb28-c827e649c20b"
+        },
+        {
+          "index": 8,
+          "latency_ms": 11.776,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "7d1301e7-1a5a-4750-899c-249392e2a3fa"
+        },
+        {
+          "index": 9,
+          "latency_ms": 12.193,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "427d8215-b8d9-48f2-bf4c-461b3ed15bab"
+        },
+        {
+          "index": 10,
+          "latency_ms": 11.426,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "934cfff2-7a48-4a3b-ac0a-8bfe353f1d39"
+        },
+        {
+          "index": 11,
+          "latency_ms": 10.369,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "ef0a3104-f31f-4252-8b15-bf62a62a59aa"
+        },
+        {
+          "index": 12,
+          "latency_ms": 9.197,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "6c49a82a-e486-405c-a5d1-8255087c5a1c"
+        },
+        {
+          "index": 13,
+          "latency_ms": 11.693,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "3b24fb84-9b30-4a2d-806d-34d60592e705"
+        },
+        {
+          "index": 14,
+          "latency_ms": 10.442,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "b89b6f75-ea18-4fde-8c3b-257f6f2db831"
+        },
+        {
+          "index": 15,
+          "latency_ms": 9.349,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "effbca6e-e1fb-4432-b951-82381088d17f"
+        },
+        {
+          "index": 16,
+          "latency_ms": 11.858,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "f39c3fde-49a1-470d-bce3-87d774f02237"
+        },
+        {
+          "index": 17,
+          "latency_ms": 9.93,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "04777532-f45a-47dd-be80-ef8c61cecce4"
+        },
+        {
+          "index": 18,
+          "latency_ms": 10.339,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "56cb45ae-3b89-4fa1-a95e-b5e54497f0b9"
+        },
+        {
+          "index": 19,
+          "latency_ms": 12.654,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "a4570ca3-dcdb-43ba-8012-1147049dd654"
+        },
+        {
+          "index": 20,
+          "latency_ms": 12.316,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "ab95852e-5209-42bb-ba02-3e8dacafbd86"
+        },
+        {
+          "index": 21,
+          "latency_ms": 11.871,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "ef10b3a8-74ad-405a-a94a-51e44adcd646"
+        },
+        {
+          "index": 22,
+          "latency_ms": 11.346,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "a5e7ebc2-1259-4ca7-bbc7-6b21a478d00a"
+        },
+        {
+          "index": 23,
+          "latency_ms": 12.035,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "ab8f1152-fa6e-4ab1-a413-0759fc285f6a"
+        }
+      ],
+      "succeeded": 24,
+      "failed": 0,
+      "rejected": 0,
+      "unknown": 0,
+      "p50_ms": 11.693,
+      "p95_ms": 17.504,
+      "wall_ms": 284.493,
+      "completed_per_second": 84.36059938205861,
+      "successful_per_second": 84.36059938205861,
+      "upstream_initializes": 0,
+      "upstream_catalog_requests": 24,
+      "upstream_calls": 24,
+      "durable_observations": 24,
+      "gateway_catalog_mean_ms": 0
+    },
+    {
+      "route": "direct",
+      "mode": "warm",
+      "catalog_size": 1,
+      "concurrency": 4,
+      "fault_every": 0,
+      "warmup": 4,
+      "samples": [
+        {
+          "index": 0,
+          "latency_ms": 3.685,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 1,
+          "latency_ms": 3.612,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 2,
+          "latency_ms": 3.625,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 3,
+          "latency_ms": 2.481,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 4,
+          "latency_ms": 2.889,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 5,
+          "latency_ms": 3.443,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 6,
+          "latency_ms": 2.52,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 7,
+          "latency_ms": 2.656,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 8,
+          "latency_ms": 3.498,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 9,
+          "latency_ms": 2.976,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 10,
+          "latency_ms": 3.688,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 11,
+          "latency_ms": 2.481,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 12,
+          "latency_ms": 2.823,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 13,
+          "latency_ms": 3.303,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 14,
+          "latency_ms": 3.479,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 15,
+          "latency_ms": 2.767,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 16,
+          "latency_ms": 3.927,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 17,
+          "latency_ms": 3.417,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 18,
+          "latency_ms": 3.281,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 19,
+          "latency_ms": 2.358,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 20,
+          "latency_ms": 2.435,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 21,
+          "latency_ms": 2.382,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 22,
+          "latency_ms": 2.538,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 23,
+          "latency_ms": 2.855,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        }
+      ],
+      "succeeded": 24,
+      "failed": 0,
+      "rejected": 0,
+      "unknown": 0,
+      "p50_ms": 2.889,
+      "p95_ms": 3.688,
+      "wall_ms": 19.495,
+      "completed_per_second": 1231.084893562452,
+      "successful_per_second": 1231.084893562452,
+      "upstream_initializes": 0,
+      "upstream_catalog_requests": 0,
+      "upstream_calls": 24,
+      "durable_observations": 0,
+      "gateway_catalog_mean_ms": 0
+    },
+    {
+      "route": "gateway",
+      "mode": "warm",
+      "catalog_size": 1,
+      "concurrency": 4,
+      "fault_every": 0,
+      "warmup": 4,
+      "samples": [
+        {
+          "index": 0,
+          "latency_ms": 151.849,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "6b58221c-4175-4d30-b9a9-70bf2b533932"
+        },
+        {
+          "index": 1,
+          "latency_ms": 17.363,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "4d78a527-c4b1-4fb7-bf9d-015d79c8152c"
+        },
+        {
+          "index": 2,
+          "latency_ms": 89.756,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "54a0b47d-bd3d-4d83-a940-2ab9b264e32c"
+        },
+        {
+          "index": 3,
+          "latency_ms": 183.188,
+          "outcome": "succeeded",
+          "response_json_bytes": 2877,
+          "operation_id": "c2d825be-1bc2-4c9f-a8d8-94d6bbd9b6d9"
+        },
+        {
+          "index": 4,
+          "latency_ms": 35.406,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "af8373ae-5ebb-45a3-b8f1-c188dcd0ab4c"
+        },
+        {
+          "index": 5,
+          "latency_ms": 53.355,
+          "outcome": "succeeded",
+          "response_json_bytes": 2877,
+          "operation_id": "9e0a75fe-ae12-4a3c-b04f-c8cc64d0ded0"
+        },
+        {
+          "index": 6,
+          "latency_ms": 84.341,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "0edafe10-857a-4ebe-8c77-ca87a06612e2"
+        },
+        {
+          "index": 7,
+          "latency_ms": 74.635,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "c232c479-2d2d-45b4-a790-546bba215c95"
+        },
+        {
+          "index": 8,
+          "latency_ms": 80.936,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "78433aa6-e7ec-4278-8493-bbfb2c2b10af"
+        },
+        {
+          "index": 9,
+          "latency_ms": 28.961,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "5901c73f-5fa7-4311-9907-e2027cfa1245"
+        },
+        {
+          "index": 10,
+          "latency_ms": 29.402,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "55144508-39c4-4bbc-b305-d50d2c964bbb"
+        },
+        {
+          "index": 11,
+          "latency_ms": 26.651,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "f8741ab9-d0d7-4647-87e4-e3c9a6187ac6"
+        },
+        {
+          "index": 12,
+          "latency_ms": 22.587,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "7dfe2147-3a53-414e-87cd-a3454856ea20"
+        },
+        {
+          "index": 13,
+          "latency_ms": 78.832,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "d3cd7048-be3f-4573-9591-c4f0b7ca7f67"
+        },
+        {
+          "index": 14,
+          "latency_ms": 65.778,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "64267f95-ae0f-4436-a5de-e3bfaa2c4bb7"
+        },
+        {
+          "index": 15,
+          "latency_ms": 67.291,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "dd08b3d7-cce3-48d6-8fe1-f530b38ac9de"
+        },
+        {
+          "index": 16,
+          "latency_ms": 63.583,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "5ee8d1ef-da87-44d7-97ae-88b56575514a"
+        },
+        {
+          "index": 17,
+          "latency_ms": 85.197,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "8c355e1a-ccf9-4bad-8665-60d070edeb3a"
+        },
+        {
+          "index": 18,
+          "latency_ms": 36.286,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "461668c2-3200-4e1a-814b-b818fc799d90"
+        },
+        {
+          "index": 19,
+          "latency_ms": 22.198,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "658dc582-a31e-49ac-b072-b12aa3bf1ef6"
+        },
+        {
+          "index": 20,
+          "latency_ms": 22.094,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "55d8ced0-7539-46d8-9017-dac1f025c54f"
+        },
+        {
+          "index": 21,
+          "latency_ms": 35.206,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "c408e25a-9667-48ae-9be1-7a3d2541911a"
+        },
+        {
+          "index": 22,
+          "latency_ms": 60.563,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "675fa20e-d1ee-487f-9ab7-9e8c35dd28f2"
+        },
+        {
+          "index": 23,
+          "latency_ms": 12.897,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "1b3dd580-0b9b-48e7-95fd-82371cbe1fe3"
+        }
+      ],
+      "succeeded": 24,
+      "failed": 0,
+      "rejected": 0,
+      "unknown": 0,
+      "p50_ms": 53.355,
+      "p95_ms": 151.849,
+      "wall_ms": 386.882,
+      "completed_per_second": 62.03441876334386,
+      "successful_per_second": 62.03441876334386,
+      "upstream_initializes": 2,
+      "upstream_catalog_requests": 24,
+      "upstream_calls": 24,
+      "durable_observations": 24,
+      "gateway_catalog_mean_ms": 2.5416666666666665
+    },
+    {
+      "route": "direct",
+      "mode": "warm",
+      "catalog_size": 1,
+      "concurrency": 1,
+      "fault_every": 6,
+      "warmup": 1,
+      "samples": [
+        {
+          "index": 0,
+          "latency_ms": 2.42,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 1,
+          "latency_ms": 2.48,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 2,
+          "latency_ms": 2.892,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 3,
+          "latency_ms": 2.441,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 4,
+          "latency_ms": 2.384,
+          "outcome": "tool_error",
+          "response_json_bytes": 75
+        },
+        {
+          "index": 5,
+          "latency_ms": 2.395,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 6,
+          "latency_ms": 2.373,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 7,
+          "latency_ms": 2.419,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 8,
+          "latency_ms": 2.85,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 9,
+          "latency_ms": 3.222,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 10,
+          "latency_ms": 2.876,
+          "outcome": "tool_error",
+          "response_json_bytes": 75
+        },
+        {
+          "index": 11,
+          "latency_ms": 2.612,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 12,
+          "latency_ms": 2.478,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 13,
+          "latency_ms": 2.854,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 14,
+          "latency_ms": 3.047,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 15,
+          "latency_ms": 2.499,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 16,
+          "latency_ms": 2.482,
+          "outcome": "tool_error",
+          "response_json_bytes": 75
+        },
+        {
+          "index": 17,
+          "latency_ms": 2.473,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 18,
+          "latency_ms": 2.46,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 19,
+          "latency_ms": 2.459,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 20,
+          "latency_ms": 3.267,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 21,
+          "latency_ms": 2.443,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 22,
+          "latency_ms": 2.345,
+          "outcome": "tool_error",
+          "response_json_bytes": 75
+        },
+        {
+          "index": 23,
+          "latency_ms": 2.42,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        }
+      ],
+      "succeeded": 20,
+      "failed": 4,
+      "rejected": 0,
+      "unknown": 0,
+      "p50_ms": 2.473,
+      "p95_ms": 3.222,
+      "wall_ms": 62.618,
+      "completed_per_second": 383.2763742055,
+      "successful_per_second": 319.39697850458333,
+      "upstream_initializes": 0,
+      "upstream_catalog_requests": 0,
+      "upstream_calls": 24,
+      "durable_observations": 0,
+      "gateway_catalog_mean_ms": 0
+    },
+    {
+      "route": "gateway",
+      "mode": "warm",
+      "catalog_size": 1,
+      "concurrency": 1,
+      "fault_every": 6,
+      "warmup": 1,
+      "samples": [
+        {
+          "index": 0,
+          "latency_ms": 13.927,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "ac7be917-3639-42a3-946a-273a4655812c"
+        },
+        {
+          "index": 1,
+          "latency_ms": 11.516,
+          "outcome": "succeeded",
+          "response_json_bytes": 2875,
+          "operation_id": "080ed420-d32f-4e26-840d-77926046c73f"
+        },
+        {
+          "index": 2,
+          "latency_ms": 11.989,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "67c57949-e8b6-4a34-9211-8ea5412dd922"
+        },
+        {
+          "index": 3,
+          "latency_ms": 20.445,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "3e96ff3a-0a81-4a6d-ad30-ff267af59346"
+        },
+        {
+          "index": 4,
+          "latency_ms": 12.643,
+          "outcome": "tool_error",
+          "response_json_bytes": 860,
+          "operation_id": "42a9a1ee-5fe1-4e7d-86e3-960ca2c9ca67"
+        },
+        {
+          "index": 5,
+          "latency_ms": 17.413,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "ef579fe6-12f3-447e-9e76-b6549d3e0013"
+        },
+        {
+          "index": 6,
+          "latency_ms": 13.245,
+          "outcome": "succeeded",
+          "response_json_bytes": 2877,
+          "operation_id": "7cf1bc17-9849-48e2-ad40-2963b4fc7741"
+        },
+        {
+          "index": 7,
+          "latency_ms": 13.091,
+          "outcome": "succeeded",
+          "response_json_bytes": 2876,
+          "operation_id": "2044643a-9d08-4798-9d4f-2d99fab04ccd"
+        },
+        {
+          "index": 8,
+          "latency_ms": 11.027,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "8091f03a-9a80-4f4f-bf13-693069833e81"
+        },
+        {
+          "index": 9,
+          "latency_ms": 14.741,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "227c57ec-45dc-4f6d-bcc3-dbdc33c599a9"
+        },
+        {
+          "index": 10,
+          "latency_ms": 13.339,
+          "outcome": "tool_error",
+          "response_json_bytes": 861,
+          "operation_id": "33ab156d-c870-4eb0-982a-f99c428f3e43"
+        },
+        {
+          "index": 11,
+          "latency_ms": 13.247,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "d176761e-b73e-4b3e-a739-e3299b4bb9d9"
+        },
+        {
+          "index": 12,
+          "latency_ms": 11.257,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "70099fe2-1a8d-48a4-8159-d57474b325f1"
+        },
+        {
+          "index": 13,
+          "latency_ms": 12.124,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "cb7a9dee-90ac-4afc-8546-a8c691d0d53e"
+        },
+        {
+          "index": 14,
+          "latency_ms": 12.326,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "00361232-6d04-4eb9-a54b-2c590bc3225a"
+        },
+        {
+          "index": 15,
+          "latency_ms": 17.134,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "6791f076-e160-4190-94f3-e14f476d23ad"
+        },
+        {
+          "index": 16,
+          "latency_ms": 13.618,
+          "outcome": "tool_error",
+          "response_json_bytes": 860,
+          "operation_id": "2d2a11ee-7c46-4bc8-a719-f285a2022bfa"
+        },
+        {
+          "index": 17,
+          "latency_ms": 15.28,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "dbd469cb-dda7-4772-bfbb-7a7d5a4779db"
+        },
+        {
+          "index": 18,
+          "latency_ms": 12.546,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "c2a1c9f5-36ce-4561-8093-4d9098f81b4b"
+        },
+        {
+          "index": 19,
+          "latency_ms": 12.458,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "b7759883-5e1a-4e10-ae29-e911b699d02d"
+        },
+        {
+          "index": 20,
+          "latency_ms": 11.888,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "3ae52d1d-ada2-400f-8879-62ec5c9fff33"
+        },
+        {
+          "index": 21,
+          "latency_ms": 11.039,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "fcc0b7cf-4cb8-40ca-9e56-40ef0a7c4944"
+        },
+        {
+          "index": 22,
+          "latency_ms": 14.364,
+          "outcome": "tool_error",
+          "response_json_bytes": 861,
+          "operation_id": "19628cc0-f68b-49ca-89ad-9a4b36abb872"
+        },
+        {
+          "index": 23,
+          "latency_ms": 14.568,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "1c009e6c-6726-49b0-81c8-680bc93b4800"
+        }
+      ],
+      "succeeded": 20,
+      "failed": 4,
+      "rejected": 0,
+      "unknown": 0,
+      "p50_ms": 13.091,
+      "p95_ms": 17.413,
+      "wall_ms": 325.25,
+      "completed_per_second": 73.78939277478862,
+      "successful_per_second": 61.49116064565719,
+      "upstream_initializes": 4,
+      "upstream_catalog_requests": 24,
+      "upstream_calls": 24,
+      "durable_observations": 24,
+      "gateway_catalog_mean_ms": 0.3333333333333333
+    },
+    {
+      "route": "direct",
+      "mode": "cold",
+      "catalog_size": 100,
+      "concurrency": 1,
+      "fault_every": 0,
+      "warmup": 0,
+      "samples": [
+        {
+          "index": 0,
+          "latency_ms": 14.823,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 1,
+          "latency_ms": 4.911,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 2,
+          "latency_ms": 5.757,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 3,
+          "latency_ms": 4.487,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 4,
+          "latency_ms": 5.286,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 5,
+          "latency_ms": 4.538,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 6,
+          "latency_ms": 5.052,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 7,
+          "latency_ms": 4.469,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 8,
+          "latency_ms": 5.361,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 9,
+          "latency_ms": 5.202,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 10,
+          "latency_ms": 4.888,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 11,
+          "latency_ms": 4.58,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 12,
+          "latency_ms": 5.719,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 13,
+          "latency_ms": 5.02,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 14,
+          "latency_ms": 5.153,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 15,
+          "latency_ms": 4.544,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 16,
+          "latency_ms": 6.814,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 17,
+          "latency_ms": 5.845,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 18,
+          "latency_ms": 4.281,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 19,
+          "latency_ms": 7.171,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 20,
+          "latency_ms": 6.517,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 21,
+          "latency_ms": 5.305,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 22,
+          "latency_ms": 6.819,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 23,
+          "latency_ms": 5.088,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        }
+      ],
+      "succeeded": 24,
+      "failed": 0,
+      "rejected": 0,
+      "unknown": 0,
+      "p50_ms": 5.153,
+      "p95_ms": 7.171,
+      "wall_ms": 140.163,
+      "completed_per_second": 171.2292117035166,
+      "successful_per_second": 171.2292117035166,
+      "upstream_initializes": 24,
+      "upstream_catalog_requests": 24,
+      "upstream_calls": 24,
+      "durable_observations": 0,
+      "gateway_catalog_mean_ms": 0
+    },
+    {
+      "route": "gateway",
+      "mode": "cold",
+      "catalog_size": 100,
+      "concurrency": 1,
+      "fault_every": 0,
+      "warmup": 0,
+      "samples": [
+        {
+          "index": 0,
+          "latency_ms": 21.253,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "3605c19f-1762-43a9-973f-8bdbafe09d03"
+        },
+        {
+          "index": 1,
+          "latency_ms": 29.858,
+          "outcome": "succeeded",
+          "response_json_bytes": 2877,
+          "operation_id": "9db8c5b5-2db7-4d5a-a171-a08fd9b2c665"
+        },
+        {
+          "index": 2,
+          "latency_ms": 22.322,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "d7cbf235-28f2-4b89-9329-574f0efc2726"
+        },
+        {
+          "index": 3,
+          "latency_ms": 21.31,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "de58be0d-3252-4aca-8e1c-578981dd5729"
+        },
+        {
+          "index": 4,
+          "latency_ms": 20.648,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "9ca9bc61-1e0d-42cf-8b7a-0dfa19a44275"
+        },
+        {
+          "index": 5,
+          "latency_ms": 41.629,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "46499ed3-0fac-471c-8704-4119824aaade"
+        },
+        {
+          "index": 6,
+          "latency_ms": 23.989,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "33a5dc54-7396-423b-b618-6739c69aa005"
+        },
+        {
+          "index": 7,
+          "latency_ms": 30.126,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "34f62665-d305-4c6b-b8db-49d2b9724a60"
+        },
+        {
+          "index": 8,
+          "latency_ms": 41.163,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "b0f64c12-a6c4-447b-b734-cadf3f252724"
+        },
+        {
+          "index": 9,
+          "latency_ms": 44.016,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "bb20ea96-bc49-47c3-89f6-9fad806709ed"
+        },
+        {
+          "index": 10,
+          "latency_ms": 28.602,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "0364b6ca-9d7a-40ae-af22-4047fa015c98"
+        },
+        {
+          "index": 11,
+          "latency_ms": 40.835,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "a59edd0e-a49f-4e23-8427-b7ee26511ab2"
+        },
+        {
+          "index": 12,
+          "latency_ms": 17.771,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "16d868c4-92b8-4b43-acab-c18a5003d54c"
+        },
+        {
+          "index": 13,
+          "latency_ms": 19.737,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "e6327e3b-f8b1-4041-8cb8-63089d6f3de0"
+        },
+        {
+          "index": 14,
+          "latency_ms": 18.706,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "b4b85756-70a5-43ec-a801-e6d80e112b9f"
+        },
+        {
+          "index": 15,
+          "latency_ms": 33.59,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "a02d3df6-9c05-4551-8521-51efdcb4ee0a"
+        },
+        {
+          "index": 16,
+          "latency_ms": 23.59,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "339f5463-4c0c-49b6-85bb-3e1b876cc454"
+        },
+        {
+          "index": 17,
+          "latency_ms": 18.441,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "709492b5-1312-4c8b-8731-abbe570b69b5"
+        },
+        {
+          "index": 18,
+          "latency_ms": 20.322,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "8442ee88-12ef-4b59-ac5c-05f8ab5ea127"
+        },
+        {
+          "index": 19,
+          "latency_ms": 36.87,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "49ce9260-e256-4489-8e1a-b858a01c837b"
+        },
+        {
+          "index": 20,
+          "latency_ms": 22.389,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "428924c9-1dbe-4137-8f77-70a669c2cb51"
+        },
+        {
+          "index": 21,
+          "latency_ms": 20.487,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "9155652c-63bd-4bcb-b633-5f0e97ae6aba"
+        },
+        {
+          "index": 22,
+          "latency_ms": 24.396,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "b0b8e300-c657-4ce7-8a22-1f0f662b951c"
+        },
+        {
+          "index": 23,
+          "latency_ms": 35.181,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "00980954-d1d7-4277-a99f-e839f45b0320"
+        }
+      ],
+      "succeeded": 24,
+      "failed": 0,
+      "rejected": 0,
+      "unknown": 0,
+      "p50_ms": 23.59,
+      "p95_ms": 41.629,
+      "wall_ms": 657.598,
+      "completed_per_second": 36.49646136393359,
+      "successful_per_second": 36.49646136393359,
+      "upstream_initializes": 24,
+      "upstream_catalog_requests": 24,
+      "upstream_calls": 24,
+      "durable_observations": 24,
+      "gateway_catalog_mean_ms": 8.75
+    },
+    {
+      "route": "direct",
+      "mode": "warm",
+      "catalog_size": 100,
+      "concurrency": 1,
+      "fault_every": 0,
+      "warmup": 1,
+      "samples": [
+        {
+          "index": 0,
+          "latency_ms": 2.713,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 1,
+          "latency_ms": 2.607,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 2,
+          "latency_ms": 3.392,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 3,
+          "latency_ms": 3.048,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 4,
+          "latency_ms": 2.581,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 5,
+          "latency_ms": 2.648,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 6,
+          "latency_ms": 2.518,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 7,
+          "latency_ms": 2.542,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 8,
+          "latency_ms": 3.59,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 9,
+          "latency_ms": 4.539,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 10,
+          "latency_ms": 2.589,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 11,
+          "latency_ms": 2.489,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 12,
+          "latency_ms": 2.417,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 13,
+          "latency_ms": 2.407,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 14,
+          "latency_ms": 2.398,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 15,
+          "latency_ms": 3.384,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 16,
+          "latency_ms": 4.226,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 17,
+          "latency_ms": 2.414,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 18,
+          "latency_ms": 2.377,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 19,
+          "latency_ms": 19.248,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 20,
+          "latency_ms": 23.837,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 21,
+          "latency_ms": 2.758,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 22,
+          "latency_ms": 19.88,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 23,
+          "latency_ms": 26.336,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        }
+      ],
+      "succeeded": 24,
+      "failed": 0,
+      "rejected": 0,
+      "unknown": 0,
+      "p50_ms": 2.648,
+      "p95_ms": 23.837,
+      "wall_ms": 146.965,
+      "completed_per_second": 163.30418807198993,
+      "successful_per_second": 163.30418807198993,
+      "upstream_initializes": 0,
+      "upstream_catalog_requests": 0,
+      "upstream_calls": 24,
+      "durable_observations": 0,
+      "gateway_catalog_mean_ms": 0
+    },
+    {
+      "route": "gateway",
+      "mode": "warm",
+      "catalog_size": 100,
+      "concurrency": 1,
+      "fault_every": 0,
+      "warmup": 1,
+      "samples": [
+        {
+          "index": 0,
+          "latency_ms": 16.564,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "1667f55a-665f-4fb7-b51a-947478ccfde4"
+        },
+        {
+          "index": 1,
+          "latency_ms": 14.625,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "df874ee7-e1ce-4774-8381-51bd9c6b8cf7"
+        },
+        {
+          "index": 2,
+          "latency_ms": 14.726,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "83e48ef6-702f-4844-9ee9-ef9ff87dd133"
+        },
+        {
+          "index": 3,
+          "latency_ms": 25.05,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "80a5546f-b04c-471d-88f2-14fd5a5847da"
+        },
+        {
+          "index": 4,
+          "latency_ms": 18.267,
+          "outcome": "succeeded",
+          "response_json_bytes": 2875,
+          "operation_id": "87f536f5-679c-4a09-ab72-ce6252bd0e4c"
+        },
+        {
+          "index": 5,
+          "latency_ms": 14.941,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "45cfbe50-b598-4fb4-b71d-39839147c8be"
+        },
+        {
+          "index": 6,
+          "latency_ms": 15.59,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "144367cc-92ce-4d3f-8ad9-b217e4e98007"
+        },
+        {
+          "index": 7,
+          "latency_ms": 16.244,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "ef54123b-b19c-49d8-8542-42bf81042ae5"
+        },
+        {
+          "index": 8,
+          "latency_ms": 13.088,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "937da999-d96e-45af-ab6d-71322e09d83c"
+        },
+        {
+          "index": 9,
+          "latency_ms": 25.898,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "0c950522-c877-485e-bbdb-19321fd289a4"
+        },
+        {
+          "index": 10,
+          "latency_ms": 12.46,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "d2a0ed45-c5fc-46ba-be90-dfc83723a15c"
+        },
+        {
+          "index": 11,
+          "latency_ms": 15.109,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "0443a980-e176-4eb0-9756-3c71d35fd693"
+        },
+        {
+          "index": 12,
+          "latency_ms": 14.658,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "63248730-62c9-4252-a7d1-cd48537e6c6e"
+        },
+        {
+          "index": 13,
+          "latency_ms": 15.606,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "d282640b-aac4-4414-be88-89857b6d0619"
+        },
+        {
+          "index": 14,
+          "latency_ms": 13.622,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "f39b178c-6a13-4379-947c-9b7d82fa5313"
+        },
+        {
+          "index": 15,
+          "latency_ms": 22.797,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "edd2e5a8-bb9b-4263-b4e1-452a7f76154b"
+        },
+        {
+          "index": 16,
+          "latency_ms": 13.973,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "6e5ba921-2bdb-4b98-ab29-570226918ce5"
+        },
+        {
+          "index": 17,
+          "latency_ms": 18.158,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "5dec93ae-cb50-475f-a408-93995baedc17"
+        },
+        {
+          "index": 18,
+          "latency_ms": 14.631,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "00afaba5-e2d7-44e8-818b-fda38e9bb69d"
+        },
+        {
+          "index": 19,
+          "latency_ms": 13.141,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "c81c6fb3-235d-464e-b6ad-b3c387b83b7d"
+        },
+        {
+          "index": 20,
+          "latency_ms": 14.985,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "f9698db4-1f20-41f5-bc1e-dc91cd07f50d"
+        },
+        {
+          "index": 21,
+          "latency_ms": 12.562,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "4cee243c-fb24-4e01-bb5e-b283e5aedf96"
+        },
+        {
+          "index": 22,
+          "latency_ms": 22.77,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "3162dc7f-65d8-4916-853a-9b69598ab046"
+        },
+        {
+          "index": 23,
+          "latency_ms": 13.996,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "76590807-4147-42c8-934b-429724e57d52"
+        }
+      ],
+      "succeeded": 24,
+      "failed": 0,
+      "rejected": 0,
+      "unknown": 0,
+      "p50_ms": 14.941,
+      "p95_ms": 25.05,
+      "wall_ms": 393.489,
+      "completed_per_second": 60.992810472465564,
+      "successful_per_second": 60.992810472465564,
+      "upstream_initializes": 0,
+      "upstream_catalog_requests": 24,
+      "upstream_calls": 24,
+      "durable_observations": 24,
+      "gateway_catalog_mean_ms": 5.041666666666667
+    },
+    {
+      "route": "direct",
+      "mode": "warm",
+      "catalog_size": 100,
+      "concurrency": 4,
+      "fault_every": 0,
+      "warmup": 4,
+      "samples": [
+        {
+          "index": 0,
+          "latency_ms": 2.609,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 1,
+          "latency_ms": 2.781,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 2,
+          "latency_ms": 2.685,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 3,
+          "latency_ms": 2.66,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 4,
+          "latency_ms": 2.594,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 5,
+          "latency_ms": 2.67,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 6,
+          "latency_ms": 2.692,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 7,
+          "latency_ms": 2.726,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 8,
+          "latency_ms": 2.596,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 9,
+          "latency_ms": 2.347,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 10,
+          "latency_ms": 2.475,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 11,
+          "latency_ms": 2.611,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 12,
+          "latency_ms": 2.346,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 13,
+          "latency_ms": 2.277,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 14,
+          "latency_ms": 4.024,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 15,
+          "latency_ms": 3.674,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 16,
+          "latency_ms": 3.02,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 17,
+          "latency_ms": 3.172,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 18,
+          "latency_ms": 3.208,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 19,
+          "latency_ms": 3.058,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 20,
+          "latency_ms": 2.989,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 21,
+          "latency_ms": 3.027,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 22,
+          "latency_ms": 4.419,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 23,
+          "latency_ms": 2.463,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        }
+      ],
+      "succeeded": 24,
+      "failed": 0,
+      "rejected": 0,
+      "unknown": 0,
+      "p50_ms": 2.685,
+      "p95_ms": 4.024,
+      "wall_ms": 19.565,
+      "completed_per_second": 1226.6802964477383,
+      "successful_per_second": 1226.6802964477383,
+      "upstream_initializes": 0,
+      "upstream_catalog_requests": 0,
+      "upstream_calls": 24,
+      "durable_observations": 0,
+      "gateway_catalog_mean_ms": 0
+    },
+    {
+      "route": "gateway",
+      "mode": "warm",
+      "catalog_size": 100,
+      "concurrency": 4,
+      "fault_every": 0,
+      "warmup": 4,
+      "samples": [
+        {
+          "index": 0,
+          "latency_ms": 61.185,
+          "outcome": "succeeded",
+          "response_json_bytes": 2877,
+          "operation_id": "ca1e5f59-a7ef-43e9-a9d7-c88a39d34073"
+        },
+        {
+          "index": 1,
+          "latency_ms": 63.817,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "9fd6cd82-4b83-43f5-8785-6779745d31b8"
+        },
+        {
+          "index": 2,
+          "latency_ms": 71.191,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "9619b57a-8559-4c14-b2cb-6a84dba03ef4"
+        },
+        {
+          "index": 3,
+          "latency_ms": 69.191,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "7caed48f-e18d-4325-8714-f86ef9ac6935"
+        },
+        {
+          "index": 4,
+          "latency_ms": 35.731,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "9b814a6f-9352-4ef3-bb47-88f3bbd1deb1"
+        },
+        {
+          "index": 5,
+          "latency_ms": 34.885,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "85b80b4f-68fe-40f5-af72-ee25ce167116"
+        },
+        {
+          "index": 6,
+          "latency_ms": 83.258,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "8a05eb34-149e-4e63-8791-37e713142aa7"
+        },
+        {
+          "index": 7,
+          "latency_ms": 29.285,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "1f7915c8-4f97-4c4a-bd82-01c79f7e2f40"
+        },
+        {
+          "index": 8,
+          "latency_ms": 70.913,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "11ec99a2-82b7-4278-9abc-3f34023ec86c"
+        },
+        {
+          "index": 9,
+          "latency_ms": 152.235,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "6e7d0247-eb07-40c7-baf7-9cfc38e8a201"
+        },
+        {
+          "index": 10,
+          "latency_ms": 97.302,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "7127d4c8-75ab-475c-b497-e76e2a7137c5"
+        },
+        {
+          "index": 11,
+          "latency_ms": 91.231,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "ad059494-84f3-460a-92a6-788e2ced0c09"
+        },
+        {
+          "index": 12,
+          "latency_ms": 93.636,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "56c18edf-6311-4e7e-a35f-30801e84a692"
+        },
+        {
+          "index": 13,
+          "latency_ms": 36.845,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "94e7124b-7c33-4331-af59-fdc561089310"
+        },
+        {
+          "index": 14,
+          "latency_ms": 42.421,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "421fe389-c1b6-4b43-af75-e5d5b115f76a"
+        },
+        {
+          "index": 15,
+          "latency_ms": 78.336,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "ddc1e805-ef39-4c8a-932b-4b2a1690aecb"
+        },
+        {
+          "index": 16,
+          "latency_ms": 96.343,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "f37778ea-b7c1-4de1-b33a-b3787d98822c"
+        },
+        {
+          "index": 17,
+          "latency_ms": 76.063,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "cc46ee17-3edf-4f41-b126-44ac127a195e"
+        },
+        {
+          "index": 18,
+          "latency_ms": 78.046,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "6d33a967-be18-470d-92bd-98d49781b9c3"
+        },
+        {
+          "index": 19,
+          "latency_ms": 93.973,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "1905d4c5-2066-40c0-95c5-7c40e66a95ff"
+        },
+        {
+          "index": 20,
+          "latency_ms": 33.892,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "4fc71f1d-f19c-4530-bd98-74083918f763"
+        },
+        {
+          "index": 21,
+          "latency_ms": 30.093,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "d416a533-4997-4790-a463-07a183f09f86"
+        },
+        {
+          "index": 22,
+          "latency_ms": 25.929,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "b6c6a29c-c7fb-4286-8e20-9193dc6d2e04"
+        },
+        {
+          "index": 23,
+          "latency_ms": 31.697,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "4d9f71a6-3397-404a-ba1f-5f2dcc550696"
+        }
+      ],
+      "succeeded": 24,
+      "failed": 0,
+      "rejected": 0,
+      "unknown": 0,
+      "p50_ms": 69.191,
+      "p95_ms": 97.302,
+      "wall_ms": 398.238,
+      "completed_per_second": 60.26546939267473,
+      "successful_per_second": 60.26546939267473,
+      "upstream_initializes": 3,
+      "upstream_catalog_requests": 24,
+      "upstream_calls": 24,
+      "durable_observations": 24,
+      "gateway_catalog_mean_ms": 19.041666666666668
+    },
+    {
+      "route": "direct",
+      "mode": "warm",
+      "catalog_size": 100,
+      "concurrency": 1,
+      "fault_every": 6,
+      "warmup": 1,
+      "samples": [
+        {
+          "index": 0,
+          "latency_ms": 2.401,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 1,
+          "latency_ms": 2.331,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 2,
+          "latency_ms": 2.335,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 3,
+          "latency_ms": 2.368,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 4,
+          "latency_ms": 2.372,
+          "outcome": "tool_error",
+          "response_json_bytes": 75
+        },
+        {
+          "index": 5,
+          "latency_ms": 2.397,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 6,
+          "latency_ms": 2.61,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 7,
+          "latency_ms": 2.846,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 8,
+          "latency_ms": 13.535,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 9,
+          "latency_ms": 2.365,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 10,
+          "latency_ms": 2.399,
+          "outcome": "tool_error",
+          "response_json_bytes": 75
+        },
+        {
+          "index": 11,
+          "latency_ms": 2.417,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 12,
+          "latency_ms": 2.413,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 13,
+          "latency_ms": 2.474,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 14,
+          "latency_ms": 2.643,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 15,
+          "latency_ms": 2.835,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 16,
+          "latency_ms": 2.394,
+          "outcome": "tool_error",
+          "response_json_bytes": 75
+        },
+        {
+          "index": 17,
+          "latency_ms": 2.406,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 18,
+          "latency_ms": 2.421,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 19,
+          "latency_ms": 2.456,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 20,
+          "latency_ms": 2.459,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 21,
+          "latency_ms": 2.462,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        },
+        {
+          "index": 22,
+          "latency_ms": 2.552,
+          "outcome": "tool_error",
+          "response_json_bytes": 75
+        },
+        {
+          "index": 23,
+          "latency_ms": 2.62,
+          "outcome": "succeeded",
+          "response_json_bytes": 2087
+        }
+      ],
+      "succeeded": 20,
+      "failed": 4,
+      "rejected": 0,
+      "unknown": 0,
+      "p50_ms": 2.417,
+      "p95_ms": 2.846,
+      "wall_ms": 70.532,
+      "completed_per_second": 340.27108262916124,
+      "successful_per_second": 283.559235524301,
+      "upstream_initializes": 0,
+      "upstream_catalog_requests": 0,
+      "upstream_calls": 24,
+      "durable_observations": 0,
+      "gateway_catalog_mean_ms": 0
+    },
+    {
+      "route": "gateway",
+      "mode": "warm",
+      "catalog_size": 100,
+      "concurrency": 1,
+      "fault_every": 6,
+      "warmup": 1,
+      "samples": [
+        {
+          "index": 0,
+          "latency_ms": 14.176,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "6af29c54-c12a-4add-8945-c0bb211c5ed2"
+        },
+        {
+          "index": 1,
+          "latency_ms": 18.4,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "cd5e115b-e189-4dae-97af-9f8f85e12409"
+        },
+        {
+          "index": 2,
+          "latency_ms": 12.009,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "5a4cd041-99fb-46e7-b5e0-f6f746ca0a7b"
+        },
+        {
+          "index": 3,
+          "latency_ms": 19.918,
+          "outcome": "succeeded",
+          "response_json_bytes": 2877,
+          "operation_id": "1d135b4f-2b7a-4fcf-a1ba-e5f693088f62"
+        },
+        {
+          "index": 4,
+          "latency_ms": 22.39,
+          "outcome": "tool_error",
+          "response_json_bytes": 860,
+          "operation_id": "d26c77c0-05ea-4db5-a8a3-28d306f7bc29"
+        },
+        {
+          "index": 5,
+          "latency_ms": 20.687,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "f4c58733-ecc7-4688-8558-404569c3a4c4"
+        },
+        {
+          "index": 6,
+          "latency_ms": 16.164,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "68e75068-c207-424b-925d-a1a9f374ffa6"
+        },
+        {
+          "index": 7,
+          "latency_ms": 18.783,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "a273d1f0-fed3-4b91-90ac-c6825009dd45"
+        },
+        {
+          "index": 8,
+          "latency_ms": 18.573,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "39b45501-13aa-4efb-afc0-480a1e7d8d1d"
+        },
+        {
+          "index": 9,
+          "latency_ms": 18.022,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "b9226595-aaad-4a6e-99a7-47c78329abb7"
+        },
+        {
+          "index": 10,
+          "latency_ms": 20.716,
+          "outcome": "tool_error",
+          "response_json_bytes": 861,
+          "operation_id": "36941352-ffdc-45c0-9259-ab78e77e97a1"
+        },
+        {
+          "index": 11,
+          "latency_ms": 29.966,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "374f1efb-840b-4d89-8f9a-157b438437b2"
+        },
+        {
+          "index": 12,
+          "latency_ms": 16.435,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "e604e270-8af0-4d56-a106-4857a5daeec7"
+        },
+        {
+          "index": 13,
+          "latency_ms": 15.231,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "004d74d4-b7ea-4ed0-92a5-24ddd8a52cf3"
+        },
+        {
+          "index": 14,
+          "latency_ms": 18.649,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "e6fd7145-e47e-430d-a856-e5f1815703fd"
+        },
+        {
+          "index": 15,
+          "latency_ms": 16.81,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "bc018772-9fb3-4520-a1ae-e9d822cea4e5"
+        },
+        {
+          "index": 16,
+          "latency_ms": 14.103,
+          "outcome": "tool_error",
+          "response_json_bytes": 861,
+          "operation_id": "72ea7028-33c4-4bde-8eae-204b793a841d"
+        },
+        {
+          "index": 17,
+          "latency_ms": 30.752,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "4656c4ad-a8c7-404b-b58f-53be9825c30c"
+        },
+        {
+          "index": 18,
+          "latency_ms": 14.998,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "6e78b160-2e08-4787-97e0-82751d2f82ff"
+        },
+        {
+          "index": 19,
+          "latency_ms": 14.77,
+          "outcome": "succeeded",
+          "response_json_bytes": 2878,
+          "operation_id": "59289915-e832-4a68-88bb-b70069d68b34"
+        },
+        {
+          "index": 20,
+          "latency_ms": 16.277,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "4eeaea04-748b-4f4c-ba06-2e1af6010166"
+        },
+        {
+          "index": 21,
+          "latency_ms": 16.456,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "c59b3994-6807-4363-b78e-b7a88462db90"
+        },
+        {
+          "index": 22,
+          "latency_ms": 15.298,
+          "outcome": "tool_error",
+          "response_json_bytes": 861,
+          "operation_id": "896eb1aa-0054-47c9-b77b-fa62d98e12c5"
+        },
+        {
+          "index": 23,
+          "latency_ms": 28.072,
+          "outcome": "succeeded",
+          "response_json_bytes": 2879,
+          "operation_id": "66581d93-3182-4f5e-9ff1-5c3a8bc10933"
+        }
+      ],
+      "succeeded": 20,
+      "failed": 4,
+      "rejected": 0,
+      "unknown": 0,
+      "p50_ms": 16.81,
+      "p95_ms": 29.966,
+      "wall_ms": 447.683,
+      "completed_per_second": 53.60936198158072,
+      "successful_per_second": 44.67446831798393,
+      "upstream_initializes": 4,
+      "upstream_catalog_requests": 24,
+      "upstream_calls": 24,
+      "durable_observations": 24,
+      "gateway_catalog_mean_ms": 6.125
+    }
+  ],
+  "provenance": {
+    "runtime_source": "a17b5d931aa302a46b4b16987c904de1782a9732",
+    "fixture_sha256": "988c40320736dde1b33a582a6d6906c65c848ecce87540c82dafd9f8f17b1b7b",
+    "test_binary_sha256": "f15973d8369a26e38a209e6fdd89cdd4f2ea4562532cf8f0a8f4688ab7904a9c",
+    "instrumentation": "none",
+    "location": "deployed gateway host; isolated temporary container, not deployed gateway process",
+    "network": "none; loopback only",
+    "database": "PostgreSQL 16.14; temporary tmpfs database; 12 connections",
+    "container_cpu_limit": 1,
+    "container_memory_mib": 512,
+    "database_tmpfs_mib": 192,
+    "cleanup": {
+      "temporary_schemas_remaining": 0,
+      "container_removed": true
+    },
+    "iterations": 1
+  }
+}
