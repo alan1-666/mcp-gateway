@@ -109,9 +109,10 @@ type Operation struct {
 	UpdatedAt         time.Time       `json:"updated_at"`
 }
 type FinishInput struct {
-	State  State
-	Result json.RawMessage
-	Error  string
+	MCPObservation *MCPObservation `json:"-"`
+	State          State
+	Result         json.RawMessage
+	Error          string
 	// MCPResultValidated is set only by the control-plane Connector queue after
 	// validating the full output schema and projecting before durable storage.
 	// It is never accepted from an HTTP request or a Connector wire response.

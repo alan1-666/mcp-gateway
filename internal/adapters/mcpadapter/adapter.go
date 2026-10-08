@@ -305,8 +305,18 @@ func schemaHash(name string, input, output json.RawMessage) string {
 	return hex.EncodeToString(digest[:])
 }
 
-func (a *Adapter) Execute(ctx context.Context, actor core.Actor, tool core.Tool, op core.Operation) core.FinishInput {
-	fail := func(message string, uncertain bool) core.FinishInput {
+func (a *Adapter) Execute(ctx context.Context, actor core.Actor, tool core.Tool, op core.Operation) (out core.FinishInput) {
+	timer := newExecutionTimer()
+	var transport *protocolTransport
+	var releaseSession func(bool)
+	healthy, observe := false, true
+	defer func() {
+		if observe && out.MCPObservation == nil {
+			out.MCPObservation = timer.finish(transport)
+		}
+	}()
+	fail := func(code, message string, uncertain bool) core.FinishInput {
+		timer.observation.Code = code
 		state := core.StateFailed
 		if uncertain && tool.Risk == core.RiskWrite {
 			state = core.StateUnknown
@@ -314,27 +324,36 @@ func (a *Adapter) Execute(ctx context.Context, actor core.Actor, tool core.Tool,
 		return core.FinishInput{State: state, Error: message}
 	}
 	if a.resolver == nil || tool.MCP == nil || tool.WorkspaceID != actor.WorkspaceID || tool.MCP.ServerID == "" || tool.MCP.ToolName == "" {
-		return fail("invalid MCP tool configuration", false)
+		return fail("configuration_unavailable", "invalid MCP tool configuration", false)
 	}
 	server, err := a.resolver.GetServer(ctx, actor.WorkspaceID, tool.MCP.ServerID)
 	if err != nil || server.ID != tool.MCP.ServerID || !server.Enabled || server.WorkspaceID != actor.WorkspaceID {
-		return fail("MCP server is unavailable or disabled", false)
+		return fail(observationFailure(ctx, nil, "configuration_unavailable"), "MCP server is unavailable or disabled", false)
 	}
 	ctx, cancel := context.WithTimeout(outboundContext{ctx}, time.Duration(server.TimeoutMS)*time.Millisecond)
 	defer cancel()
+	defer func() {
+		if observe {
+			out.MCPObservation = timer.finish(transport)
+		}
+		if releaseSession != nil {
+			releaseSession(healthy)
+		}
+	}()
 	if server.ConnectorID != "" {
+		observe = false
 		if err := a.ValidateServerContext(ctx, actor, server); err != nil {
-			return fail("Connector binding is unavailable", false)
+			return fail("configuration_unavailable", "Connector binding is unavailable", false)
 		}
 		if err := core.ValidateArguments(tool.InputSchema, op.Arguments); err != nil {
-			return fail("persisted arguments do not match the MCP tool contract", false)
+			return fail("arguments_invalid", "persisted arguments do not match the MCP tool contract", false)
 		}
 		result := a.delegate.Execute(ctx, actor, tool, op)
 		if result.State != core.StateSucceeded {
 			if result.State == core.StateFailed {
-				return fail("Connector execution did not complete", false)
+				return fail("call_unconfirmed", "Connector execution did not complete", false)
 			}
-			return fail("Connector did not confirm the outcome; verify before another action", true)
+			return fail("call_unconfirmed", "Connector did not confirm the outcome; verify before another action", true)
 		}
 		schema := tool.OutputSchema
 		if result.MCPResultValidated {
@@ -342,21 +361,18 @@ func (a *Adapter) Execute(ctx context.Context, actor core.Actor, tool core.Tool,
 		}
 		envelope, err := sanitizeResult(result.Result, schema)
 		if err != nil {
-			return fail(err.Error(), true)
+			return fail("result_invalid", err.Error(), true)
 		}
 		return core.FinishInput{State: core.StateSucceeded, Result: envelope}
 	}
 
-	session, transport, releaseSession, err := a.executionSession(ctx, actor, server)
+	timer.phase("session")
+	var session *mcp.ClientSession
+	session, transport, releaseSession, err = a.executionSession(ctx, actor, server)
 	if err != nil {
-		return fail("MCP server is blocked or could not be connected", false)
+		return fail(observationFailure(ctx, transport, "connection_failed"), "MCP server is blocked or could not be connected", false)
 	}
-	healthy := false
-	defer func() {
-		if releaseSession != nil {
-			releaseSession(healthy)
-		}
-	}()
+	timer.phase("catalog")
 	tools, err := discover(ctx, session, transport)
 	// A reused session may have expired upstream. Rebuild only after a 404
 	// during catalog inspection, before any business call, once under the
@@ -370,9 +386,9 @@ func (a *Adapter) Execute(ctx context.Context, actor core.Actor, tool core.Tool,
 	}
 	if err != nil {
 		if errors.Is(err, errCatalogChanged) {
-			return fail(errCatalogChanged.Error(), false)
+			return fail("catalog_changed", errCatalogChanged.Error(), false)
 		}
-		return fail("MCP tool contract could not be verified", false)
+		return fail(observationFailure(ctx, transport, "catalog_unverified"), "MCP tool contract could not be verified", false)
 	}
 	matched := false
 	for _, remote := range tools {
@@ -382,28 +398,33 @@ func (a *Adapter) Execute(ctx context.Context, actor core.Actor, tool core.Tool,
 		}
 	}
 	if !matched {
-		return fail("MCP tool schema changed or the tool was removed; rediscover and review before executing", false)
+		return fail("schema_changed", "MCP tool schema changed or the tool was removed; rediscover and review before executing", false)
 	}
 	if err := core.ValidateArguments(tool.InputSchema, op.Arguments); err != nil {
-		return fail("persisted arguments do not match the MCP tool contract", false)
+		return fail("arguments_invalid", "persisted arguments do not match the MCP tool contract", false)
 	}
+	timer.phase("call")
 	result, err := session.CallTool(ctx, &mcp.CallToolParams{Name: tool.MCP.ToolName, Arguments: json.RawMessage(op.Arguments)})
 	if errors.Is(err, errCatalogChanged) {
-		return fail(errCatalogChanged.Error(), false)
+		return fail("catalog_changed", errCatalogChanged.Error(), false)
 	}
 	if err != nil || result == nil {
-		return fail("MCP tool did not produce a confirmed result; verify write outcome before another action", true)
+		return fail(observationFailure(ctx, transport, "call_unconfirmed"), "MCP tool did not produce a confirmed result; verify write outcome before another action", true)
 	}
 	if result.IsError || result.NeedsInput() {
-		return fail("MCP tool reported an error or unsupported interaction; verify write outcome before another action", true)
+		if !result.IsError {
+			return fail("unsupported_interaction", "MCP tool requires unsupported interaction", true)
+		}
+		return fail("tool_error", "MCP tool reported an error or unsupported interaction; verify write outcome before another action", true)
 	}
+	timer.phase("result")
 	raw, err := transport.result("tools/call")
 	if err != nil {
-		return fail("MCP tool returned an invalid result", true)
+		return fail("result_invalid", "MCP tool returned an invalid result", true)
 	}
 	envelope, err := sanitizeResult(raw, tool.OutputSchema)
 	if err != nil {
-		return fail(err.Error(), true)
+		return fail("result_invalid", err.Error(), true)
 	}
 	healthy = transport.catalogReusable()
 	return core.FinishInput{State: core.StateSucceeded, Result: envelope}

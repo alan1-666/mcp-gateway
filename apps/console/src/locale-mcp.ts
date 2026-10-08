@@ -1,5 +1,32 @@
 /** MCP administration copy; upstream names, schemas, and values stay unchanged. */
 export const mcpZh: Record<string, string> = {
+  "Last call succeeded": "最近一次调用成功",
+  "Last call encountered a transport failure": "最近一次调用发生传输故障",
+  "Last call needs review": "最近一次调用需要检查",
+  "Observation is stale": "观测已过期",
+  "Service is disabled": "服务已停用",
+  "No calls in this sample": "当前样本没有调用记录",
+  "Observation unavailable": "暂无观测信息",
+  "Configuration validation": "配置校验",
+  "Session acquisition": "获取会话",
+  "Catalog verification": "目录校验",
+  "Tool round trip": "工具请求与响应",
+  "Result validation": "结果校验",
+  "Response projection": "响应裁剪",
+  "Observed MCP calls": "MCP 调用观测",
+  "Refresh call observations": "刷新调用观测",
+  "Samples the latest 1,000 workspace operations created in the last 24 hours. Remote HTTP MCP calls only. Health reflects the latest sampled call for five minutes, not an uptime guarantee.":
+    "采样工作区最近 24 小时创建的最新 1,000 条操作，仅统计远程 HTTP MCP 调用；健康状态依据最近一次样本，5 分钟后过期，不代表服务可用性保证",
+  "{calls} observed · {attempted} call attempts · {scanned} workspace operations sampled":
+    "{calls} 次观测 · {attempted} 次尝试发送 · 已采样 {scanned} 条工作区操作",
+  "Sample limit reached; older operations are excluded":
+    "已达到采样上限，更早的操作未纳入统计",
+  "Phase averages and error codes": "阶段平均耗时与错误分类",
+  "Execution phase": "执行阶段",
+  "Mean duration": "平均耗时",
+  "Timing excludes admission, approval, result persistence and session teardown. A call attempt does not prove the upstream received it.":
+    "耗时不包含准入、审批、结果持久化和会话关闭；尝试发送不代表上游已收到请求",
+
   "Add MCP server": "添加 MCP 服务",
   "Add an MCP server": "添加 MCP 服务",
   "Add server": "添加服务",

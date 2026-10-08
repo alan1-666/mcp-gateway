@@ -656,6 +656,43 @@ paths:
         '404': {$ref: '#/components/responses/NotFound'}
         '429': {$ref: '#/components/responses/TooManyRequests'}
         '503': {$ref: '#/components/responses/Unavailable'}
+  /api/v1/mcp/servers/{id}/execution-metrics:
+    parameters:
+      - $ref: '#/components/parameters/ResourceID'
+    get:
+      operationId: getMCPExecutionMetrics
+      tags: [MCP Servers]
+      summary: Read observed remote MCP execution metrics
+      description: |
+        Administrator-only workspace-scoped sample of at most the latest 1000
+        workspace operations created in the last 24 hours, then filtered to this
+        server's immutable operation snapshots and committed MCP observations.
+        Rejects all query parameters. Includes no business payload or upstream error
+        message. Legacy and Connector operations without observations are excluded.
+        Percentiles use nearest rank. Health reflects only the latest sampled call;
+        it becomes stale after five minutes or a server configuration change.
+        This does not probe upstream availability. Truncated indicates excluded
+        older operations; even an untruncated sample is not a complete telemetry SLA.
+      x-required-roles: [admin]
+      responses:
+        '200':
+          description: Bounded historical sample
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MCPExecutionMetrics'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /api/v1/mcp/servers/{id}/catalog-schedule:
     parameters:
       - $ref: '#/components/parameters/ResourceID'
@@ -1458,6 +1495,9 @@ paths:
         than after. Continue polling with the last received ID to read another batch.
         Event IDs are global database sequence values, may contain gaps, and are not
         per-operation consecutive counters. The response is a finite JSON array wrapper.
+        Remote HTTP MCP terminal events may carry gateway-owned mcp_execution in
+        data (MCPObservation); legacy/recovery/Connector events may omit it. The
+        observation is committed atomically with the terminal operation state.
       x-required-roles: [admin, operator, approver, viewer]
       parameters:
         - name: after
@@ -3795,6 +3835,68 @@ components:
           type: string
         message:
           type: string
+    MCPPhaseDurations:
+      type: object
+      additionalProperties: false
+      required: [configuration, session, catalog, call, result, projection]
+      properties:
+        configuration: {type: integer, minimum: 0}
+        session: {type: integer, minimum: 0}
+        catalog: {type: integer, minimum: 0}
+        call: {type: integer, minimum: 0}
+        result: {type: integer, minimum: 0}
+        projection: {type: integer, minimum: 0}
+    MCPObservation:
+      type: object
+      description: |
+        Trusted terminal event metadata; never accepted in a completion request.
+        Durations exclude admission, approval, persistence and teardown. Catalog
+        timing includes a permitted pre-call reconnect. Attempted means passed the
+        protocol dispatch fence, not proof of receipt or side effect. HTTP status
+        is the call response if attempted, otherwise the last handshake/catalog
+        response; omitted if none. UNKNOWN still requires downstream verification.
+      additionalProperties: false
+      required: [code, phase, total_ms, phases_ms, call_attempted]
+      properties:
+        code:
+          type: string
+          enum: [ok, configuration_unavailable, connection_failed, authentication_rejected, rate_limited, upstream_unavailable, timeout, cancelled, catalog_unverified, catalog_changed, schema_changed, arguments_invalid, call_unconfirmed, tool_error, unsupported_interaction, result_invalid, projection_failed, artifact_quota]
+        phase:
+          type: string
+          enum: [configuration, session, catalog, call, result, projection]
+        total_ms: {type: integer, minimum: 0, maximum: 600000}
+        phases_ms:
+          $ref: '#/components/schemas/MCPPhaseDurations'
+        call_attempted: {type: boolean}
+        http_status: {type: integer, minimum: 100, maximum: 599}
+    MCPExecutionMetrics:
+      type: object
+      additionalProperties: false
+      required: [server_id, observed_at, window_start, operations_scanned, sample_limit, truncated, calls, attempted, states, errors, p50_ms, p95_ms, mean_phases_ms, health]
+      properties:
+        server_id: {type: string}
+        observed_at: {type: string, format: date-time}
+        window_start: {type: string, format: date-time}
+        operations_scanned: {type: integer, minimum: 0, maximum: 1000}
+        sample_limit: {type: integer, const: 1000}
+        truncated: {type: boolean}
+        calls: {type: integer, minimum: 0, maximum: 1000}
+        attempted: {type: integer, minimum: 0, maximum: 1000}
+        states:
+          type: object
+          additionalProperties: {type: integer, minimum: 0}
+        errors:
+          type: object
+          additionalProperties: {type: integer, minimum: 0}
+        p50_ms: {type: integer, minimum: 0}
+        p95_ms: {type: integer, minimum: 0}
+        mean_phases_ms:
+          $ref: '#/components/schemas/MCPPhaseDurations'
+        health:
+          type: string
+          enum: [healthy, degraded, attention, stale, disabled, unobserved]
+        last_observed_at: {type: string, format: date-time}
+        last_code: {type: string}
     MCPCheck:
       type: object
       additionalProperties: false

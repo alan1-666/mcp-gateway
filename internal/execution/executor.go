@@ -63,14 +63,26 @@ func (e *Executor) Execute(ctx context.Context, actor core.Actor, id string) (co
 	result := e.Adapter.Execute(callCtx, actor, tool, op)
 	cancel()
 	if tool.MCP != nil && result.State == core.StateSucceeded {
+		projectionStarted := time.Now()
 		projected, err := core.ApplyMCPResponsePolicy(result.Result, tool.ResponsePolicy)
 		if err != nil {
-			result = core.FinishInput{State: core.StateFailed, Error: err.Error()}
+			result.State, result.Result, result.Error = core.StateFailed, nil, err.Error()
+			if result.MCPObservation != nil {
+				result.MCPObservation.Code = "projection_failed"
+			}
 			if tool.Risk == core.RiskWrite {
 				result.State = core.StateUnknown
 			}
 		} else {
 			result.Result = projected
+		}
+		if result.MCPObservation != nil {
+			elapsed := time.Since(projectionStarted).Milliseconds()
+			result.MCPObservation.PhasesMS.Projection = elapsed
+			result.MCPObservation.TotalMS += elapsed
+			if result.MCPObservation.Code == "projection_failed" {
+				result.MCPObservation.Phase = "projection"
+			}
 		}
 	}
 	finishCtx, finishCancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)

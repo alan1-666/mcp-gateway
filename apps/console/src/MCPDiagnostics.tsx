@@ -1,3 +1,4 @@
+import { MCPExecutionMetrics } from "./MCPExecutionMetrics";
 import { useI18n } from "./i18n";
 import { useState } from "react";
 import { APIClient } from "./api";
@@ -71,6 +72,7 @@ function Reports({ api, serverID }: { api: APIClient; serverID: string }) {
   }
   return (
     <>
+      <MCPExecutionMetrics api={api} serverID={serverID} />
       <p className="field-help">
         {t(
           "Checks inspect connectivity and tool compatibility without invoking a business tool.",

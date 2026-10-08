@@ -24,6 +24,7 @@ type protocolTransport struct {
 	mu              sync.Mutex
 	callSent        bool
 	lastStatus      int
+	callStatus      int
 	leaseCancel     context.CancelFunc
 	closed          bool
 	leases          uint64
@@ -94,6 +95,9 @@ func (t *protocolTransport) RoundTrip(req *http.Request) (*http.Response, error)
 	}
 	t.mu.Lock()
 	t.lastStatus = resp.StatusCode
+	if message.Method == "tools/call" {
+		t.callStatus = resp.StatusCode
+	}
 	t.mu.Unlock()
 	if resp.ContentLength > maxResponseBytes {
 		resp.Body.Close()
@@ -236,7 +240,7 @@ func (t *protocolTransport) begin(ctx context.Context) {
 		t.leaseCancel()
 	}
 	t.ctx, t.leaseCancel = context.WithCancel(ctx)
-	t.callSent, t.lastStatus = false, 0
+	t.callSent, t.lastStatus, t.callStatus = false, 0, 0
 	t.catalogVerified = false
 	t.leases++
 	t.responses = make(map[string]*responseCapture)

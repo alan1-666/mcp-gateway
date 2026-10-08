@@ -142,6 +142,9 @@ func (s *Service) Finish(ctx context.Context, actor Actor, id string, in FinishI
 			return Operation{}, err
 		}
 	}
+	if err := in.MCPObservation.Validate(); err != nil {
+		return Operation{}, err
+	}
 	return s.repo.Finish(ctx, actor, id, in)
 }
 
