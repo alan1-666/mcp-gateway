@@ -4,8 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/alan1-666/mcp-gateway/internal/core"
 	"time"
+
+	"github.com/alan1-666/mcp-gateway/internal/core"
 )
 
 type ToolCompatibility struct {

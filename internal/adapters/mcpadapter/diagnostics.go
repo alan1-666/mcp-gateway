@@ -3,13 +3,14 @@ package mcpadapter
 import (
 	"context"
 	"encoding/json"
-	"github.com/alan1-666/mcp-gateway/internal/core"
-	"github.com/alan1-666/mcp-gateway/internal/upstreams"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"strings"
 	"time"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/alan1-666/mcp-gateway/internal/core"
+	"github.com/alan1-666/mcp-gateway/internal/upstreams"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // Check performs initialization and complete bounded catalog inspection only.
