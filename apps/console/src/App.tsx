@@ -24,12 +24,6 @@ import {
   useState,
 } from "react";
 import type { OpenAPIImportCandidate } from "./openapi-import";
-
-const OpenAPIImport = lazy(() =>
-  import("./OpenAPIImport").then((module) => ({
-    default: module.OpenAPIImport,
-  })),
-);
 import type { FormEvent, ReactNode } from "react";
 import { APIClient, messageOf, parseObject } from "./api";
 import { hasUnsafeNumbers } from "./json";
@@ -55,6 +49,12 @@ import type {
   ToolPage,
   ToolSummary,
 } from "./types";
+
+const OpenAPIImport = lazy(() =>
+  import("./OpenAPIImport").then((module) => ({
+    default: module.OpenAPIImport,
+  })),
+);
 
 type Page =
   | "credentials"
