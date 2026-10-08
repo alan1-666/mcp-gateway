@@ -15,7 +15,7 @@ type artifactMetricsAdapter struct{ calls int }
 
 func (a *artifactMetricsAdapter) Execute(context.Context, core.Actor, core.Tool, core.Operation) core.FinishInput {
 	a.calls++
-	return core.FinishInput{State: core.StateSucceeded, Result: json.RawMessage(`{"isError":false,"content":[],"structuredContent":{"id":1,"name":"` + strings.Repeat("x", 2000) + `","password":"secret"}}`)}
+	return core.FinishInput{MCPObservation: &core.MCPObservation{Code: "ok", Phase: "result", CallAttempted: true}, State: core.StateSucceeded, Result: json.RawMessage(`{"isError":false,"content":[],"structuredContent":{"id":1,"name":"` + strings.Repeat("x", 2000) + `","password":"secret"}}`)}
 }
 
 // The adapter succeeds, but finishing may fail result retention. Metrics must
@@ -69,6 +69,10 @@ func TestArtifactQuotaMetricsUseDurableOutcome(t *testing.T) {
 				if err != nil || out.State != want || !strings.Contains(out.Error, "quota") {
 					t.Fatalf("durable quota outcome %+v %v", out, err)
 				}
+			}
+			var observed int
+			if err := f.pool.QueryRow(ctx, `SELECT count(*) FROM operation_events WHERE workspace_id=$1 AND operation_id=$2 AND data->'mcp_execution'->>'code'='artifact_quota' AND data->'mcp_execution'->>'call_attempted'='true'`, f.admin.WorkspaceID, op.ID).Scan(&observed); err != nil || observed != 1 {
+				t.Fatal("quota trace lost or duplicated", observed, err)
 			}
 			metrics, err := budgets.Metrics(ctx, f.admin)
 			if err != nil {

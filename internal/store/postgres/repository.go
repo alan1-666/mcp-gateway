@@ -466,6 +466,9 @@ func (r *Repository) Claim(ctx context.Context, actor core.Actor, id string) (co
 }
 
 func (r *Repository) Finish(ctx context.Context, actor core.Actor, id string, in core.FinishInput) (core.Operation, error) {
+	if err := in.MCPObservation.Validate(); err != nil {
+		return core.Operation{}, err
+	}
 	return transaction(ctx, r.pool, func(tx pgx.Tx) (core.Operation, error) {
 		op, snapshot, err := scanOperation(tx.QueryRow(ctx, `SELECT `+operationColumns+` FROM operations WHERE workspace_id=$1 AND id=$2 FOR UPDATE`, actor.WorkspaceID, id))
 		if err != nil {
@@ -477,6 +480,9 @@ func (r *Repository) Finish(ctx context.Context, actor core.Actor, id string, in
 		if op.State != core.StateDispatching {
 			return core.Operation{}, fmt.Errorf("%w: operation is not dispatching", core.ErrConflict)
 		}
+		if in.MCPObservation != nil && snapshot.MCP == nil {
+			return op, fmt.Errorf("%w: MCP observation requires an MCP tool", core.ErrInvalid)
+		}
 		stored, artifactErr := persistResultArtifact(ctx, tx, op, snapshot, in)
 		if artifactErr != nil {
 			if !errors.Is(artifactErr, errArtifactQuota) {
@@ -487,6 +493,11 @@ func (r *Repository) Finish(ctx context.Context, actor core.Actor, id string, in
 				in.State = core.StateUnknown
 			}
 			in.Result = nil
+			if in.MCPObservation != nil {
+				copy := *in.MCPObservation
+				copy.Code = "artifact_quota"
+				in.MCPObservation = &copy
+			}
 		} else {
 			in.Result = stored
 		}
@@ -498,7 +509,11 @@ func (r *Repository) Finish(ctx context.Context, actor core.Actor, id string, in
 		if err != nil {
 			return op, err
 		}
-		return op, appendEvent(ctx, tx, op, "OPERATION_"+string(in.State), actor.ID, map[string]any{"state": in.State})
+		data := map[string]any{"state": in.State}
+		if in.MCPObservation != nil {
+			data["mcp_execution"] = in.MCPObservation
+		}
+		return op, appendEvent(ctx, tx, op, "OPERATION_"+string(in.State), actor.ID, data)
 	})
 }
 

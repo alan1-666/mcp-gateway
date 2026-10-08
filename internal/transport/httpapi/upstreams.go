@@ -13,6 +13,14 @@ func (a *API) registerUpstreams(mux *http.ServeMux) {
 	if a.Upstreams == nil {
 		return
 	}
+	mux.HandleFunc("GET /api/v1/mcp/servers/{id}/execution-metrics", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.RawQuery != "" {
+			respond(w, nil, fmt.Errorf("%w: execution metrics accept no query parameters", core.ErrInvalid))
+			return
+		}
+		value, err := a.Upstreams.ExecutionMetrics(r.Context(), identity.Actor(r.Context()), r.PathValue("id"))
+		respond(w, value, err)
+	})
 	mux.HandleFunc("GET /api/v1/mcp/servers/{id}/catalog-schedule", func(w http.ResponseWriter, r *http.Request) {
 		value, err := a.Upstreams.CatalogSchedule(r.Context(), identity.Actor(r.Context()), r.PathValue("id"))
 		respond(w, value, err)

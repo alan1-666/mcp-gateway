@@ -34,7 +34,7 @@ func TestProjectionFailurePreservesWriteUncertainty(t *testing.T) {
 	for _, risk := range []core.Risk{core.RiskRead, core.RiskWrite} {
 		t.Run(string(risk), func(t *testing.T) {
 			repo := &ledger{tool: core.Tool{MCP: &core.MCPConfig{ServerID: "server"}, Risk: risk, ResponsePolicy: &core.ResponsePolicy{Include: []string{"/missing"}}}}
-			downstream := &fixedResult{result: core.FinishInput{State: core.StateSucceeded, Result: json.RawMessage(`{"isError":false,"content":[],"structuredContent":{"id":1,"private":"must not persist"}}`)}}
+			downstream := &fixedResult{result: core.FinishInput{MCPObservation: &core.MCPObservation{Code: "ok", Phase: "result", CallAttempted: true}, State: core.StateSucceeded, Result: json.RawMessage(`{"isError":false,"content":[],"structuredContent":{"id":1,"private":"must not persist"}}`)}}
 			executor := Executor{Service: core.NewService(repo), Adapter: downstream}
 			result, err := executor.Execute(context.Background(), core.Actor{ID: "user", WorkspaceID: "workspace", Role: core.RoleOperator}, "operation")
 			if err != nil {
@@ -43,6 +43,9 @@ func TestProjectionFailurePreservesWriteUncertainty(t *testing.T) {
 			expected := core.StateFailed
 			if risk == core.RiskWrite {
 				expected = core.StateUnknown
+			}
+			if repo.finish.MCPObservation == nil || repo.finish.MCPObservation.Code != "projection_failed" || repo.finish.MCPObservation.Phase != "projection" || !repo.finish.MCPObservation.CallAttempted || repo.finish.MCPObservation.Validate() != nil {
+				t.Fatal("projection lost trace", repo.finish.MCPObservation)
 			}
 			if result.State != expected || len(repo.finish.Result) > 0 || downstream.calls != 1 {
 				t.Fatalf("unsafe projection failure: %+v", result)

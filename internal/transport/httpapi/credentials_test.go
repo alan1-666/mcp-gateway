@@ -108,6 +108,11 @@ func TestCredentialAndDiagnosticHTTPContracts(t *testing.T) {
 	call("POST", base+"/AUTH/enabled", a, `{"expected_version":2,"enabled":null}`, 400)
 	call("POST", base+"/AUTH/enabled", a, `{"expected_version":2,"enabled":false}`, 200)
 	prefix := "/api/v1/mcp/servers/" + server.ID
+	call("GET", prefix+"/execution-metrics", "", "", 401)
+	call("GET", prefix+"/execution-metrics", o, "", 403)
+	call("GET", prefix+"/execution-metrics", f, "", 404)
+	call("GET", prefix+"/execution-metrics", a, "", 200)
+	call("GET", prefix+"/execution-metrics?limit=2000", a, "", 400)
 	call("POST", prefix+"/check", o, `{}`, 403)
 	call("POST", prefix+"/check", f, `{}`, 404)
 	call("POST", prefix+"/check", a, `{}`, 200)

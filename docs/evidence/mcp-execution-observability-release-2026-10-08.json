@@ -1,0 +1,162 @@
+{
+  "release_id": "20261008-cloud.31",
+  "runtime_source": "a17b5d931aa302a46b4b16987c904de1782a9732",
+  "artifact_sha256": "56f297690897656a76a33a3bfab7e9e36ba10648f24d2bc44025a88ae88e7997",
+  "pull_request": "https://github.com/alan1-666/mcp-gateway/pull/23",
+  "runtime_source_ci": [
+    {
+      "link": "https://github.com/alan1-666/mcp-gateway/actions/runs/37740552354/job/113190025741",
+      "name": "verify",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/alan1-666/mcp-gateway/actions/runs/37740552354/job/113190026130",
+      "name": "console-proxy",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/alan1-666/mcp-gateway/actions/runs/37740552354/job/113190026028",
+      "name": "release-tooling",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/alan1-666/mcp-gateway/actions/runs/37740545216/job/113190003609",
+      "name": "console-proxy",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/alan1-666/mcp-gateway/actions/runs/37740545216/job/113190003363",
+      "name": "release-tooling",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/alan1-666/mcp-gateway/actions/runs/37740545216/job/113190003523",
+      "name": "verify",
+      "state": "SUCCESS"
+    }
+  ],
+  "runtime_source_ci_runs": [
+    {
+      "conclusion": "success",
+      "event": "pull_request",
+      "head_sha": "a17b5d931aa302a46b4b16987c904de1782a9732",
+      "id": 37740552354,
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "event": "push",
+      "head_sha": "a17b5d931aa302a46b4b16987c904de1782a9732",
+      "id": 37740545216,
+      "status": "completed"
+    }
+  ],
+  "local_verification": {
+    "full_go_race_postgres_cloud_worker": "passed",
+    "go_vet_console_check_build": "passed",
+    "console_tests": 148,
+    "runner_tests": 32,
+    "go_coverage_failures": [],
+    "new_file_statement_coverage": [
+      {
+        "file": "internal/core/mcp_observation.go",
+        "covered": 18,
+        "statements": 18,
+        "percent": 100.0,
+        "minimum": 90
+      },
+      {
+        "file": "internal/adapters/mcpadapter/observation.go",
+        "covered": 36,
+        "statements": 36,
+        "percent": 100.0,
+        "minimum": 90
+      },
+      {
+        "file": "internal/upstreams/execution_metrics.go",
+        "covered": 68,
+        "statements": 73,
+        "percent": 93.15,
+        "minimum": 90
+      }
+    ]
+  },
+  "negative_fixtures": [
+    "authentication_rejection",
+    "http_429",
+    "http_5xx",
+    "call_timeout",
+    "schema_drift_before_dispatch",
+    "invalid_arguments_before_dispatch",
+    "tool_error",
+    "unsupported_result_content",
+    "revoked_server_before_dispatch",
+    "projection_failure_write_unknown",
+    "artifact_quota_write_unknown",
+    "completion_replay_no_duplicate_observation",
+    "workspace_role_client_isolation",
+    "creation_window_and_event_cutoff",
+    "sample_truncation_and_stale_config_health"
+  ],
+  "limits": [
+    "bounded_24_hour_1000_workspace_operation_sample",
+    "health_is_latest_sample_not_active_probe_or_uptime_sla",
+    "legacy_and_delegated_connector_phases_not_synthesized",
+    "call_attempt_is_not_proof_of_upstream_receipt",
+    "no_real_business_writes_or_production_load_sla_verified"
+  ],
+  "verified_at": "2026-10-08T07:07:11.093228+00:00",
+  "deployment": {
+    "release_id": "20261008-cloud.31",
+    "commit": "a17b5d931aa302a46b4b16987c904de1782a9732",
+    "previous_release": "20261008-cloud.30",
+    "has_backup": true,
+    "migration_count": 16,
+    "service_health_gates": "passed"
+  },
+  "cloud_acceptance": {
+    "status": "passed",
+    "checks": [
+      "existing_authorized_test_read_tool",
+      "official_sdk_two_independent_reads",
+      "single_dispatch_per_operation",
+      "same_key_replay",
+      "atomic_terminal_observation",
+      "fixed_payload_free_labels",
+      "observed_server_metrics",
+      "machine_client_metrics_denied"
+    ],
+    "temporary_client_revoked": true,
+    "identity_denied_after_revocation": true,
+    "observed_sample": {
+      "operations_scanned": 10,
+      "sample_limit": 1000,
+      "truncated": false,
+      "calls": 2,
+      "attempted": 2,
+      "states": {
+        "SUCCEEDED": 2
+      },
+      "errors": {},
+      "p50_ms": 182,
+      "p95_ms": 339,
+      "mean_phases_ms": {
+        "configuration": 0,
+        "session": 78,
+        "catalog": 80,
+        "call": 101,
+        "result": 0,
+        "projection": 0
+      },
+      "health": "healthy",
+      "last_code": "ok"
+    }
+  },
+  "console_acceptance": {
+    "chinese_observations": "passed",
+    "english_observations_and_six_phase_rows": "passed",
+    "manual_refresh": "passed",
+    "original_chinese_locale_restored": true,
+    "screenshot_saved_locally": true
+  }
+}

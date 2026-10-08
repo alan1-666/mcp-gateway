@@ -139,7 +139,7 @@ func (a *Adapter) acquireExecutionSession(ctx context.Context, actor core.Actor,
 					disposeSession(retired)
 				}
 			}
-			return nil, nil, nil, err
+			return nil, t, nil, err
 		}
 		if entry == nil {
 			return s, t, func(bool) { close() }, nil

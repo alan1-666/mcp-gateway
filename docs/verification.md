@@ -481,3 +481,37 @@ The new catalog-state file has an independent 90% statement coverage gate. Runti
 Local statement coverage passed every declared gate: catalog state 100% (46/46) and protocol transport 92.52% (136/147), combining unit and integration execution. The separate [public Cloudflare acceptance](evidence/mcp-catalog-cloudflare-2026-10-08.json) passed two fixed reads, one pool miss followed by one hit, one dispatch per operation, same-key replay and revoked-access rejection. This checks provider compatibility, not real-provider notification delivery or performance. The initial invocation completed protocol checks but failed while writing a relative evidence path; the corrected absolute-path run completed with exit 0 and removed its isolated schema. Production egress was unchanged.
 
 Release `20261008-cloud.30` deployed exact runtime source `ef8b28d2669dbd8fa3bdb3292b4e379c73c3c277`, artifact SHA256 `4da0f35be2e5cf80449a2f6b8cac70ff89c36f577c79582b0421a402adae21f6`. All six [push CI](https://github.com/alan1-666/mcp-gateway/actions/runs/37737841387) and [PR CI](https://github.com/alan1-666/mcp-gateway/actions/runs/37737891208) checks passed before replacement. Encrypted backup and service health gates passed; all 16 migration checksums are unchanged. Official cloud SDK regression completed two paced independent reads, one dispatch per operation, same-key replay, temporary-client revocation and subsequent identity denial. Existing tools, credentials, policies and egress were unchanged. Notification-specific behavior is established by actual HTTP/SDK fixtures, not by these live providers. See [sanitized release evidence](evidence/mcp-catalog-release-2026-10-08.json) and [PR 22](https://github.com/alan1-666/mcp-gateway/pull/22). Documentation-only follow-ups do not change the pinned runtime source.
+
+
+## 2026-10-08 — Durable MCP execution observations
+
+Release `20261008-cloud.31` deployed exact runtime source `a17b5d931aa302a46b4b16987c904de1782a9732`,
+artifact SHA256 `56f297690897656a76a33a3bfab7e9e36ba10648f24d2bc44025a88ae88e7997`.
+All six [push CI](https://github.com/alan1-666/mcp-gateway/actions/runs/37740545216)
+and [PR CI](https://github.com/alan1-666/mcp-gateway/actions/runs/37740552354)
+checks passed before deployment. Encrypted backup and service health gates passed;
+all 16 migration checksums are unchanged.
+
+Full local race/coverage, PostgreSQL/cloud-worker integration, Go vet and console
+check/build passed. Console tests: 148; Connector runner tests: 32. New core file
+statement coverage: validation 100% (18/18), adapter observation 100% (36/36),
+metrics 93.15% (68/73), each above the independent 90% gate. Coverage combines
+unit and integration tests; it is not a whole-repository branch coverage claim.
+
+HTTP/SDK fixtures verify 401/429/5xx, call timeout, schema/argument rejection,
+upstream tool errors, invalid content, session reuse, revocation, projection and
+artifact quota uncertainty, completion replay, scoped access, sample limits and
+stale configuration health. Cloud official SDK acceptance completed two paced
+company-test reads with one dispatch and one terminal observation per operation,
+same-key replay, per-server metrics and denial of metrics to machine clients.
+The temporary client was revoked and its identity subsequently returned 401.
+
+Browser acceptance verified actual sample counts and P50/P95, six phase rows,
+English/Chinese labels and manual refresh in the existing diagnostics panel.
+The original Chinese locale was restored; screenshot is kept in private local
+verification artifacts. No live error was induced against the business service.
+This two-read sample is not a production latency benchmark. Health is not an
+active probe or uptime guarantee; no Connector phases or old observations were
+synthesized. See [sanitized evidence](evidence/mcp-execution-observability-release-2026-10-08.json),
+[contract](mcp-execution-observability.md) and [PR23](https://github.com/alan1-666/mcp-gateway/pull/23).
+Documentation-only follow-ups do not change the pinned runtime source.

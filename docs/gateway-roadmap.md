@@ -2,7 +2,7 @@
 
 更新日期：2026-10-08
 
-当前线上交付：`cloud.30`，运行源码 `ef8b28d2669dbd8fa3bdb3292b4e379c73c3c277`。目录变更通知防护的 6 项准确源码 CI、发布备份与健康检查、云端官方 SDK 两次独立测试读取、幂等重放和撤权回归通过；通知场景由实际 HTTP/SDK 隔离测试验收，未宣称真实供应商推送验收，见[目录发布证据](evidence/mcp-catalog-release-2026-10-08.json)。上游会话管理见 [cloud.29](evidence/mcp-session-release-2026-10-08.json)，兼容诊断见 [cloud.27](evidence/mcp-compatibility-release-2026-10-08.json)，核心链路见 [cloud.23](evidence/gateway-core-release-2026-10-06.json)。Cloudflare 生产出站变更尚待批准，Microsoft Learn 会话绑定 schema 和真实供应商 OAuth 授权仍未验收。
+当前线上交付：`cloud.31`，运行源码 `a17b5d931aa302a46b4b16987c904de1782a9732`。MCP 调用阶段耗时、固定错误分类、原子事件记录、受限服务统计和 EN/ZH 观测面板已验收；6 项准确源码 CI、发布备份与健康检查、云端 SDK 两次独立测试读取、幂等重放和撤权回归通过，见[调用观测证据](evidence/mcp-execution-observability-release-2026-10-08.json)。健康状态来自最近的调用样本，统计限制为 24 小时内最新 1,000 条工作区操作，不代表主动探测、全量时序指标或 SLA。目录一致性见 [cloud.30](evidence/mcp-catalog-release-2026-10-08.json)，会话管理见 [cloud.29](evidence/mcp-session-release-2026-10-08.json)。Cloudflare 生产出站变更尚待批准，Microsoft Learn 会话绑定 schema 和真实供应商 OAuth 授权仍未验收。
 
 本方案定义后续开发顺序与验收重点。已有实现以 [实现状态](implementation-status.md) 为准；源码实现与上线验收分别记录，下面的实现状态不代表已经上线。产品与架构文档保留长期范围，近期优先级以本方案为准。
 
@@ -106,5 +106,5 @@ OpenAPI 扩展暂停；近期按以下顺序完善原生 MCP 接入与调用。�
 1. **MCP 接入兼容性**：真实服务兼容清单、跨会话契约检查、明确的认证/限流/超时/协议错误。两次独立目录比较已在 cloud.27 上线，Cloudflare 真实 SDK 链路与 Microsoft Learn 变化诊断已本地验证，云端检查及中英文展示已验收；真实供应商 OAuth 授权仍需独立验收，见[兼容清单](mcp-compatibility.md)。
 2. **上游会话管理**：独占执行复用、空闲/绝对时限回收、调用前失效重建和身份/凭证版本隔离已实现，见[会话管理](mcp-sessions.md)。忙碌或满池使用独立连接，由既有容量预算限制并发；cloud.29 已完成准确源码 CI、云端 SDK 调用与撤权验收，见[发布证据](evidence/mcp-session-release-2026-10-08.json)。跨会话 schema 绑定仍未解决。
 3. **目录同步**：目录一致性规则、原 POST SSE 变更通知、分页观察失效和发送前防护已在 cloud.30 上线，见[目录一致性](catalog-consistency.md)。现有定时检查仍用于版本审查；执行每次读取完整目录。cloud.30 已完成准确源码 CI 与云端 SDK 回归，见[发布证据](evidence/mcp-catalog-release-2026-10-08.json)。TTL 缓存和持续订阅未启用，真实供应商通知推送尚未验收。
-4. **MCP 可靠性与观测**：明确超时/取消、上游健康状态、分阶段耗时、p95 与错误率；未知写入不重放，协议支持范围逐项验证。
+4. **MCP 可靠性与观测**：cloud.31 已交付分阶段耗时、错误分类、P50/P95 样本、终态分布与观测健康状态，未知写入不重放；完整时序指标、告警与真实负载测试仍需独立开发和验收。
 5. **真实客户端与性能评测**：已有客户端走完整网关链路，比较直连开销、按需发现与结果处理的实际收益；公开环境、负载和失败样本。
