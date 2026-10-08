@@ -308,9 +308,10 @@ func (s *Store) update(ctx context.Context, a core.Actor, ref string, version in
 // managed credential as absent. Adapters must fail closed on every such error.
 func (s *Store) Resolve(ctx context.Context, workspace, origin, ref string) (httpadapter.Credential, bool, error) {
 	var storedOrigin string
+	var version int
 	var enabled bool
 	var encrypted []byte
-	err := s.db.QueryRow(ctx, `SELECT origin,enabled,encrypted_headers FROM gateway_credentials WHERE workspace_id=$1 AND ref=$2`, workspace, ref).Scan(&storedOrigin, &enabled, &encrypted)
+	err := s.db.QueryRow(ctx, `SELECT origin,version,enabled,encrypted_headers FROM gateway_credentials WHERE workspace_id=$1 AND ref=$2`, workspace, ref).Scan(&storedOrigin, &version, &enabled, &encrypted)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return httpadapter.Credential{}, false, nil
 	}
@@ -335,5 +336,5 @@ func (s *Store) Resolve(ctx context.Context, workspace, origin, ref string) (htt
 	if err != nil {
 		return failure()
 	}
-	return httpadapter.Credential{WorkspaceID: workspace, Ref: ref, Origin: origin, Headers: values}, true, nil
+	return httpadapter.Credential{WorkspaceID: workspace, Ref: ref, Origin: origin, Headers: values, Version: version}, true, nil
 }

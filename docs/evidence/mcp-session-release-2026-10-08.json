@@ -1,0 +1,119 @@
+{
+  "verified_at": "2026-10-08T06:05:27.402238+00:00",
+  "release_id": "20261008-cloud.29",
+  "runtime_source": "0d2d492bd085d00cdeb3cd66df255c6feee3e2f8",
+  "artifact_sha256": "7b4d9ae06d88f7e4adfb45cde8b8abf0ffccf07c0a03bcb93c8542e8eccf3dfa",
+  "pull_request": "https://github.com/alan1-666/mcp-gateway/pull/21",
+  "runtime_source_ci": [
+    {
+      "link": "https://github.com/alan1-666/mcp-gateway/actions/runs/37735121803/job/113172815437",
+      "name": "console-proxy",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/alan1-666/mcp-gateway/actions/runs/37735121803/job/113172815497",
+      "name": "release-tooling",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/alan1-666/mcp-gateway/actions/runs/37735121803/job/113172815404",
+      "name": "verify",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/alan1-666/mcp-gateway/actions/runs/37735117952/job/113172803880",
+      "name": "console-proxy",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/alan1-666/mcp-gateway/actions/runs/37735117952/job/113172804064",
+      "name": "verify",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/alan1-666/mcp-gateway/actions/runs/37735117952/job/113172804245",
+      "name": "release-tooling",
+      "state": "SUCCESS"
+    }
+  ],
+  "deployment": {
+    "status": "passed",
+    "previous_release": "20261008-cloud.28",
+    "encrypted_pre_release_backup": true,
+    "health_gates": "passed",
+    "migration_count": 16,
+    "new_migrations": 0,
+    "pool_size_per_process": 32,
+    "idle_seconds": 60,
+    "maximum_lifetime_seconds": 600
+  },
+  "local_verification": {
+    "full_go_race_postgres_mcp_node_worker_suite": "passed",
+    "make_check": "passed",
+    "go_vet": "passed",
+    "coverage_basis": "unit and integration statement coverage, not whole-repository unit or branch coverage",
+    "independent_file_coverage": {
+      "internal/adapters/mcpadapter/session_pool.go": 96.88,
+      "internal/adapters/mcpadapter/transport.go": 91.37,
+      "internal/adapters/httpadapter/network.go": 97.96
+    },
+    "new_file_minimum_percent": 90,
+    "multi_session_404_recovery": "genuinely new handshake; cannot borrow another retained session"
+  },
+  "cloud_sdk_acceptance": {
+    "status": "passed",
+    "sdk": "official Go MCP SDK",
+    "target": "existing authorized company test read-only MCP tool",
+    "independent_reads": 2,
+    "operations": [
+      {
+        "state": "SUCCEEDED",
+        "duration_ms": 1307,
+        "result_bytes": 3436
+      },
+      {
+        "state": "SUCCEEDED",
+        "duration_ms": 489,
+        "result_bytes": 3436
+      }
+    ],
+    "dispatches_per_independent_operation": 1,
+    "same_key_replay": true,
+    "temporary_scoped_client_revoked": true,
+    "identity_denied_after_revocation": true,
+    "pacing_seconds_between_independent_reads": 1,
+    "existing_tools_credentials_policies_changed": false,
+    "pool_hit_counter_measured_in_cloud": false
+  },
+  "public_sdk_acceptance": {
+    "evidence": "mcp-session-cloudflare-2026-10-08.json",
+    "environment": "isolated local Gateway and PostgreSQL",
+    "independent_fixed_reads": 2,
+    "pool_misses": 1,
+    "pool_hits": 1,
+    "production_egress_changed": false
+  },
+  "preliminary_cloud28_negative_case": {
+    "unpaced_independent_reads": [
+      "SUCCEEDED",
+      "FAILED"
+    ],
+    "direct_upstream_reproduction": [
+      "OK",
+      "UPSTREAM_RATE_LIMITED"
+    ],
+    "failed_business_call_replayed": false,
+    "temporary_client_revoked": true,
+    "provider_limits_changed": false,
+    "resolution": "follow existing test-source pacing; repeat independent acceptance with new intent keys"
+  },
+  "limitations": [
+    "Microsoft Learn session-dependent schema bindings remain unsupported",
+    "tool catalogs are not cached; each call validates the complete live catalog",
+    "no real third-party OAuth consent or real business write acceptance",
+    "Cloudflare production egress remains disabled pending separate approval",
+    "two paced cloud reads and two public reads are not production performance or HA evidence",
+    "runtime counters are process-local; no session metrics endpoint was added",
+    "documentation-only follow-up commits do not change the deployed runtime source"
+  ]
+}

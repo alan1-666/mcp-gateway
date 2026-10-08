@@ -82,6 +82,10 @@ func TestExternalCloudflareDocs(t *testing.T) {
 	}
 	store := upstreams.NewStore(pool)
 	adapter := mcpadapter.New(egress, store)
+	if err := adapter.EnableSessionPool(mcpadapter.SessionPoolOptions{MaxSessions: 4, IdleTTL: time.Minute, MaxLifetime: 10 * time.Minute}); err != nil {
+		t.Fatal(err)
+	}
+	defer adapter.Close()
 	upstream := upstreams.New(store, adapter)
 	svc := core.NewService(postgres.New(pool))
 	started := time.Now()
@@ -218,13 +222,32 @@ func TestExternalCloudflareDocs(t *testing.T) {
 	if err = pool.QueryRow(ctx, `SELECT count(*) FROM operation_events WHERE workspace_id=$1 AND operation_id=$2 AND type='OPERATION_DISPATCHING'`, admin.WorkspaceID, op.ID).Scan(&dispatches); err != nil || dispatches != 1 {
 		t.Fatal("repeated call dispatched more than once")
 	}
+	secondIntent := map[string]any{"tool_id": tool.ID, "arguments": map[string]any{"query": query}, "idempotency_key": "public-cloudflare-docs-query-second"}
+	secondStarted := time.Now()
+	var second core.Operation
+	if err = json.Unmarshal(call("call_tool", secondIntent, false), &second); err != nil || second.State != core.StateSucceeded || second.ID == op.ID {
+		t.Fatal("second independent public read failed")
+	}
+	secondMS := time.Since(secondStarted).Milliseconds()
+	stats := adapter.SessionPoolStats()
+	if stats.Hits != 1 || stats.Misses != 1 || stats.Retained != 1 {
+		t.Fatalf("public session reuse not observed: %+v", stats)
+	}
+	var secondDispatches int
+	if err = pool.QueryRow(ctx, `SELECT count(*) FROM operation_events WHERE workspace_id=$1 AND operation_id=$2 AND type='OPERATION_DISPATCHING'`, admin.WorkspaceID, second.ID).Scan(&secondDispatches); err != nil || secondDispatches != 1 {
+		t.Fatal("second operation dispatch count invalid")
+	}
 	empty := []string{}
 	if _, err = manager.Update(ctx, admin, client.ID, clients.UpdateInput{ExpectedVersion: client.Version, ToolIDs: &empty}); err != nil {
 		t.Fatal(err)
 	}
 	call("get_tool_schema", map[string]any{"tool_id": tool.ID}, true)
 	call("call_tool", intent, true)
-	evidence := map[string]any{"verified_at": time.Now().UTC().Format(time.RFC3339), "provider": "Cloudflare public documentation MCP", "endpoint": endpoint, "official_reference": "https://developers.cloudflare.com/agents/model-context-protocol/guides/connect-mcp-client/", "transport": "Streamable HTTP", "environment": "ephemeral local Gateway and PostgreSQL schema", "production_configuration_changed": false, "provider_authentication": "public; no account", "tool": remoteTool, "schema_sha256": selected.SchemaHash, "query": query, "catalog_tools": catalog.Total, "discovery_ms": discoveryMS, "call_ms": callMS, "setup_to_first_call_ms": callStarted.Sub(started).Milliseconds() + callMS, "result_bytes": len(op.Result), "operation_state": op.State, "dispatches_after_replay": dispatches, "checks": []string{"discover", "reviewed_import", "publish", "ungranted_hidden", "ungranted_call_denied", "tool_grant", "sdk_schema", "sdk_call", "public_topic_present", "same_key_replay", "revoked_hidden", "revoked_replay_denied"}, "limitations": []string{"one public query, not a load benchmark", "not enabled in production", "OAuth and authenticated Cloudflare APIs not exercised", "no raw documentation result or credential retained in evidence"}}
+	call("call_tool", map[string]any{"tool_id": tool.ID, "arguments": map[string]any{"query": query}, "idempotency_key": "after-revocation"}, true)
+	if adapter.SessionPoolStats().Hits != stats.Hits {
+		t.Fatal("revoked client consumed retained session")
+	}
+	evidence := map[string]any{"verified_at": time.Now().UTC().Format(time.RFC3339), "provider": "Cloudflare public documentation MCP", "endpoint": endpoint, "official_reference": "https://developers.cloudflare.com/agents/model-context-protocol/guides/connect-mcp-client/", "transport": "Streamable HTTP", "environment": "ephemeral local Gateway and PostgreSQL schema", "production_configuration_changed": false, "provider_authentication": "public; no account", "tool": remoteTool, "schema_sha256": selected.SchemaHash, "query": query, "catalog_tools": catalog.Total, "discovery_ms": discoveryMS, "call_ms": callMS, "second_call_ms": secondMS, "independent_operations": 2, "session_pool_hits": stats.Hits, "session_pool_misses": stats.Misses, "setup_to_first_call_ms": callStarted.Sub(started).Milliseconds() + callMS, "result_bytes": len(op.Result), "operation_state": op.State, "dispatches_after_replay": dispatches, "checks": []string{"discover", "reviewed_import", "publish", "ungranted_hidden", "ungranted_call_denied", "tool_grant", "sdk_schema", "sdk_call", "second_independent_sdk_call_reuses_session", "public_topic_present", "same_key_replay", "revoked_hidden", "revoked_replay_denied"}, "limitations": []string{"two sequential fixed public reads, not a load benchmark", "not enabled in production", "OAuth and authenticated Cloudflare APIs not exercised", "no raw documentation result or credential retained in evidence"}}
 	summary, err := json.Marshal(evidence)
 	if err != nil {
 		t.Fatal(err)

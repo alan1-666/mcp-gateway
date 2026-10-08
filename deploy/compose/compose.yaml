@@ -16,6 +16,7 @@ x-backend: &backend
     GATEWAY_ALLOWED_ORIGINS: "${GATEWAY_ALLOWED_ORIGINS:-http://127.0.0.1:4782,http://localhost:4782}"
     HTTP_ALLOWED_ORIGINS: "${HTTP_ALLOWED_ORIGINS:-}"
     HTTP_ALLOWED_CIDRS: "${HTTP_ALLOWED_CIDRS:-}"
+    MCP_SESSION_POOL_SIZE: "${MCP_SESSION_POOL_SIZE:-32}"
   volumes:
     - ../../.local/identities.json:/run/gateway/identities.json:ro
 

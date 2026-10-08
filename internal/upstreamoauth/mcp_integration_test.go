@@ -132,3 +132,28 @@ func TestConfiguringOAuthFencesPreviouslyOpenedAnonymousTransport(t *testing.T) 
 		t.Fatal("anonymous request reached protected resource after configuration")
 	}
 }
+
+func TestGrantPoolIdentityChangesAcrossReconnect(t *testing.T) {
+	f := newOAuthFixture(t)
+	f.connect("none")
+	first, err := f.s.WrapTransport(f.ctx, f.actor, f.server, f.p.policy.base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	identity := first.(*grantTransport).GrantSessionIdentity()
+	if strings.Contains(identity, "secret") || identity == "oauth:0" {
+		t.Fatal("invalid connected grant pool identity")
+	}
+	status := f.status()
+	if _, err := f.s.Disconnect(f.ctx, f.actor, f.server.ID, VersionInput{revision(status.Version)}); err != nil {
+		t.Fatal(err)
+	}
+	query := f.start(f.status().Version)
+	if err := f.s.Complete(f.ctx, f.actor, "opaque-browser-binding", query.Get("state"), "provider-code", "", f.p.server.URL+"/issuer"); err != nil {
+		t.Fatal(err)
+	}
+	next, err := f.s.WrapTransport(f.ctx, f.actor, f.server, f.p.policy.base)
+	if err != nil || next.(*grantTransport).GrantSessionIdentity() == identity {
+		t.Fatal("reconnected grant retained old pool identity")
+	}
+}

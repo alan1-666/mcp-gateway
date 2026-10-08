@@ -11,5 +11,8 @@
   "internal/transport/httpapi/tool_search.go": 90,
   "internal/adapters/httpadapter/reliability.go": 90,
   "internal/adapters/mcpadapter/session_compatibility.go": 90,
-  "internal/adapters/mcpadapter/diagnostics.go": 90
+  "internal/adapters/mcpadapter/diagnostics.go": 90,
+  "internal/adapters/mcpadapter/session_pool.go": 90,
+  "internal/adapters/mcpadapter/transport.go": 90,
+  "internal/adapters/httpadapter/network.go": 90
 }

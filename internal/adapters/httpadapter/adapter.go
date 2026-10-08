@@ -26,6 +26,7 @@ type Credential struct {
 	Ref         string            `json:"ref"`
 	Origin      string            `json:"origin"`
 	Headers     map[string]string `json:"headers"`
+	Version     int               `json:"-"`
 }
 type Adapter struct {
 	origins     map[string]bool

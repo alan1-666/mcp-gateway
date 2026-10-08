@@ -29,6 +29,7 @@ x-backend: &backend
     GATEWAY_ADDR: 0.0.0.0:8091
     HTTP_ALLOWED_ORIGINS: "${HTTP_ALLOWED_ORIGINS:-}"
     HTTP_ALLOWED_CIDRS: "${HTTP_ALLOWED_CIDRS:-}"
+    MCP_SESSION_POOL_SIZE: "${MCP_SESSION_POOL_SIZE:-32}"
   volumes:
     - ${GATEWAY_SECRETS_DIR:?Set secret directory}:/run/gateway:ro
 
