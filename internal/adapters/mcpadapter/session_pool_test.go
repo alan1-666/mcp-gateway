@@ -414,7 +414,7 @@ func TestPoolLifetimeDoesNotRenewAndCloseDuringInitialize(t *testing.T) {
 	f.handleCall = nil
 	// Close while initialization is reserved but not yet published. The
 	// successfully initialized SDK session must still be explicitly destroyed.
-	entry, _, _, err := f.adapter.pool.reserve(context.Background(), "reserved", time.Now())
+	entry, _, _, err := f.adapter.pool.reserve(context.Background(), "reserved", time.Now(), false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -539,5 +539,41 @@ func TestPoolCloseCancelsPendingInitialization(t *testing.T) {
 	}
 	if f.adapter.SessionPoolStats().Retained != 0 || f.calls.Load() != 0 {
 		t.Fatal("shutdown leaked pending session or business call")
+	}
+}
+
+func TestPool404RecoveryCannotBorrowAnotherRetainedSession(t *testing.T) {
+	f := newPoolFixture(t, 2, time.Second)
+	entered, release := make(chan struct{}), make(chan struct{})
+	var once sync.Once
+	f.handleCall = func(ctx context.Context, _ *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		first := false
+		once.Do(func() { close(entered); first = true })
+		if first {
+			select {
+			case <-release:
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			}
+		}
+		return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: "ok"}}}, nil
+	}
+	done := make(chan core.FinishInput, 1)
+	go func() { done <- f.execute(context.Background(), f.actor) }()
+	select {
+	case <-entered:
+	case <-time.After(3 * time.Second):
+		t.Fatal("first operation never entered")
+	}
+	requirePoolSuccess(t, f.execute(context.Background(), f.actor))
+	close(release)
+	requirePoolSuccess(t, <-done)
+	if f.adapter.SessionPoolStats().Idle != 2 {
+		t.Fatal("fixture did not retain independent sessions for one scope")
+	}
+	f.expireList.Store(true)
+	requirePoolSuccess(t, f.execute(context.Background(), f.actor))
+	if f.handshakes.Load() != 3 || f.calls.Load() != 3 {
+		t.Fatal("expired-session recovery borrowed an existing session instead of initializing a fresh one")
 	}
 }

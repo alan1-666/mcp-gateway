@@ -29,7 +29,7 @@ Connectors, locally approved custom transports and actors without a stable ID us
 
 ## Recovery and outcome safety
 
-An upstream may expire a negotiated session. If a **reused** session returns HTTP 404 during catalog discovery, Rillgate retires it and establishes one fresh session within the original operation deadline. The new session must pass the same complete catalog and reviewed-contract checks. Fresh-session failures, authentication errors and other discovery failures are not automatically retried.
+An upstream may expire a negotiated session. If a **reused** session returns HTTP 404 during catalog discovery, Rillgate retires it and establishes one genuinely fresh session, bypassing all other retained sessions for that scope, within the original operation deadline. The new session must pass the same complete catalog and reviewed-contract checks. Fresh-session failures, authentication errors and other discovery failures are not automatically retried.
 
 Once `tools/call` has been attempted, the operation is never replayed or resumed. Unconfirmed writes remain `UNKNOWN`; the next independently authorized operation may establish a new session. This is not an exactly-once guarantee in the upstream business system.
 

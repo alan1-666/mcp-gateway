@@ -355,7 +355,7 @@ func (a *Adapter) Execute(ctx context.Context, actor core.Actor, tool core.Tool,
 	// original deadline. Never rebuild or replay a tools/call.
 	if err != nil && ctx.Err() == nil && transport.status() == http.StatusNotFound && transport.canRebuild() {
 		releaseSession(false)
-		session, transport, releaseSession, err = a.executionSession(ctx, actor, server)
+		session, transport, releaseSession, err = a.acquireExecutionSession(ctx, actor, server, true)
 		if err == nil {
 			tools, err = discover(ctx, session, transport)
 		}

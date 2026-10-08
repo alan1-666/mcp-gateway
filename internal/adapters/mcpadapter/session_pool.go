@@ -91,6 +91,10 @@ func (a *Adapter) SessionPoolStats() SessionPoolStats {
 }
 
 func (a *Adapter) executionSession(ctx context.Context, actor core.Actor, server core.MCPServer) (*mcp.ClientSession, *protocolTransport, func(bool), error) {
+	return a.acquireExecutionSession(ctx, actor, server, false)
+}
+
+func (a *Adapter) acquireExecutionSession(ctx context.Context, actor core.Actor, server core.MCPServer, fresh bool) (*mcp.ClientSession, *protocolTransport, func(bool), error) {
 	if a.pool == nil || actor.ID == "" || a.factory != nil {
 		s, t, close, err := a.connect(ctx, actor, server)
 		return s, t, func(bool) {
@@ -112,7 +116,7 @@ func (a *Adapter) executionSession(ctx context.Context, actor core.Actor, server
 		}, err
 	}
 	key := sessionKey(actor, server, identity)
-	entry, reused, evicted, err := a.pool.reserve(ctx, key, time.Now())
+	entry, reused, evicted, err := a.pool.reserve(ctx, key, time.Now(), fresh)
 	if evicted != nil {
 		disposeSession(evicted)
 	}
@@ -177,7 +181,7 @@ func (p *sessionPool) expired(e *pooledSession, now time.Time) bool {
 	return now.Sub(e.used) >= p.options.IdleTTL || now.Sub(e.created) >= p.options.MaxLifetime
 }
 
-func (p *sessionPool) reserve(ctx context.Context, key string, now time.Time) (*pooledSession, bool, *pooledSession, error) {
+func (p *sessionPool) reserve(ctx context.Context, key string, now time.Time, fresh bool) (*pooledSession, bool, *pooledSession, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if p.closed {
@@ -188,7 +192,7 @@ func (p *sessionPool) reserve(ctx context.Context, key string, now time.Time) (*
 		if e.busy {
 			continue
 		}
-		if e.key == key && !p.expired(e, now) {
+		if !fresh && e.key == key && !p.expired(e, now) {
 			e.busy = true
 			p.stats.Hits++
 			return e, true, nil, nil
