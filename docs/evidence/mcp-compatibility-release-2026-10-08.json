@@ -1,0 +1,109 @@
+{
+  "release": "20261008-cloud.27",
+  "deployed_source": "007f2939c654989fddc0df1dd7bd238fc6d5774b",
+  "date": "2026-10-08",
+  "origin": "https://rillgate.cn",
+  "github_pr": 20,
+  "status": "passed_with_documented_compatibility_boundaries",
+  "artifact_sha256": "4d141ad4fad9695d3b3b3b45b67ab3ce8ceea5cb67d9fb8edf624733b61651eb",
+  "ci_checks": [
+    {
+      "link": "https://github.com/alan1-666/mcp-gateway/actions/runs/37725040783/job/113141404865",
+      "name": "console-proxy",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/alan1-666/mcp-gateway/actions/runs/37725040783/job/113141404848",
+      "name": "release-tooling",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/alan1-666/mcp-gateway/actions/runs/37725040783/job/113141404638",
+      "name": "verify",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/alan1-666/mcp-gateway/actions/runs/37725036036/job/113141378924",
+      "name": "console-proxy",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/alan1-666/mcp-gateway/actions/runs/37725036036/job/113141378780",
+      "name": "release-tooling",
+      "state": "SUCCESS"
+    },
+    {
+      "link": "https://github.com/alan1-666/mcp-gateway/actions/runs/37725036036/job/113141378983",
+      "name": "verify",
+      "state": "SUCCESS"
+    }
+  ],
+  "deployment": {
+    "encrypted_pre_release_backup": true,
+    "previous_release": "20261008-cloud.26",
+    "health_gates": "passed",
+    "migration_count": 16,
+    "new_migrations": 0
+  },
+  "verification": {
+    "make_check": "passed",
+    "full_race_postgresql_mcp_worker_suite": "passed",
+    "console_tests": 146,
+    "runner_tests": 32,
+    "console_typescript_coverage_percent": {
+      "lines": 98.86,
+      "branches": 94.42,
+      "functions": 95.76
+    },
+    "tsx_in_coverage": false,
+    "changed_go_files": [
+      {
+        "file": "internal/adapters/mcpadapter/session_compatibility.go",
+        "covered": 45,
+        "statements": 45,
+        "percent": 100.0,
+        "minimum": 90
+      },
+      {
+        "file": "internal/adapters/mcpadapter/diagnostics.go",
+        "covered": 89,
+        "statements": 92,
+        "percent": 96.74,
+        "minimum": 90
+      }
+    ],
+    "declared_go_coverage_gates": "passed",
+    "real_public_catalogs": "mcp-public-compatibility-2026-10-08.json",
+    "real_cloudflare_sdk_flow": "cloudflare-public-mcp-2026-10-08.json"
+  },
+  "cloud_browser_checks": [
+    "existing owner workspace reconnect",
+    "old diagnostic report displays not checked",
+    "new diagnostic persists session_catalog_changed with three incompatible original tools",
+    "EN/ZH retains expanded report and translates contract status/explanation",
+    "no captured console warnings or errors"
+  ],
+  "cloud_check": {
+    "checked_at_local": "2026-10-08 12:03:36",
+    "timezone": "Asia/Shanghai",
+    "duration_ms": 1533,
+    "code": "session_catalog_changed",
+    "compatible_tools": 0,
+    "incompatible_tools": 3
+  },
+  "production_changes_during_browser_acceptance": {
+    "diagnostic_history_appended": true,
+    "business_tool_calls": 0,
+    "tool_or_grant_or_credential_or_egress_changes": false
+  },
+  "boundaries": [
+    "Two complete observed catalogs do not guarantee future contract stability; existing execution validation remains",
+    "Microsoft Learn changing contracts detected, not made execution-compatible",
+    "Real vendor OAuth consent remains unverified",
+    "Session pooling and discovery caching are not implemented",
+    "Cloudflare real SDK flow used an isolated local Gateway/PostgreSQL; production egress unchanged",
+    "Single host; off-host recovery, external alert delivery and actual application rollback not commissioned",
+    "Coverage combines unit and integration execution of declared Go files and loaded TypeScript logic; not whole-repository unit coverage",
+    "Documentation-only follow-ups may differ from the deployed runtime source"
+  ]
+}
