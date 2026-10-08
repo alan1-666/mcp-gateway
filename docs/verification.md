@@ -431,3 +431,19 @@ The initial PR CI stopped at the vulnerability gate for [GO-2026-6629](https://p
 Release `20261008-cloud.26` deployed exact source `bb9f234ea0f38a7d61272458cb9ed253fd269348`, artifact SHA256 `ed561968b1eb11025b97863d2fe1534d78373a40f2074a977e5ea573fe1bb87f`. All six [push CI](https://github.com/alan1-666/mcp-gateway/actions/runs/37715917631) and [PR CI](https://github.com/alan1-666/mcp-gateway/actions/runs/37715922409) checks passed before replacement. Encrypted pre-release backup and service health gates passed; all 16 migration checksums remain unchanged.
 
 Affected cloud browser acceptance reloaded the existing owner session, opened the lazily loaded importer, pasted a synthetic authenticated API document and displayed one supported static GET and one disabled dynamic path with its reason. EN/ZH switching retained the selected operation; review handoff preserved the name, exact `/v1/search` destination, required query schema and default approval-required write risk. The credential reference remained required (`valueMissing=true`); no warnings/errors were captured. No dummy production draft, credential, grant or business call was created. Local integration evidence above covers creation, publication, approval and HTTP dispatch. See [machine-readable release evidence](evidence/openapi-import-release-2026-10-08.json).
+
+## MCP fresh-session compatibility — 2026-10-08
+
+Remote connection checks now compare two independent complete catalogs under their original deadline. The additive `session_contract_status` field distinguishes observed stability, changing contracts, unavailable second-session verification and checks not performed. Existing history remains readable; Connector checks do not claim independent-session verification. No business tool is called by diagnostics and no schema constraints are removed. See [compatibility profile](mcp-compatibility.md).
+
+| Check | Outcome |
+| --- | --- |
+| Go race and actual PostgreSQL/MCP/worker integration | Full suite passed; history field persistence, old reports, pagination and role/workspace access verified |
+| Changed MCP Go file coverage | Cross-session comparison/classification: 100% statements; diagnostic checks: 96.74%; both files now have independent 90% CI gates |
+| Console coverage and runner | 146 console tests passed; aggregate TypeScript logic coverage 98.86% lines, 94.42% branches, 95.76% functions, excluding TSX; 32 runner tests passed |
+| Contract and build | Go vet, TypeScript checks/build, OpenAPI profile parsing and diff whitespace checks passed |
+| Negative protocol cases | Input/output/name/catalog drift, description/format-only stability, empty and added catalogs, second-session connection/discovery/schema failure, deadline/cancellation, 401/403/429/5xx/404/405 classification, no business calls, size/page/tool/cursor bounds and credential/error non-disclosure passed |
+| Named public catalogs | Cloudflare: two stable tools; Microsoft Learn: three changing tools, correctly marked degraded. Evidence excludes raw schemas, session IDs and returned documents |
+| Real public SDK flow | Official MCP Go SDK → ephemeral Gateway → isolated PostgreSQL → Cloudflare docs query succeeded; diagnostic receipt persisted; ungranted visibility/call denial, reviewed publish, schema read, one dispatch on replay and revocation passed |
+
+Named public-provider tests are opt-in and do not run in normal CI. Runner tests were initially denied local socket access by the sandbox and passed after rerunning with local listeners permitted. These results establish the stated local scope, not real vendor OAuth consent, production enablement of Cloudflare, arbitrary MCP compatibility, load performance or a fix for Microsoft Learn's changing schemas. Exact-source CI and cloud acceptance are recorded separately below when completed.

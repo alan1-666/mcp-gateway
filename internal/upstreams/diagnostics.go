@@ -15,17 +15,18 @@ type ToolCompatibility struct {
 	Message string `json:"message"`
 }
 type CheckReport struct {
-	ID                int64               `json:"id,string"`
-	ServerID          string              `json:"server_id"`
-	CheckedAt         time.Time           `json:"checked_at"`
-	Status            string              `json:"status"`
-	Stage             string              `json:"stage"`
-	Code              string              `json:"code"`
-	Message           string              `json:"message"`
-	DurationMS        int64               `json:"duration_ms"`
-	CompatibleCount   int                 `json:"compatible_count"`
-	IncompatibleCount int                 `json:"incompatible_count"`
-	Tools             []ToolCompatibility `json:"tools"`
+	ID                    int64               `json:"id,string"`
+	ServerID              string              `json:"server_id"`
+	CheckedAt             time.Time           `json:"checked_at"`
+	Status                string              `json:"status"`
+	Stage                 string              `json:"stage"`
+	Code                  string              `json:"code"`
+	Message               string              `json:"message"`
+	DurationMS            int64               `json:"duration_ms"`
+	CompatibleCount       int                 `json:"compatible_count"`
+	IncompatibleCount     int                 `json:"incompatible_count"`
+	SessionContractStatus string              `json:"session_contract_status,omitempty"`
+	Tools                 []ToolCompatibility `json:"tools"`
 }
 type CheckPage struct {
 	Items      []CheckReport `json:"items"`

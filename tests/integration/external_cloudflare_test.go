@@ -89,6 +89,14 @@ func TestExternalCloudflareDocs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("register fixed public endpoint: %v", err)
 	}
+	check, err := upstream.Check(ctx, admin, server.ID)
+	if err != nil || check.Status != "ok" || check.SessionContractStatus != "stable" {
+		t.Fatalf("public endpoint fresh-session compatibility: err=%v status=%s code=%s", err, check.Status, check.Code)
+	}
+	history, err := upstream.Checks(ctx, admin, server.ID, 1, 0)
+	if err != nil || len(history.Items) != 1 || history.Items[0].SessionContractStatus != "stable" {
+		t.Fatal("public compatibility receipt was not persisted")
+	}
 	discoveryStarted := time.Now()
 	catalog, err := upstream.Discover(ctx, admin, server.ID)
 	if err != nil {

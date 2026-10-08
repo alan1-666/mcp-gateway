@@ -1645,7 +1645,8 @@ paths:
       description: Requires admin in the authenticated workspace. Persists a bounded initialization and catalog diagnostic
         without invoking business tools. A diagnostic failure still returns HTTP 200 with status failed, and mixed
         supported/unsupported definitions return degraded. Normal discover/import remain complete-or-fail. Disabled
-        servers are reported at the policy stage.
+        servers are reported at the policy stage. Compatible remote catalogs are compared with a second independent
+        session under the original deadline; changed contracts return degraded and an incomplete second check returns failed.
       x-required-roles:
       - admin
       requestBody:
@@ -3833,6 +3834,7 @@ components:
           - policy
           - authentication
           - connect
+          - connector
           - discovery
           - compatibility
           - complete
@@ -3849,12 +3851,16 @@ components:
         incompatible_count:
           type: integer
           minimum: 0
+        session_contract_status:
+          type: string
+          enum: [not_checked, stable, changed, unverified]
+          description: Two independent complete remote catalogs are compared within the original check deadline. Stable records an observation, not a promise of future compatibility. Connectors and incompatible first catalogs are not checked; old reports may omit this field.
         tools:
           type: array
           items:
             $ref: '#/components/schemas/ToolCompatibility'
           maxItems: 1000
-      description: Safe connection/definition diagnostic. A successful check does not demonstrate business execution;
+      description: Safe connection/definition and fresh-session diagnostic. A successful check does not demonstrate business execution;
         no tools/call is made. No raw upstream error, credentials or full schema is exposed.
     MCPCheckPage:
       type: object

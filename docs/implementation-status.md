@@ -8,6 +8,8 @@ Gateway core, the bilingual console and reviewed OpenAPI JSON import are deploye
 
 Microsoft Learn's currently observed per-session schema constraints remain incompatible with the fresh-session adapter; real OAuth consent, HA and independently commissioned off-host recovery/alerts remain outside this acceptance.
 
+The current feature branch also implements two-session remote compatibility diagnostics and safe error classifications. Local fixtures, PostgreSQL history checks, named public catalog checks and the Cloudflare SDK path passed; this feature is not counted as deployed until its own exact-source CI and cloud acceptance below are recorded. See the [compatibility matrix](mcp-compatibility.md).
+
 ## Implemented in source
 
 | Area | Working behavior |
@@ -21,7 +23,7 @@ Microsoft Learn's currently observed per-session schema constraints remain incom
 | Network and secrets | Deployment origin/CIDR allowlists, checked DNS dialing, blocked redirects/metadata addresses; static-file or AES-GCM-encrypted workspace/origin-bound credentials with dynamic rotation/disablement |
 | Upstream OAuth | Pre-registered public/confidential clients, protected-resource and issuer discovery, PKCE S256 + RFC 9207, browser-bound callbacks, encrypted grants, cross-process refresh claims, revocation fences and reconnect controls; see [supported profile](upstream-oauth.md) |
 | Private Connectors | Outbound HTTPS polling, independently revocable hashed credentials, frozen local target fingerprints, durable claim/start/result jobs, private HTTP and digest-pinned rootless Podman stdio, local journal, no side-effect replay, cloud result validation/projection before storage; see [supported profile](private-connectors.md) |
-| Connection diagnostics | Safe policy/authentication/connection/discovery/compatibility stages, per-tool reports and persisted bounded check history; no business tool calls during a check |
+| Connection diagnostics | Safe policy/authentication/connection/discovery/compatibility stages, per-tool reports and persisted bounded check history; new source compares independent catalogs and classifies timeout/cancellation, rate limiting and upstream failures; no business tool calls during a check |
 | Catalog change review | Complete discovery compared with registered versions; schema/description drift, unimported/missing tools, last 50 successful reports and audit; hash/version-guarded refresh candidates with explicit review/publication |
 | Scheduled catalog checks | Opt-in per-server cadence, two bounded worker consumers, durable fenced leases, failure backoff, safe outcomes, admin revision checks and source-labeled history; see [scheduling](catalog-scheduling.md) |
 | Discovery | Service-filtered lexical ranking with exact/prefix/fragment/phrase/all-term reasons, rank-aware cursor v2 and separate summaries/schema reads across REST, MCP and Pi; client grants applied before count/limit; fixed 1000-tool bilingual evaluation |

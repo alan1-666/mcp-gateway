@@ -1,6 +1,7 @@
 import { useI18n } from "./i18n";
 import { useState } from "react";
 import { APIClient } from "./api";
+import { sessionContractLabel } from "./mcp-compatibility";
 import {
   AdminEmpty,
   AdminError,
@@ -20,6 +21,7 @@ interface Report {
   duration_ms: number;
   compatible_count: number;
   incompatible_count: number;
+  session_contract_status?: string;
   tools: { name: string; status: string; code: string; message: string }[];
 }
 export function MCPDiagnostics({
@@ -101,6 +103,10 @@ function Reports({ api, serverID }: { api: APIClient; serverID: string }) {
             <span>{dateLabel(report.checked_at, locale)}</span>
           </summary>
           <p>{t(report.message)}</p>
+          <p className="field-help">
+            {t("Fresh-session contracts")}:{" "}
+            {t(sessionContractLabel(report.session_contract_status))}
+          </p>
           <p className="field-help">
             {report.code} ·{" "}
             {t("{compatible} compatible · {incompatible} incompatible", {

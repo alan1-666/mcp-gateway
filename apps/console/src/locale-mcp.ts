@@ -51,6 +51,29 @@ export const mcpZh: Record<string, string> = {
     "连接 Streamable HTTP 服务或内网连接器目标，发现可用工具",
   "Connect provider": "连接服务商",
   "Connection diagnostics": "连接诊断",
+  "Fresh-session contracts": "跨会话工具契约",
+  "Stable in two observed sessions": "两次会话中保持一致",
+  "Contract changed between sessions": "会话之间工具契约发生变化",
+  "Fresh session could not be verified": "无法验证新会话",
+  "Not checked": "未检查",
+  "A fresh-session catalog could not be verified; reconnect compatibility is unknown.":
+    "无法验证新会话的工具目录，重新连接后的兼容性尚不确定",
+  "This tool changed or disappeared in a fresh session; its reviewed contract cannot be reused safely.":
+    "此工具在新会话中发生变化或消失，无法安全复用已审核的契约",
+  "The tool catalog changed between independent sessions; review upstream contract stability before publishing.":
+    "工具目录在独立会话之间发生变化，发布前请检查上游契约是否稳定",
+  "Connection and two independent catalogs passed; no business tool was executed.":
+    "连接及两个独立会话的目录检查通过，未执行业务工具",
+  "The connection check exceeded its deadline; contract compatibility remains unverified.":
+    "连接检查超时，工具契约兼容性尚未验证",
+  "The connection check was cancelled; contract compatibility remains unverified.":
+    "连接检查已取消，工具契约兼容性尚未验证",
+  "The upstream rate-limited the connection check; try again later.":
+    "上游对连接检查进行了限流，请稍后重试",
+  "The upstream was unavailable during the connection check; try again later.":
+    "连接检查期间上游不可用，请稍后重试",
+  "The endpoint did not accept the required MCP request; check its URL and transport.":
+    "端点不接受所需的 MCP 请求，请检查地址及传输方式",
   "Connection type": "连接类型",
   Connections: "服务连接",
   Connector: "连接器",
