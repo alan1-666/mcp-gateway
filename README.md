@@ -8,7 +8,7 @@ Rillgate connects existing MCP clients and agents to remote MCP services, HTTP A
 
 The Go gateway handles discovery, credentials, permissions, execution records and bounded results. The React console manages services, access keys and call history in English or Simplified Chinese, with a language preference shared with the website. No Pi task, model account or separate Rillgate agent application is required.
 
-> **Delivery status:** Gateway core is deployed as `20261008-cloud.29` from source `0d2d492bd085d00cdeb3cd66df255c6feee3e2f8`, adding exclusive upstream MCP execution sessions, identity/credential isolation, bounded expiry and pre-call recovery. All six exact-source CI checks, encrypted release backup/health gates and cloud official-SDK read/replay/revocation checks passed. Independent public MCP reuse was verified separately through an isolated local Gateway. See the [release evidence](docs/evidence/mcp-session-release-2026-10-08.json) and [implementation status](docs/implementation-status.md) for the supported boundary.
+> **Delivery status:** Gateway core is deployed as `20261008-cloud.30` from source `ef8b28d2669dbd8fa3bdb3292b4e379c73c3c277`, adding bounded tool-list notification invalidation, complete-catalog consistency checks and a final dispatch fence. All six exact-source CI checks, encrypted release backup/health gates and cloud official-SDK read/replay/revocation checks passed. Notification behavior was verified with actual HTTP/SDK fixtures; real-provider notification delivery is not claimed. See [release evidence](docs/evidence/mcp-catalog-release-2026-10-08.json) and [implementation status](docs/implementation-status.md).
 
 ## How it works
 

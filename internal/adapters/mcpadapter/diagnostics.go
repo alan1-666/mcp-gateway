@@ -61,6 +61,7 @@ func (a *Adapter) Check(ctx context.Context, actor core.Actor, server core.MCPSe
 	}()
 	cursor, totalBytes, count := "", 0, 0
 	seenNames, seenCursors := map[string]bool{}, map[string]bool{}
+	catalogVersion := transport.startCatalog()
 	hashes := make(map[string]string)
 	for page := 0; page < maxPages; page++ {
 		if _, err = session.ListTools(ctx, &mcp.ListToolsParams{Cursor: cursor}); err != nil {
@@ -69,6 +70,12 @@ func (a *Adapter) Check(ctx context.Context, actor core.Actor, server core.MCPSe
 		raw, err := transport.result("tools/list")
 		if err != nil {
 			return fail("discovery", "invalid_response", "The upstream catalog response is unsupported.")
+		}
+		if transport.catalogVersion() != catalogVersion {
+			// Partial pages cannot be reported as a verified catalog.
+			report.Tools = []upstreams.ToolCompatibility{}
+			report.CompatibleCount, report.IncompatibleCount = 0, 0
+			return fail("discovery", "catalog_changed", "The catalog changed while it was being read; run discovery again before review.")
 		}
 		totalBytes += len(raw)
 		if totalBytes > maxCatalogBytes {

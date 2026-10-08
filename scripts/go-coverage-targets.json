@@ -14,5 +14,6 @@
   "internal/adapters/mcpadapter/diagnostics.go": 90,
   "internal/adapters/mcpadapter/session_pool.go": 90,
   "internal/adapters/mcpadapter/transport.go": 90,
-  "internal/adapters/httpadapter/network.go": 90
+  "internal/adapters/httpadapter/network.go": 90,
+  "internal/adapters/mcpadapter/catalog_state.go": 90
 }

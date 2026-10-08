@@ -19,15 +19,17 @@ const maxResponseBytes = 1 << 20
 // error bodies), and prevents any tools/call replay even if SDK retry behavior
 // changes. Each exclusive operation lease permits at most one business call.
 type protocolTransport struct {
-	base        http.RoundTripper
-	ctx         context.Context
-	mu          sync.Mutex
-	callSent    bool
-	lastStatus  int
-	leaseCancel context.CancelFunc
-	closed      bool
-	leases      uint64
-	responses   map[string]*responseCapture
+	base            http.RoundTripper
+	ctx             context.Context
+	mu              sync.Mutex
+	callSent        bool
+	lastStatus      int
+	leaseCancel     context.CancelFunc
+	closed          bool
+	leases          uint64
+	catalogRevision uint64
+	catalogVerified bool
+	responses       map[string]*responseCapture
 }
 
 func (t *protocolTransport) RoundTrip(req *http.Request) (*http.Response, error) {
@@ -61,12 +63,16 @@ func (t *protocolTransport) RoundTrip(req *http.Request) (*http.Response, error)
 		req.GetBody = nil
 		if message.Method == "tools/call" {
 			t.mu.Lock()
-			alreadySent := t.callSent
-			t.callSent = true
-			t.mu.Unlock()
-			if alreadySent {
+			if t.callSent {
+				t.mu.Unlock()
 				return nil, errors.New("MCP tool replay is disabled")
 			}
+			if !t.catalogVerified {
+				t.mu.Unlock()
+				return nil, errCatalogChanged
+			}
+			t.callSent = true
+			t.mu.Unlock()
 		}
 	}
 	// SDK session teardown deliberately detaches the Connect context. Bind all
@@ -97,6 +103,9 @@ func (t *protocolTransport) RoundTrip(req *http.Request) (*http.Response, error)
 	}
 	capture := &responseCapture{id: message.ID}
 	capture.mediaType, _, _ = mime.ParseMediaType(resp.Header.Get("Content-Type"))
+	if capture.mediaType == "text/event-stream" {
+		capture.notifications = &catalogNotificationScanner{changed: t.catalogChanged}
+	}
 	if message.Method == "tools/list" || message.Method == "tools/call" {
 		t.mu.Lock()
 		t.responses[message.Method] = capture
@@ -123,10 +132,11 @@ func (t *protocolTransport) result(method string) (json.RawMessage, error) {
 // identifiers and alter numeric schema constraints. SDK handles the protocol,
 // while our bounded JSON decoder preserves numbers at the storage boundary.
 type responseCapture struct {
-	mu        sync.Mutex
-	data      bytes.Buffer
-	id        json.RawMessage
-	mediaType string
+	mu            sync.Mutex
+	data          bytes.Buffer
+	id            json.RawMessage
+	mediaType     string
+	notifications *catalogNotificationScanner
 }
 
 func (c *responseCapture) result() (json.RawMessage, error) {
@@ -202,6 +212,9 @@ func (b *boundedBody) Read(p []byte) (int, error) {
 	if n > 0 {
 		b.capture.mu.Lock()
 		_, _ = b.capture.data.Write(p[:n])
+		if b.capture.notifications != nil {
+			b.capture.notifications.read(p[:n])
+		}
 		b.capture.mu.Unlock()
 	}
 	return n, err
@@ -224,6 +237,7 @@ func (t *protocolTransport) begin(ctx context.Context) {
 	}
 	t.ctx, t.leaseCancel = context.WithCancel(ctx)
 	t.callSent, t.lastStatus = false, 0
+	t.catalogVerified = false
 	t.leases++
 	t.responses = make(map[string]*responseCapture)
 }
