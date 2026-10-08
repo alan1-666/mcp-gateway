@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
+import ts from "typescript";
+import { chineseCopy } from "../src/console-language";
 import { createElement as h } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { I18nProvider } from "../src/i18n";
@@ -48,4 +51,28 @@ test("OpenAPI translation interpolation retains every placeholder", () => {
     assert.deepEqual(placeholders(key), placeholders(value), key);
     assert.ok(value.trim());
   }
+});
+
+test("fixed parser errors are translated for Chinese operators", () => {
+  const source = ts.createSourceFile(
+    "openapi-import.ts",
+    readFileSync(new URL("../src/openapi-import.ts", import.meta.url), "utf8"),
+    ts.ScriptTarget.Latest,
+    true,
+  );
+  function visit(node: ts.Node) {
+    if (
+      ts.isCallExpression(node) &&
+      node.expression.getText(source) === "error" &&
+      node.arguments[0] &&
+      ts.isStringLiteral(node.arguments[0])
+    ) {
+      assert.ok(
+        Object.hasOwn(chineseCopy, node.arguments[0].text),
+        node.arguments[0].text,
+      );
+    }
+    ts.forEachChild(node, visit);
+  }
+  visit(source);
 });

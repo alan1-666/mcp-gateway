@@ -1,6 +1,6 @@
 # Rillgate 开发方案
 
-更新日期：2026-10-06
+更新日期：2026-10-08
 
 当前线上交付：`cloud.25`，运行源码 `7f840b201e7ddf191edddbe1b281f8c2696f8414`；核心链路验收对应 `cloud.23`。准确源码的 6 项 CI、云端公司测试接口的官方 SDK 调用、页面操作和撤权验收通过；公开 Cloudflare MCP 在独立本地临时网关完成真实接入。完整范围见[发布证据](evidence/gateway-core-release-2026-10-06.json)。Cloudflare 生产出站变更尚待批准，当前 Microsoft Learn 会话绑定 schema 不兼容；真实供应商 OAuth 授权不计入本次已验收范围。
 

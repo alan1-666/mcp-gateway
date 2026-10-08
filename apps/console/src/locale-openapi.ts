@@ -2,6 +2,8 @@
 export const openapiZh: Record<string, string> = {
   "OpenAPI reference expansion exceeds the document budget.":
     "OpenAPI 引用展开超出整份文档的预算",
+  "Server URL and operation path must fit within 4096 bytes.":
+    "服务地址与接口路径合计不能超过 4096 字节",
   "Close import": "关闭导入",
   "Import OpenAPI": "导入 OpenAPI",
   "This imported operation requires a managed credential reference.":
