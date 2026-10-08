@@ -456,6 +456,8 @@ export const mcpZh: Record<string, string> = {
   "Connection or MCP initialization failed; inspect endpoint, network and protocol compatibility.":
     "连接或 MCP 初始化失败，请检查端点、网络及协议兼容性",
   "The upstream catalog could not be completely read.": "无法完整读取上游目录",
+  "The catalog changed while it was being read; run discovery again before review.":
+    "读取期间目录发生变化，请重新发现后再审查",
   "The upstream catalog response is unsupported.": "不支持此上游目录响应",
   "The upstream catalog exceeds the supported size.": "上游目录超过支持的大小",
   "The upstream catalog contains unsupported JSON.":

@@ -33,3 +33,9 @@ test("new gateway-owned diagnostic messages have Chinese translations", () => {
     assert.ok(Object.hasOwn(chineseCopy, message), message);
   }
 });
+
+test("catalog invalidation explains rediscovery in both languages", () => {
+  const message = "The catalog changed while it was being read; run discovery again before review.";
+  assert.equal(translate("en", message), message);
+  assert.equal(translate("zh", message), "读取期间目录发生变化，请重新发现后再审查");
+});

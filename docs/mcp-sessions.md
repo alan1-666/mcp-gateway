@@ -25,6 +25,8 @@ Before reuse, the adapter resolves current credentials and OAuth state. Before e
 
 Each lease is exclusive and permits at most one `tools/call`. It performs complete bounded discovery and compares the live tool with the persisted schema and reviewed hash immediately before the call. The result is consumed and validated before a healthy lease returns to the pool. Changing contracts, invalid responses, authentication failures, cancellation and timeouts discard that session. Captured wire responses and replay guards are reset only between successful exclusive leases.
 
+Complete tool-list change notifications received in an original POST SSE response invalidate the current observation before SDK decoding. Changes during pagination reject that observation; a final dispatch fence blocks an invalidated catalog. A change after dispatch preserves the business outcome and retires the session. See [catalog consistency](catalog-consistency.md); standalone push subscriptions and a gateway catalog cache remain unsupported.
+
 Connectors, locally approved custom transports and actors without a stable ID use their existing isolated lifecycle. An OAuth provider without an explicit grant-version identity also uses disposable sessions. Startup hooks must not be reconfigured while requests are running.
 
 ## Recovery and outcome safety

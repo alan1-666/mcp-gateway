@@ -24,6 +24,9 @@ func TestTransportRejectsConcurrentOrSDKReplayBeforeNetwork(t *testing.T) {
 		}
 		return &http.Response{StatusCode: 404, Header: http.Header{}, Body: io.NopCloser(strings.NewReader("session missing"))}, nil
 	})}
+	if err := transport.verifyCatalog(transport.catalogVersion()); err != nil {
+		t.Fatal(err)
+	}
 	var workers sync.WaitGroup
 	for range 3 {
 		workers.Go(func() {

@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -200,6 +201,7 @@ func (a *Adapter) Discover(ctx context.Context, actor core.Actor, server core.MC
 }
 
 func discover(ctx context.Context, session *mcp.ClientSession, transport *protocolTransport) ([]core.RemoteTool, error) {
+	version := transport.startCatalog()
 	tools := make([]core.RemoteTool, 0)
 	seenNames, seenCursors := map[string]bool{}, map[string]bool{}
 	cursor, totalBytes := "", 0
@@ -210,6 +212,9 @@ func discover(ctx context.Context, session *mcp.ClientSession, transport *protoc
 		raw, err := transport.result("tools/list")
 		if err != nil {
 			return nil, fmt.Errorf("MCP tool discovery returned an invalid response")
+		}
+		if transport.catalogVersion() != version {
+			return nil, errCatalogChanged
 		}
 		totalBytes += len(raw)
 		if totalBytes > maxCatalogBytes {
@@ -259,6 +264,9 @@ func discover(ctx context.Context, session *mcp.ClientSession, transport *protoc
 			tools = append(tools, core.RemoteTool{Name: tool.Name, Description: description, InputSchema: input, OutputSchema: output, ReadOnlyHint: tool.Annotations.ReadOnlyHint, SchemaHash: schemaHash(tool.Name, input, output)})
 		}
 		if result.NextCursor == "" {
+			if err := transport.verifyCatalog(version); err != nil {
+				return nil, err
+			}
 			return tools, nil
 		}
 		if len(result.NextCursor) > 2048 || seenCursors[result.NextCursor] {
@@ -361,6 +369,9 @@ func (a *Adapter) Execute(ctx context.Context, actor core.Actor, tool core.Tool,
 		}
 	}
 	if err != nil {
+		if errors.Is(err, errCatalogChanged) {
+			return fail(errCatalogChanged.Error(), false)
+		}
 		return fail("MCP tool contract could not be verified", false)
 	}
 	matched := false
@@ -377,6 +388,9 @@ func (a *Adapter) Execute(ctx context.Context, actor core.Actor, tool core.Tool,
 		return fail("persisted arguments do not match the MCP tool contract", false)
 	}
 	result, err := session.CallTool(ctx, &mcp.CallToolParams{Name: tool.MCP.ToolName, Arguments: json.RawMessage(op.Arguments)})
+	if errors.Is(err, errCatalogChanged) {
+		return fail(errCatalogChanged.Error(), false)
+	}
 	if err != nil || result == nil {
 		return fail("MCP tool did not produce a confirmed result; verify write outcome before another action", true)
 	}
@@ -391,7 +405,7 @@ func (a *Adapter) Execute(ctx context.Context, actor core.Actor, tool core.Tool,
 	if err != nil {
 		return fail(err.Error(), true)
 	}
-	healthy = true
+	healthy = transport.catalogReusable()
 	return core.FinishInput{State: core.StateSucceeded, Result: envelope}
 }
 
